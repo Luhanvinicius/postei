@@ -109,6 +109,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Servir thumbnails
 app.use('/thumbnails', express.static(path.join(__dirname, 'thumbnails')));
 
+// Middleware global para restaurar sessão do cookie (ANTES de qualquer verificação)
+app.use(restoreSessionFromCookie);
+
 // Middleware para garantir que o banco está pronto
 app.use(async (req, res, next) => {
   // Rotas estáticas não precisam do banco
@@ -132,88 +135,8 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// Middleware de autenticação
-const requireAuth = async (req, res, next) => {
-  console.log('🔒 Verificando autenticação...');
-  console.log('📝 Session ID:', req.sessionID);
-  console.log('👤 Session user:', req.session?.user);
-  console.log('🍪 Cookies recebidos:', Object.keys(req.cookies || {}));
-  console.log('🍪 Cookie user_data existe?', !!req.cookies?.user_data);
-  
-  // Verificar sessão normal primeiro
-  if (req.session && req.session.user) {
-    console.log('✅ Usuário autenticado via sessão:', req.session.user.username);
-    return next();
-  }
-  
-  // Verificar cookie de backup se a sessão não existir (sempre, não só no Vercel)
-  // O cookie pode estar em req.cookies (não assinado) ou req.signedCookies (assinado)
-  const cookieValue = req.cookies?.user_data || req.signedCookies?.user_data;
-  
-  if (cookieValue) {
-    try {
-      console.log('🔍 Tentando restaurar sessão do cookie de backup...');
-      const crypto = require('crypto');
-      const signedData = cookieValue;
-      
-      if (!signedData || !signedData.includes('.')) {
-        console.log('⚠️  Cookie de backup inválido (sem assinatura)');
-      } else {
-        const [userData, signature] = signedData.split('.');
-        const secret = process.env.SESSION_SECRET || 'change-this-secret-key';
-        const expectedSignature = crypto.createHmac('sha256', secret).update(userData).digest('hex');
-        
-        console.log('🔐 Verificando assinatura do cookie...');
-        console.log('   Assinatura recebida:', signature.substring(0, 20) + '...');
-        console.log('   Assinatura esperada:', expectedSignature.substring(0, 20) + '...');
-        
-        if (signature === expectedSignature) {
-          const user = JSON.parse(userData);
-          console.log('✅ Assinatura válida! Restaurando usuário:', user.username);
-          
-          // Restaurar sessão do cookie
-          req.session.user = user;
-          
-          // Salvar a sessão restaurada
-          await new Promise((resolve, reject) => {
-            req.session.save((err) => {
-              if (err) {
-                console.error('❌ Erro ao salvar sessão restaurada:', err);
-                reject(err);
-              } else {
-                console.log('✅ Sessão restaurada do cookie e salva:', user.username);
-                resolve();
-              }
-            });
-          });
-          
-          console.log('✅ Usuário autenticado via cookie de backup:', user.username);
-          return next();
-        } else {
-          console.log('❌ Assinatura do cookie inválida!');
-          console.log('   Recebida:', signature);
-          console.log('   Esperada:', expectedSignature);
-        }
-      }
-    } catch (err) {
-      console.error('❌ Erro ao verificar cookie de backup:', err);
-      console.error('Stack:', err.stack);
-    }
-  } else {
-    console.log('⚠️  Cookie de backup não encontrado');
-    console.log('   Cookies disponíveis:', Object.keys(req.cookies || {}));
-  }
-  
-  console.log('❌ Usuário não autenticado, redirecionando para login');
-  return res.redirect('/auth/login');
-};
-
-const requireAdmin = (req, res, next) => {
-  if (req.session && req.session.user && req.session.user.role === 'admin') {
-    return next();
-  }
-  res.status(403).send('Acesso negado. Apenas administradores.');
-};
+// Importar middlewares de autenticação
+const { restoreSessionFromCookie, requireAuth, requireAdmin } = require('./middleware/auth');
 
 // Rotas
 app.get('/', (req, res) => {
