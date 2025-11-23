@@ -35,7 +35,7 @@ const createToken = (user) => {
  */
 const verifyToken = (token) => {
   try {
-    if (!token) {
+    if (!token || typeof token !== 'string') {
       return null;
     }
     
@@ -44,9 +44,15 @@ const verifyToken = (token) => {
       token = token.substring(7);
     }
     
+    // Verificar se token não está vazio após remover "Bearer "
+    if (!token || token.trim() === '') {
+      return null;
+    }
+    
     const decoded = jwt.verify(token, SECRET);
     return decoded;
   } catch (err) {
+    console.log('❌ Erro ao verificar token:', err.message);
     return null;
   }
 };
@@ -59,9 +65,12 @@ const attachUser = (req, res, next) => {
   
   // 1. PRIMEIRO: Tentar pegar da query string (para navegação normal - mais comum)
   if (req.query && req.query.token) {
+    console.log('🔍 Tentando verificar token da query string...');
     user = verifyToken(req.query.token);
     if (user) {
       console.log('✅ Usuário autenticado via query token:', user.username, 'URL:', req.url);
+    } else {
+      console.log('❌ Token da query string inválido ou expirado');
     }
   }
   
