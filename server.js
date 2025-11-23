@@ -138,6 +138,7 @@ const requireAuth = async (req, res, next) => {
   console.log('📝 Session ID:', req.sessionID);
   console.log('👤 Session user:', req.session?.user);
   console.log('🍪 Cookies recebidos:', Object.keys(req.cookies || {}));
+  console.log('🍪 Cookie user_data existe?', !!req.cookies?.user_data);
   
   // Verificar sessão normal primeiro
   if (req.session && req.session.user) {
@@ -145,8 +146,8 @@ const requireAuth = async (req, res, next) => {
     return next();
   }
   
-  // No Vercel, verificar cookie de backup se a sessão não existir
-  if ((process.env.VERCEL || process.env.VERCEL_ENV) && req.cookies && req.cookies.user_data) {
+  // Verificar cookie de backup se a sessão não existir (principalmente no Vercel)
+  if (req.cookies && req.cookies.user_data) {
     try {
       console.log('🔍 Tentando restaurar sessão do cookie de backup...');
       const crypto = require('crypto');
@@ -159,8 +160,14 @@ const requireAuth = async (req, res, next) => {
         const secret = process.env.SESSION_SECRET || 'change-this-secret-key';
         const expectedSignature = crypto.createHmac('sha256', secret).update(userData).digest('hex');
         
+        console.log('🔐 Verificando assinatura do cookie...');
+        console.log('   Assinatura recebida:', signature.substring(0, 20) + '...');
+        console.log('   Assinatura esperada:', expectedSignature.substring(0, 20) + '...');
+        
         if (signature === expectedSignature) {
           const user = JSON.parse(userData);
+          console.log('✅ Assinatura válida! Restaurando usuário:', user.username);
+          
           // Restaurar sessão do cookie
           req.session.user = user;
           
@@ -180,7 +187,9 @@ const requireAuth = async (req, res, next) => {
           console.log('✅ Usuário autenticado via cookie de backup:', user.username);
           return next();
         } else {
-          console.log('⚠️  Assinatura do cookie inválida');
+          console.log('❌ Assinatura do cookie inválida!');
+          console.log('   Recebida:', signature);
+          console.log('   Esperada:', expectedSignature);
         }
       }
     } catch (err) {
@@ -189,6 +198,7 @@ const requireAuth = async (req, res, next) => {
     }
   } else {
     console.log('⚠️  Cookie de backup não encontrado');
+    console.log('   Cookies disponíveis:', Object.keys(req.cookies || {}));
   }
   
   console.log('❌ Usuário não autenticado, redirecionando para login');
