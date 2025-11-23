@@ -75,7 +75,45 @@ XMLHttpRequest.prototype.send = function(...args) {
   return originalSend.apply(this, args);
 };
 
-// Interceptar TODOS os cliques em links para adicionar token
+// Função para adicionar token em TODOS os links
+function addTokenToAllLinks() {
+  const token = getToken();
+  if (!token) {
+    console.log('⚠️  Nenhum token no localStorage');
+    return;
+  }
+  
+  const links = document.querySelectorAll('a[href^="/"]');
+  let count = 0;
+  links.forEach(link => {
+    let href = link.getAttribute('href');
+    if (href && !href.includes('token=')) {
+      try {
+        const url = new URL(href, window.location.origin);
+        url.searchParams.set('token', token);
+        link.href = url.toString();
+        count++;
+      } catch (err) {
+        const separator = href.includes('?') ? '&' : '?';
+        link.setAttribute('href', href + separator + 'token=' + encodeURIComponent(token));
+        count++;
+      }
+    }
+  });
+  if (count > 0) {
+    console.log('🔗 Token adicionado a', count, 'links');
+  }
+}
+
+// Executar IMEDIATAMENTE se DOM já carregou
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', addTokenToAllLinks);
+} else {
+  // DOM já carregou, executar imediatamente
+  addTokenToAllLinks();
+}
+
+// Interceptar TODOS os cliques em links para garantir token
 document.addEventListener('click', function(e) {
   const link = e.target.closest('a[href^="/"]');
   if (link) {
@@ -87,52 +125,27 @@ document.addEventListener('click', function(e) {
           const url = new URL(href, window.location.origin);
           url.searchParams.set('token', token);
           link.href = url.toString();
-          console.log('🔗 Token adicionado ao link:', href);
         } catch (err) {
-          // Se não for URL válida, adicionar como query string simples
           const separator = href.includes('?') ? '&' : '?';
           link.setAttribute('href', href + separator + 'token=' + encodeURIComponent(token));
-          console.log('🔗 Token adicionado ao link (fallback):', href);
         }
       }
+    } else {
+      console.error('❌ Tentativa de navegar sem token!');
+      e.preventDefault();
+      alert('Sessão expirada. Faça login novamente.');
+      window.location.href = '/auth/login';
     }
   }
-}, true); // Use capture phase
-
-// Também adicionar token em TODOS os links quando DOM carregar (não só no clique)
-function addTokenToAllLinks() {
-  const token = getToken();
-  if (!token) return;
-  
-  const links = document.querySelectorAll('a[href^="/"]');
-  links.forEach(link => {
-    let href = link.getAttribute('href');
-    if (href && !href.includes('token=')) {
-      try {
-        const url = new URL(href, window.location.origin);
-        url.searchParams.set('token', token);
-        link.href = url.toString();
-      } catch (err) {
-        const separator = href.includes('?') ? '&' : '?';
-        link.setAttribute('href', href + separator + 'token=' + encodeURIComponent(token));
-      }
-    }
-  });
-  console.log('🔗 Token adicionado a', links.length, 'links');
-}
-
-// Executar quando DOM carregar e também observar mudanças
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', addTokenToAllLinks);
-} else {
-  addTokenToAllLinks();
-}
+}, true); // Use capture phase para pegar antes de navegar
 
 // Observar mudanças no DOM (para links dinâmicos)
-const observer = new MutationObserver(function(mutations) {
-  addTokenToAllLinks();
-});
-observer.observe(document.body, { childList: true, subtree: true });
+if (typeof MutationObserver !== 'undefined') {
+  const observer = new MutationObserver(function(mutations) {
+    addTokenToAllLinks();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+}
 
 // Adicionar token em formulários
 function addTokenToForms() {
