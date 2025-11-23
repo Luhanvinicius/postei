@@ -57,24 +57,23 @@ const verifyToken = (token) => {
 const attachUser = (req, res, next) => {
   let user = null;
   
-  // 1. Tentar pegar token do header Authorization
-  const authHeader = req.headers.authorization;
-  if (authHeader) {
-    user = verifyToken(authHeader);
+  // 1. PRIMEIRO: Tentar pegar da query string (para navegação normal - mais comum)
+  if (req.query && req.query.token) {
+    user = verifyToken(req.query.token);
+    if (user) {
+      console.log('✅ Usuário autenticado via query token:', user.username, 'URL:', req.url);
+    }
+  }
+  
+  // 2. SEGUNDO: Tentar pegar token do header Authorization (para AJAX/fetch)
+  if (!user && req.headers.authorization) {
+    user = verifyToken(req.headers.authorization);
     if (user) {
       console.log('✅ Usuário autenticado via header Authorization:', user.username);
     }
   }
   
-  // 2. Se não tiver token, tentar pegar da query string (para navegação)
-  if (!user && req.query && req.query.token) {
-    user = verifyToken(req.query.token);
-    if (user) {
-      console.log('✅ Usuário autenticado via query token:', user.username);
-    }
-  }
-  
-  // 3. Se não tiver token, tentar pegar do body (para formulários POST)
+  // 3. TERCEIRO: Tentar pegar do body (para formulários POST)
   if (!user && req.body && req.body.token) {
     user = verifyToken(req.body.token);
     if (user) {
@@ -84,8 +83,10 @@ const attachUser = (req, res, next) => {
   
   req.user = user;
   
-  if (!user) {
+  if (!user && !req.url.includes('/auth/login') && !req.url.includes('/css/') && !req.url.includes('/js/') && !req.url.includes('/images/')) {
     console.log('⚠️  Nenhum token válido encontrado na requisição:', req.url);
+    console.log('   Query:', req.query);
+    console.log('   Headers Authorization:', req.headers.authorization ? 'present' : 'missing');
   }
   
   next();

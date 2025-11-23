@@ -81,21 +81,58 @@ document.addEventListener('click', function(e) {
   if (link) {
     const token = getToken();
     if (token) {
-      const href = link.getAttribute('href');
+      let href = link.getAttribute('href');
       if (href && !href.includes('token=')) {
         try {
           const url = new URL(href, window.location.origin);
           url.searchParams.set('token', token);
           link.href = url.toString();
+          console.log('🔗 Token adicionado ao link:', href);
         } catch (err) {
           // Se não for URL válida, adicionar como query string simples
           const separator = href.includes('?') ? '&' : '?';
           link.setAttribute('href', href + separator + 'token=' + encodeURIComponent(token));
+          console.log('🔗 Token adicionado ao link (fallback):', href);
         }
       }
     }
   }
 }, true); // Use capture phase
+
+// Também adicionar token em TODOS os links quando DOM carregar (não só no clique)
+function addTokenToAllLinks() {
+  const token = getToken();
+  if (!token) return;
+  
+  const links = document.querySelectorAll('a[href^="/"]');
+  links.forEach(link => {
+    let href = link.getAttribute('href');
+    if (href && !href.includes('token=')) {
+      try {
+        const url = new URL(href, window.location.origin);
+        url.searchParams.set('token', token);
+        link.href = url.toString();
+      } catch (err) {
+        const separator = href.includes('?') ? '&' : '?';
+        link.setAttribute('href', href + separator + 'token=' + encodeURIComponent(token));
+      }
+    }
+  });
+  console.log('🔗 Token adicionado a', links.length, 'links');
+}
+
+// Executar quando DOM carregar e também observar mudanças
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', addTokenToAllLinks);
+} else {
+  addTokenToAllLinks();
+}
+
+// Observar mudanças no DOM (para links dinâmicos)
+const observer = new MutationObserver(function(mutations) {
+  addTokenToAllLinks();
+});
+observer.observe(document.body, { childList: true, subtree: true });
 
 // Adicionar token em formulários
 function addTokenToForms() {
