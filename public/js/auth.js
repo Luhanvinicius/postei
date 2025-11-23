@@ -1,6 +1,6 @@
 /**
  * Gerenciamento de autenticação com JWT Token
- * Token é salvo no localStorage E mantido na URL para persistência
+ * Token SEMPRE na URL para garantir persistência
  */
 
 // Salvar token no localStorage
@@ -22,6 +22,19 @@ function removeToken() {
   console.log('✅ Token removido do localStorage');
 }
 
+// Garantir que token está na URL atual
+function ensureTokenInURL() {
+  const token = getToken();
+  if (token) {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('token')) {
+      url.searchParams.set('token', token);
+      window.history.replaceState({}, document.title, url.toString());
+      console.log('✅ Token adicionado à URL atual');
+    }
+  }
+}
+
 // Capturar token da query string após login
 (function() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -32,18 +45,11 @@ function removeToken() {
     console.log('✅ Token capturado da URL e salvo no localStorage');
   }
   
-  // SEMPRE manter token na URL para garantir persistência ao recarregar
-  const savedToken = getToken();
-  if (savedToken) {
-    const url = new URL(window.location.href);
-    if (!url.searchParams.has('token')) {
-      url.searchParams.set('token', savedToken);
-      window.history.replaceState({}, document.title, url.toString());
-    }
-  }
+  // Garantir que token está na URL
+  ensureTokenInURL();
 })();
 
-// Interceptar todas as requisições fetch para adicionar token
+// Interceptar TODAS as requisições fetch para adicionar token
 const originalFetch = window.fetch;
 window.fetch = function(url, options = {}) {
   const token = getToken();
@@ -75,7 +81,46 @@ XMLHttpRequest.prototype.send = function(...args) {
   return originalSend.apply(this, args);
 };
 
-// Função para adicionar token em TODOS os links
+// Função para adicionar token a um link
+function addTokenToLink(link) {
+  const token = getToken();
+  if (!token) return false;
+  
+  let href = link.getAttribute('href');
+  if (!href || href.includes('token=')) return true;
+  
+  try {
+    const url = new URL(href, window.location.origin);
+    url.searchParams.set('token', token);
+    link.href = url.toString();
+    return true;
+  } catch (err) {
+    const separator = href.includes('?') ? '&' : '?';
+    link.setAttribute('href', href + separator + 'token=' + encodeURIComponent(token));
+    return true;
+  }
+}
+
+// Interceptar TODOS os cliques em links ANTES de navegar
+document.addEventListener('click', function(e) {
+  const link = e.target.closest('a[href^="/"]');
+  if (link) {
+    const token = getToken();
+    if (!token) {
+      console.error('❌ Tentativa de navegar sem token!');
+      e.preventDefault();
+      alert('Sessão expirada. Faça login novamente.');
+      window.location.href = '/auth/login';
+      return false;
+    }
+    
+    if (!addTokenToLink(link)) {
+      console.error('❌ Erro ao adicionar token ao link');
+    }
+  }
+}, true); // Capture phase - executa ANTES do clique
+
+// Adicionar token em TODOS os links quando DOM carregar
 function addTokenToAllLinks() {
   const token = getToken();
   if (!token) {
@@ -86,18 +131,8 @@ function addTokenToAllLinks() {
   const links = document.querySelectorAll('a[href^="/"]');
   let count = 0;
   links.forEach(link => {
-    let href = link.getAttribute('href');
-    if (href && !href.includes('token=')) {
-      try {
-        const url = new URL(href, window.location.origin);
-        url.searchParams.set('token', token);
-        link.href = url.toString();
-        count++;
-      } catch (err) {
-        const separator = href.includes('?') ? '&' : '?';
-        link.setAttribute('href', href + separator + 'token=' + encodeURIComponent(token));
-        count++;
-      }
+    if (addTokenToLink(link)) {
+      count++;
     }
   });
   if (count > 0) {
@@ -105,46 +140,25 @@ function addTokenToAllLinks() {
   }
 }
 
-// Executar IMEDIATAMENTE se DOM já carregou
+// Executar IMEDIATAMENTE
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', addTokenToAllLinks);
+  document.addEventListener('DOMContentLoaded', function() {
+    addTokenToAllLinks();
+    ensureTokenInURL();
+  });
 } else {
-  // DOM já carregou, executar imediatamente
   addTokenToAllLinks();
+  ensureTokenInURL();
 }
-
-// Interceptar TODOS os cliques em links para garantir token
-document.addEventListener('click', function(e) {
-  const link = e.target.closest('a[href^="/"]');
-  if (link) {
-    const token = getToken();
-    if (token) {
-      let href = link.getAttribute('href');
-      if (href && !href.includes('token=')) {
-        try {
-          const url = new URL(href, window.location.origin);
-          url.searchParams.set('token', token);
-          link.href = url.toString();
-        } catch (err) {
-          const separator = href.includes('?') ? '&' : '?';
-          link.setAttribute('href', href + separator + 'token=' + encodeURIComponent(token));
-        }
-      }
-    } else {
-      console.error('❌ Tentativa de navegar sem token!');
-      e.preventDefault();
-      alert('Sessão expirada. Faça login novamente.');
-      window.location.href = '/auth/login';
-    }
-  }
-}, true); // Use capture phase para pegar antes de navegar
 
 // Observar mudanças no DOM (para links dinâmicos)
 if (typeof MutationObserver !== 'undefined') {
   const observer = new MutationObserver(function(mutations) {
     addTokenToAllLinks();
   });
-  observer.observe(document.body, { childList: true, subtree: true });
+  if (document.body) {
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
 }
 
 // Adicionar token em formulários
@@ -154,7 +168,6 @@ function addTokenToForms() {
   
   const forms = document.querySelectorAll('form');
   forms.forEach(form => {
-    // Adicionar token como hidden input
     if (!form.querySelector('input[name="token"]')) {
       const tokenInput = document.createElement('input');
       tokenInput.type = 'hidden';
@@ -163,7 +176,6 @@ function addTokenToForms() {
       form.appendChild(tokenInput);
     }
     
-    // Adicionar na action URL se for GET
     if (form.method.toUpperCase() === 'GET') {
       const action = form.getAttribute('action') || window.location.pathname;
       if (action && !action.includes('token=')) {
