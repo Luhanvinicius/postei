@@ -18,12 +18,11 @@ router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    // No PostgreSQL é assíncrono, no SQLite é síncrono - sempre usar await (funciona nos dois)
+    // Buscar usuário
     let user;
     try {
       user = await Promise.resolve(users.findByUsername(username));
     } catch (err) {
-      // Se for síncrono e der erro, tentar sem await
       user = users.findByUsername(username);
     }
 
@@ -31,15 +30,13 @@ router.post('/login', async (req, res) => {
       return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
     }
 
+    // Verificar senha
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
-      console.log('❌ Senha incorreta para usuário:', username);
       return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
     }
 
-    console.log('✅ Login bem-sucedido para:', username);
-    
-    // Dados do usuário
+    // Criar cookie
     const userData = {
       id: user.id,
       username: user.username,
@@ -47,30 +44,16 @@ router.post('/login', async (req, res) => {
       role: user.role
     };
 
-    // Criar cookie de autenticação (PRINCIPAL - funciona no Vercel)
-    const cookieCreated = createAuthCookie(res, userData);
-    
-    if (!cookieCreated) {
-      console.error('❌ Falha ao criar cookie');
-      return res.render('auth/login', { error: 'Erro ao criar sessão. Tente novamente.' });
-    }
-
-    // Criar sessão também (para compatibilidade local - opcional)
-    if (req.session) {
-      req.session.user = userData;
-      req.session.save(() => {}); // Não bloquear
+    if (!createAuthCookie(res, userData)) {
+      return res.render('auth/login', { error: 'Erro ao criar sessão' });
     }
 
     // Redirecionar
     const redirectUrl = user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
-    console.log('🔀 Redirecionando para:', redirectUrl);
-    
-    // IMPORTANTE: Usar 302 redirect explícito
-    res.status(302).redirect(redirectUrl);
+    res.redirect(redirectUrl);
   } catch (error) {
     console.error('❌ Erro no login:', error);
-    console.error('Stack:', error.stack);
-    res.render('auth/login', { error: 'Erro ao fazer login: ' + error.message });
+    res.render('auth/login', { error: 'Erro ao fazer login' });
   }
 });
 

@@ -1,41 +1,40 @@
 const crypto = require('crypto');
 
-const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
 const SECRET = process.env.SESSION_SECRET || 'change-this-secret-key';
+const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
 
 /**
- * NOVA LÓGICA: 100% baseada em cookies
- * Não depende de sessões no Vercel
+ * LÓGICA SIMPLES: 100% COOKIE
+ * 1. Login cria cookie
+ * 2. attachUser lê cookie em TODAS as requisições
+ * 3. requireAuth verifica se tem req.user
  */
 
 /**
- * Verificar e ler cookie de autenticação
+ * Ler usuário do cookie
  */
 const readAuthCookie = (req) => {
   try {
-    // Tentar ler do cookie (não assinado pelo cookie-parser)
     const cookieValue = req.cookies?.user_data;
     
-    if (!cookieValue || !cookieValue.includes('.')) {
+    if (!cookieValue || typeof cookieValue !== 'string') {
       return null;
     }
 
-    // Separar dados e assinatura
+    if (!cookieValue.includes('.')) {
+      return null;
+    }
+
     const [userData, signature] = cookieValue.split('.');
-    
-    // Verificar assinatura
     const expectedSignature = crypto.createHmac('sha256', SECRET).update(userData).digest('hex');
     
     if (signature !== expectedSignature) {
-      console.log('❌ Assinatura do cookie inválida');
       return null;
     }
 
-    // Parsear dados do usuário
     const user = JSON.parse(userData);
     return user;
   } catch (err) {
-    console.error('❌ Erro ao ler cookie:', err.message);
     return null;
   }
 };
@@ -59,20 +58,19 @@ const createAuthCookie = (res, user) => {
       httpOnly: true,
       secure: isVercel ? true : false,
       sameSite: isVercel ? 'none' : 'lax',
-      maxAge: 24 * 60 * 60 * 1000, // 24 horas
+      maxAge: 24 * 60 * 60 * 1000,
       path: '/'
     });
     
-    console.log('✅ Cookie criado para:', user.username);
     return true;
   } catch (err) {
-    console.error('❌ Erro ao criar cookie:', err.message);
+    console.error('❌ Erro ao criar cookie:', err);
     return false;
   }
 };
 
 /**
- * Remover cookie de autenticação
+ * Remover cookie
  */
 const clearAuthCookie = (res) => {
   res.clearCookie('user_data', {
@@ -81,51 +79,33 @@ const clearAuthCookie = (res) => {
     secure: isVercel ? true : false,
     sameSite: isVercel ? 'none' : 'lax'
   });
-  console.log('✅ Cookie removido');
 };
 
 /**
- * Middleware global: anexar usuário do cookie em req.user
- * Executa em TODAS as requisições
+ * Middleware global: anexar usuário do cookie
  */
 const attachUser = (req, res, next) => {
-  // Ler usuário do cookie
-  const user = readAuthCookie(req);
-  
-  if (user) {
-    req.user = user;
-    // Também salvar na sessão se existir (para compatibilidade local)
-    if (req.session) {
-      req.session.user = user;
-    }
-  } else {
-    req.user = null;
-  }
-  
+  req.user = readAuthCookie(req);
   next();
 };
 
 /**
- * Middleware: verificar se usuário está autenticado
+ * Middleware: verificar autenticação
  */
 const requireAuth = (req, res, next) => {
   if (!req.user) {
-    console.log('❌ Não autenticado - redirecionando para login');
     return res.redirect('/auth/login');
   }
-  
   next();
 };
 
 /**
- * Middleware: verificar se usuário é admin
+ * Middleware: verificar se é admin
  */
 const requireAdmin = (req, res, next) => {
   if (!req.user || req.user.role !== 'admin') {
-    console.log('❌ Acesso negado - não é admin');
     return res.status(403).send('Acesso negado. Apenas administradores.');
   }
-  
   next();
 };
 
@@ -134,6 +114,5 @@ module.exports = {
   requireAuth,
   requireAdmin,
   createAuthCookie,
-  clearAuthCookie,
-  readAuthCookie
+  clearAuthCookie
 };
