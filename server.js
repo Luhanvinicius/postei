@@ -138,18 +138,13 @@ app.use(async (req, res, next) => {
 // Middleware global para anexar usuário (de sessão OU cookie) em req.user
 app.use(attachUser);
 
-// Rotas
+// Rotas públicas
 app.get('/', (req, res) => {
   // req.user está disponível via attachUser middleware
   if (req.user) {
-    if (req.user.role === 'admin') {
-      res.redirect('/admin/dashboard');
-    } else {
-      res.redirect('/user/dashboard');
-    }
-  } else {
-    res.render('index');
+    return res.redirect(req.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard');
   }
+  res.render('index');
 });
 
 // Redirecionar /login para /auth/login (compatibilidade)

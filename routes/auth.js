@@ -6,11 +6,10 @@ const { createAuthCookie, clearAuthCookie } = require('../middleware/auth');
 
 // Login
 router.get('/login', (req, res) => {
-  // Usar getAuthenticatedUser para verificar se já está logado
-  const { getAuthenticatedUser } = require('../middleware/auth');
-  if (getAuthenticatedUser(req)) {
-    const user = getAuthenticatedUser(req);
-    return res.redirect(user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard');
+  // Se já está autenticado (req.user vem do attachUser middleware)
+  if (req.user) {
+    const redirectUrl = req.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
+    return res.redirect(redirectUrl);
   }
   res.render('auth/login', { error: null });
 });

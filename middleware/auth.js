@@ -1,121 +1,74 @@
 const crypto = require('crypto');
 
 const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+const SECRET = process.env.SESSION_SECRET || 'change-this-secret-key';
 
 /**
- * NOVA ABORDAGEM: No Vercel, usar APENAS cookies (não depender de sessões)
- * Localmente, usar sessões normais
+ * NOVA LÓGICA: 100% baseada em cookies
+ * Não depende de sessões no Vercel
  */
 
 /**
- * Obter usuário autenticado (de sessão OU cookie)
+ * Verificar e ler cookie de autenticação
  */
-const getAuthenticatedUser = (req) => {
-  // 1. Tentar pegar da sessão (funciona localmente)
-  if (req.session && req.session.user) {
-    return req.session.user;
-  }
-
-  // 2. No Vercel, pegar do cookie (não depender de sessão)
-  const cookieValue = req.cookies?.user_data || req.signedCookies?.user_data;
-  
-  if (cookieValue) {
-    try {
-      if (!cookieValue.includes('.')) {
-        return null;
-      }
-
-      const [userData, signature] = cookieValue.split('.');
-      const secret = process.env.SESSION_SECRET || 'change-this-secret-key';
-      const expectedSignature = crypto.createHmac('sha256', secret).update(userData).digest('hex');
-      
-      if (signature === expectedSignature) {
-        const user = JSON.parse(userData);
-        // Também salvar na sessão para consistência
-        if (req.session) {
-          req.session.user = user;
-        }
-        return user;
-      }
-    } catch (err) {
-      console.error('❌ Erro ao ler cookie:', err.message);
+const readAuthCookie = (req) => {
+  try {
+    // Tentar ler do cookie (não assinado pelo cookie-parser)
+    const cookieValue = req.cookies?.user_data;
+    
+    if (!cookieValue || !cookieValue.includes('.')) {
+      return null;
     }
-  }
 
-  return null;
-};
-
-/**
- * Middleware global para garantir que req.user está disponível
- */
-const attachUser = (req, res, next) => {
-  req.user = getAuthenticatedUser(req);
-  next();
-};
-
-/**
- * Middleware para verificar autenticação
- * Funciona tanto com sessão quanto com cookie
- */
-const requireAuth = (req, res, next) => {
-  const user = getAuthenticatedUser(req);
-  
-  if (user) {
-    // Garantir que req.user está definido
-    req.user = user;
-    if (req.session) {
-      req.session.user = user;
+    // Separar dados e assinatura
+    const [userData, signature] = cookieValue.split('.');
+    
+    // Verificar assinatura
+    const expectedSignature = crypto.createHmac('sha256', SECRET).update(userData).digest('hex');
+    
+    if (signature !== expectedSignature) {
+      console.log('❌ Assinatura do cookie inválida');
+      return null;
     }
-    return next();
-  }
-  
-  console.log('❌ Usuário não autenticado');
-  return res.redirect('/auth/login');
-};
 
-/**
- * Middleware para verificar se é admin
- */
-const requireAdmin = (req, res, next) => {
-  const user = getAuthenticatedUser(req);
-  
-  if (user && user.role === 'admin') {
-    req.user = user;
-    if (req.session) {
-      req.session.user = user;
-    }
-    return next();
+    // Parsear dados do usuário
+    const user = JSON.parse(userData);
+    return user;
+  } catch (err) {
+    console.error('❌ Erro ao ler cookie:', err.message);
+    return null;
   }
-  
-  console.log('❌ Acesso negado - não é admin');
-  res.status(403).send('Acesso negado. Apenas administradores.');
 };
 
 /**
  * Criar cookie de autenticação
  */
 const createAuthCookie = (res, user) => {
-  const userData = JSON.stringify({
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    role: user.role
-  });
-  
-  const secret = process.env.SESSION_SECRET || 'change-this-secret-key';
-  const signature = crypto.createHmac('sha256', secret).update(userData).digest('hex');
-  const signedData = `${userData}.${signature}`;
-  
-  res.cookie('user_data', signedData, {
-    httpOnly: true,
-    secure: isVercel ? true : false,
-    sameSite: isVercel ? 'none' : 'lax',
-    maxAge: 24 * 60 * 60 * 1000, // 24 horas
-    path: '/',
-    signed: false
-  });
-  
-  console.log('🍪 Cookie de autenticação criado para:', user.username);
+  try {
+    const userData = JSON.stringify({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role
+    });
+    
+    const signature = crypto.createHmac('sha256', SECRET).update(userData).digest('hex');
+    const signedData = `${userData}.${signature}`;
+    
+    res.cookie('user_data', signedData, {
+      httpOnly: true,
+      secure: isVercel ? true : false,
+      sameSite: isVercel ? 'none' : 'lax',
+      maxAge: 24 * 60 * 60 * 1000, // 24 horas
+      path: '/'
+    });
+    
+    console.log('✅ Cookie criado para:', user.username);
+    return true;
+  } catch (err) {
+    console.error('❌ Erro ao criar cookie:', err.message);
+    return false;
+  }
 };
 
 /**
@@ -128,7 +81,52 @@ const clearAuthCookie = (res) => {
     secure: isVercel ? true : false,
     sameSite: isVercel ? 'none' : 'lax'
   });
-  console.log('🍪 Cookie de autenticação removido');
+  console.log('✅ Cookie removido');
+};
+
+/**
+ * Middleware global: anexar usuário do cookie em req.user
+ * Executa em TODAS as requisições
+ */
+const attachUser = (req, res, next) => {
+  // Ler usuário do cookie
+  const user = readAuthCookie(req);
+  
+  if (user) {
+    req.user = user;
+    // Também salvar na sessão se existir (para compatibilidade local)
+    if (req.session) {
+      req.session.user = user;
+    }
+  } else {
+    req.user = null;
+  }
+  
+  next();
+};
+
+/**
+ * Middleware: verificar se usuário está autenticado
+ */
+const requireAuth = (req, res, next) => {
+  if (!req.user) {
+    console.log('❌ Não autenticado - redirecionando para login');
+    return res.redirect('/auth/login');
+  }
+  
+  next();
+};
+
+/**
+ * Middleware: verificar se usuário é admin
+ */
+const requireAdmin = (req, res, next) => {
+  if (!req.user || req.user.role !== 'admin') {
+    console.log('❌ Acesso negado - não é admin');
+    return res.status(403).send('Acesso negado. Apenas administradores.');
+  }
+  
+  next();
 };
 
 module.exports = {
@@ -137,5 +135,5 @@ module.exports = {
   requireAdmin,
   createAuthCookie,
   clearAuthCookie,
-  getAuthenticatedUser
+  readAuthCookie
 };
