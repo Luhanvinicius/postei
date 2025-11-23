@@ -59,14 +59,18 @@ router.post('/login', async (req, res) => {
     const signedData = `${userData}.${signature}`;
     
     // Sempre criar cookie (não só no Vercel, mas principalmente lá)
+    // IMPORTANTE: Não usar signed: true aqui, porque vamos assinar manualmente
     res.cookie('user_data', signedData, {
       httpOnly: true,
       secure: process.env.VERCEL || process.env.VERCEL_ENV ? true : false,
       sameSite: process.env.VERCEL || process.env.VERCEL_ENV ? 'none' : 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 24 horas
-      path: '/'
+      path: '/',
+      signed: false // Não usar signed do cookie-parser, vamos assinar manualmente
     });
-    console.log('🍪 Cookie de backup criado:', signedData.substring(0, 50) + '...');
+    console.log('🍪 Cookie de backup criado (não assinado pelo cookie-parser)');
+    console.log('   Tamanho:', signedData.length, 'caracteres');
+    console.log('   Primeiros 50 chars:', signedData.substring(0, 50) + '...');
 
     // Salvar sessão explicitamente (igual ao teste - usando await Promise)
     await new Promise((resolve, reject) => {
