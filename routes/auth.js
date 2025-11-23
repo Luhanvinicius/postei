@@ -30,9 +30,12 @@ router.post('/login', async (req, res) => {
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
+      console.log('❌ Senha incorreta para usuário:', username);
       return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
     }
 
+    console.log('✅ Senha correta! Criando sessão para:', username);
+    
     req.session.user = {
       id: user.id,
       username: user.username,
@@ -40,17 +43,24 @@ router.post('/login', async (req, res) => {
       role: user.role
     };
 
+    console.log('📝 Sessão criada:', req.session.user);
+
     // Salvar sessão explicitamente
     req.session.save((err) => {
       if (err) {
-        console.error('Erro ao salvar sessão:', err);
-        return res.render('auth/login', { error: 'Erro ao fazer login' });
+        console.error('❌ Erro ao salvar sessão:', err);
+        return res.render('auth/login', { error: 'Erro ao fazer login: ' + err.message });
       }
 
+      console.log('✅ Sessão salva com sucesso! Redirecionando...');
+      console.log('👤 Role do usuário:', user.role);
+
       if (user.role === 'admin') {
-        res.redirect('/admin/dashboard');
+        console.log('🔀 Redirecionando para /admin/dashboard');
+        return res.redirect('/admin/dashboard');
       } else {
-        res.redirect('/user/dashboard');
+        console.log('🔀 Redirecionando para /user/dashboard');
+        return res.redirect('/user/dashboard');
       }
     });
   } catch (error) {

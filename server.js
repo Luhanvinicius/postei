@@ -65,13 +65,14 @@ app.use(fileUpload({
 // No Vercel, usa memória (stateless). Em desenvolvimento, usa file-store
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'change-this-secret-key',
-  resave: true,
+  resave: false, // Mudado para false para evitar problemas
   saveUninitialized: false,
   cookie: {
     secure: isVercel ? true : false, // HTTPS no Vercel
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 horas
-    sameSite: isVercel ? 'none' : 'lax' // Necessário para HTTPS
+    sameSite: isVercel ? 'none' : 'lax', // Necessário para HTTPS
+    domain: isVercel ? undefined : undefined // Não definir domain no Vercel
   }
 };
 
