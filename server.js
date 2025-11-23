@@ -151,7 +151,7 @@ const requireAuth = async (req, res, next) => {
     try {
       console.log('🔍 Tentando restaurar sessão do cookie de backup...');
       const crypto = require('crypto');
-      const signedData = req.cookies.user_data;
+      const signedData = cookieValue;
       
       if (!signedData || !signedData.includes('.')) {
         console.log('⚠️  Cookie de backup inválido (sem assinatura)');
