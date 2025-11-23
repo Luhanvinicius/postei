@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Conexão - YouTube Automation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .status-box {
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .status-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .status-error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .status-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        .status-info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">🧪 Página de Teste de Conexão</h1>
+
+        <!-- Ambiente -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>🌍 Ambiente</h3>
+            </div>
+            <div class="card-body">
+                <ul>
+                    <li><strong>Vercel:</strong> <%= results.environment.vercel %></li>
+                    <li><strong>NODE_ENV:</strong> <%= results.environment.nodeEnv %></li>
+                    <li><strong>DATABASE_URL configurada:</strong> <%= results.environment.hasDatabaseUrl ? '✅ Sim' : '❌ Não' %></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Banco de Dados -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>🗄️ Banco de Dados</h3>
+            </div>
+            <div class="card-body">
+                <div class="status-box <%= results.database.status === 'connected' ? 'status-success' : 'status-error' %>">
+                    <strong><%= results.database.message %></strong>
+                    <% if (results.database.error) { %>
+                        <pre><%= results.database.error %></pre>
+                    <% } %>
+                </div>
+
+                <% if (results.database.users && results.database.users.length > 0) { %>
+                    <h5>Usuários encontrados:</h5>
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% results.database.users.forEach(user => { %>
+                                <tr>
+                                    <td><%= user.id %></td>
+                                    <td><%= user.username %></td>
+                                    <td><%= user.email %></td>
+                                    <td><%= user.role %></td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                <% } %>
+            </div>
+        </div>
+
+        <!-- Sessão -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>🍪 Sessão</h3>
+            </div>
+            <div class="card-body">
+                <div class="status-box <%= results.session.status === 'active' ? 'status-success' : results.session.status === 'error' ? 'status-error' : 'status-warning' %>">
+                    <strong><%= results.session.message %></strong>
+                    <% if (results.session.data) { %>
+                        <pre><%= JSON.stringify(results.session.data, null, 2) %></pre>
+                    <% } %>
+                    <% if (results.session.error) { %>
+                        <pre><%= results.session.error %></pre>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+
+        <!-- Teste de Login -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>🔐 Teste de Login</h3>
+            </div>
+            <div class="card-body">
+                <form id="testLoginForm">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Usuário:</label>
+                        <input type="text" class="form-control" id="username" name="username" value="admin" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Senha:</label>
+                        <input type="password" class="form-control" id="password" name="password" value="admin123" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Testar Login</button>
+                </form>
+
+                <div id="testResult" class="mt-3" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Links -->
+        <div class="card">
+            <div class="card-body">
+                <a href="/auth/login" class="btn btn-secondary">Voltar para Login</a>
+                <a href="/" class="btn btn-secondary">Home</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('testLoginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = {
+                username: formData.get('username'),
+                password: formData.get('password')
+            };
+
+            const resultDiv = document.getElementById('testResult');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div class="alert alert-info">Testando...</div>';
+
+            try {
+                const response = await fetch('/test/test-login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h5>✅ ${result.message}</h5>
+                            <pre>${JSON.stringify(result, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h5>❌ ${result.message}</h5>
+                            <pre>${JSON.stringify(result, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h5>❌ Erro na requisição</h5>
+                        <pre>${error.message}</pre>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>
+
