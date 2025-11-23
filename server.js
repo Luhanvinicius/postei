@@ -63,27 +63,34 @@ app.use(fileUpload({
 }));
 
 // Configuração de sessão
-// No Vercel, usa memória (stateless). Em desenvolvimento, usa file-store
+// No Vercel, MemoryStore não funciona bem (cada requisição pode estar em container diferente)
+// Vamos usar MemoryStore mas com aviso, ou considerar usar Redis/Upstash no futuro
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'change-this-secret-key',
-  resave: false, // Mudado para false para evitar problemas
+  resave: false,
   saveUninitialized: false,
+  name: 'sessionId', // Nome customizado para evitar conflitos
   cookie: {
     secure: isVercel ? true : false, // HTTPS no Vercel
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 horas
-    sameSite: isVercel ? 'none' : 'lax', // Necessário para HTTPS
-    domain: isVercel ? undefined : undefined // Não definir domain no Vercel
+    sameSite: isVercel ? 'none' : 'lax', // Necessário para HTTPS no Vercel
+    path: '/'
   }
 };
 
-// Usar file-store apenas em desenvolvimento
+// Usar file-store apenas em desenvolvimento local
 if (!isVercel) {
   sessionConfig.store = new FileStore({
     path: path.join(__dirname, 'data', 'sessions'),
     ttl: 86400, // 24 horas
     retries: 0
   });
+} else {
+  // No Vercel, usar MemoryStore (limitação do serverless)
+  // TODO: Considerar usar Upstash Redis para produção
+  console.warn('⚠️  Usando MemoryStore para sessões (não ideal para produção serverless)');
+  console.warn('⚠️  Considere usar Upstash Redis para sessões persistentes');
 }
 
 app.use(session(sessionConfig));
