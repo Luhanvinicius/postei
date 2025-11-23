@@ -45,23 +45,28 @@ router.post('/login', async (req, res) => {
 
     console.log('📝 Sessão criada:', req.session.user);
 
-    // Salvar sessão explicitamente
+    // Salvar sessão explicitamente e aguardar antes de redirecionar
     req.session.save((err) => {
       if (err) {
         console.error('❌ Erro ao salvar sessão:', err);
         return res.render('auth/login', { error: 'Erro ao fazer login: ' + err.message });
       }
 
-      console.log('✅ Sessão salva com sucesso! Redirecionando...');
+      console.log('✅ Sessão salva com sucesso!');
+      console.log('📝 Sessão ID:', req.sessionID);
       console.log('👤 Role do usuário:', user.role);
+      console.log('🍪 Cookie config:', req.session.cookie);
 
-      if (user.role === 'admin') {
-        console.log('🔀 Redirecionando para /admin/dashboard');
-        return res.redirect('/admin/dashboard');
-      } else {
-        console.log('🔀 Redirecionando para /user/dashboard');
-        return res.redirect('/user/dashboard');
-      }
+      // No Vercel, pode precisar de um pequeno delay para garantir que o cookie foi enviado
+      setTimeout(() => {
+        if (user.role === 'admin') {
+          console.log('🔀 Redirecionando para /admin/dashboard');
+          res.redirect('/admin/dashboard');
+        } else {
+          console.log('🔀 Redirecionando para /user/dashboard');
+          res.redirect('/user/dashboard');
+        }
+      }, 100); // Pequeno delay para garantir que o cookie foi enviado
     });
   } catch (error) {
     console.error('Erro no login:', error);

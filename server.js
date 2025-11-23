@@ -130,9 +130,16 @@ app.use(async (req, res, next) => {
 
 // Middleware de autenticação
 const requireAuth = (req, res, next) => {
+  console.log('🔒 Verificando autenticação...');
+  console.log('📝 Session ID:', req.sessionID);
+  console.log('👤 Session user:', req.session?.user);
+  
   if (req.session && req.session.user) {
+    console.log('✅ Usuário autenticado:', req.session.user.username);
     return next();
   }
+  
+  console.log('❌ Usuário não autenticado, redirecionando para login');
   res.redirect('/auth/login');
 };
 
