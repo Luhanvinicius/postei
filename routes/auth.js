@@ -37,8 +37,9 @@ router.post('/login', async (req, res) => {
       return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
     }
 
-    console.log('✅ Senha correta! Autenticando usuário:', username);
+    console.log('✅ Login bem-sucedido para:', username);
     
+    // Dados do usuário
     const userData = {
       id: user.id,
       username: user.username,
@@ -46,20 +47,26 @@ router.post('/login', async (req, res) => {
       role: user.role
     };
 
-    // Criar sessão (funciona localmente, mas não é crítico no Vercel)
-    if (req.session) {
-      req.session.user = userData;
-      // Salvar sessão em background (não bloquear)
-      req.session.save(() => {});
+    // Criar cookie de autenticação (PRINCIPAL - funciona no Vercel)
+    const cookieCreated = createAuthCookie(res, userData);
+    
+    if (!cookieCreated) {
+      console.error('❌ Falha ao criar cookie');
+      return res.render('auth/login', { error: 'Erro ao criar sessão. Tente novamente.' });
     }
 
-    // SEMPRE criar cookie (funciona no Vercel E localmente)
-    createAuthCookie(res, userData);
+    // Criar sessão também (para compatibilidade local - opcional)
+    if (req.session) {
+      req.session.user = userData;
+      req.session.save(() => {}); // Não bloquear
+    }
 
-    // Redirecionar imediatamente (não esperar sessão salvar)
+    // Redirecionar
     const redirectUrl = user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
     console.log('🔀 Redirecionando para:', redirectUrl);
-    return res.redirect(redirectUrl);
+    
+    // IMPORTANTE: Usar 302 redirect explícito
+    res.status(302).redirect(redirectUrl);
   } catch (error) {
     console.error('❌ Erro no login:', error);
     console.error('Stack:', error.stack);
