@@ -15,7 +15,14 @@ router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const user = users.findByUsername(username);
+    // No PostgreSQL é assíncrono, no SQLite é síncrono - sempre usar await (funciona nos dois)
+    let user;
+    try {
+      user = await Promise.resolve(users.findByUsername(username));
+    } catch (err) {
+      // Se for síncrono e der erro, tentar sem await
+      user = users.findByUsername(username);
+    }
 
     if (!user) {
       return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
@@ -65,24 +72,34 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    // Verificar se usuário já existe
-    const existingUser = users.findByUsername(username);
+    // Verificar se usuário já existe (assíncrono no PostgreSQL)
+    let existingUser;
+    try {
+      existingUser = await Promise.resolve(users.findByUsername(username));
+    } catch (err) {
+      existingUser = users.findByUsername(username);
+    }
     if (existingUser) {
       return res.render('auth/register', { error: 'Usuário ou email já existe' });
     }
 
-    // Verificar se email já existe
-    const existingByEmail = users.findByEmail(email);
+    // Verificar se email já existe (assíncrono no PostgreSQL)
+    let existingByEmail;
+    try {
+      existingByEmail = await Promise.resolve(users.findByEmail(email));
+    } catch (err) {
+      existingByEmail = users.findByEmail(email);
+    }
     if (existingByEmail) {
       return res.render('auth/register', { error: 'Email já está em uso' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Tentar criar com tratamento de erro
+    // Tentar criar com tratamento de erro (assíncrono no PostgreSQL)
     let userId;
     try {
-      userId = users.create(username, email, hashedPassword, 'user');
+      userId = await Promise.resolve(users.create(username, email, hashedPassword, 'user'));
     } catch (createError) {
       if (createError.message && createError.message.includes('UNIQUE constraint')) {
         if (createError.message.includes('email')) {
@@ -94,8 +111,13 @@ router.post('/register', async (req, res) => {
       throw createError;
     }
 
-    // Verificar se foi criado corretamente
-    const createdUser = users.findById(userId);
+    // Verificar se foi criado corretamente (assíncrono no PostgreSQL)
+    let createdUser;
+    try {
+      createdUser = await Promise.resolve(users.findById(userId));
+    } catch (err) {
+      createdUser = users.findById(userId);
+    }
     if (!createdUser) {
       return res.render('auth/register', { error: 'Erro ao criar conta. Tente novamente.' });
     }
