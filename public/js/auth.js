@@ -74,23 +74,26 @@ XMLHttpRequest.prototype.send = function(...args) {
   return originalSend.apply(this, args);
 };
 
-// Adicionar token em links e formulários
-document.addEventListener('DOMContentLoaded', function() {
+// Adicionar token em TODAS as requisições (links, formulários, etc)
+(function() {
   const token = getToken();
-  if (token) {
-    // Adicionar token em todos os links internos
-    const links = document.querySelectorAll('a[href^="/"]');
-    links.forEach(link => {
-      link.addEventListener('click', function(e) {
-        const href = this.getAttribute('href');
-        if (href && !href.includes('token=')) {
-          const separator = href.includes('?') ? '&' : '?';
-          this.setAttribute('href', href + separator + 'token=' + encodeURIComponent(token));
-        }
-      });
-    });
-    
-    // Adicionar token em todos os formulários
+  
+  if (!token) {
+    return; // Sem token, não fazer nada
+  }
+  
+  // Interceptar TODOS os cliques em links
+  document.addEventListener('click', function(e) {
+    const link = e.target.closest('a[href^="/"]');
+    if (link && link.href && !link.href.includes('token=')) {
+      const url = new URL(link.href, window.location.origin);
+      url.searchParams.set('token', token);
+      link.href = url.toString();
+    }
+  }, true); // Use capture phase para pegar antes de navegar
+  
+  // Adicionar token em formulários quando DOM carregar
+  function addTokenToForms() {
     const forms = document.querySelectorAll('form');
     forms.forEach(form => {
       // Adicionar token como hidden input
@@ -102,17 +105,38 @@ document.addEventListener('DOMContentLoaded', function() {
         form.appendChild(tokenInput);
       }
       
-      // Ou adicionar na action URL se for GET
+      // Adicionar na action URL se for GET
       if (form.method.toUpperCase() === 'GET') {
-        const action = form.getAttribute('action') || '';
+        const action = form.getAttribute('action') || window.location.pathname;
         if (action && !action.includes('token=')) {
-          const separator = action.includes('?') ? '&' : '?';
-          form.setAttribute('action', action + separator + 'token=' + encodeURIComponent(token));
+          try {
+            const url = new URL(action, window.location.origin);
+            url.searchParams.set('token', token);
+            form.setAttribute('action', url.toString());
+          } catch (e) {
+            // Se não for URL válida, adicionar como query string
+            const separator = action.includes('?') ? '&' : '?';
+            form.setAttribute('action', action + separator + 'token=' + encodeURIComponent(token));
+          }
         }
       }
     });
   }
-});
+  
+  // Executar quando DOM carregar
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', addTokenToForms);
+  } else {
+    addTokenToForms();
+  }
+  
+  // Adicionar token na URL atual se não tiver (para manter autenticação ao recarregar)
+  if (!window.location.search.includes('token=')) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('token', token);
+    window.history.replaceState({}, document.title, url.toString());
+  }
+})();
 
 // Logout - remover token
 function logout() {
