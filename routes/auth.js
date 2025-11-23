@@ -92,8 +92,9 @@ router.post('/login', async (req, res) => {
       }, 100); // Pequeno delay para garantir que o cookie foi enviado
     });
   } catch (error) {
-    console.error('Erro no login:', error);
-    res.render('auth/login', { error: 'Erro ao fazer login' });
+    console.error('❌ Erro no login:', error);
+    console.error('Stack:', error.stack);
+    res.render('auth/login', { error: 'Erro ao fazer login: ' + error.message });
   }
 });
 
