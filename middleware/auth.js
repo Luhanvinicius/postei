@@ -105,6 +105,13 @@ const clearAuthCookie = (res) => {
  * Middleware global: anexar usuário do cookie
  */
 const attachUser = (req, res, next) => {
+  // Log completo dos cookies recebidos
+  console.log('🔍 attachUser - Verificando cookies...');
+  console.log('   URL:', req.url);
+  console.log('   Method:', req.method);
+  console.log('   Cookies recebidos:', req.cookies ? Object.keys(req.cookies) : 'nenhum');
+  console.log('   Cookie user_data existe?', !!req.cookies?.user_data);
+  
   const user = readAuthCookie(req);
   req.user = user;
   

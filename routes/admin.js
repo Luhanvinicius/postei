@@ -6,6 +6,14 @@ const { users: userDB } = require('../database');
 router.get('/dashboard', async (req, res) => {
   try {
     // O middleware requireAuth já garante que req.user existe
+    console.log('📊 Dashboard admin - req.user:', req.user ? req.user.username : 'null');
+    console.log('📊 Dashboard admin - req.cookies:', req.cookies ? Object.keys(req.cookies) : 'nenhum');
+    
+    if (!req.user) {
+      console.error('❌ req.user é null no dashboard!');
+      return res.redirect('/auth/login');
+    }
+    
     console.log('📊 Dashboard admin acessado por:', req.user.username);
     
     let allUsers;

@@ -45,15 +45,28 @@ router.post('/login', async (req, res) => {
     };
 
     console.log('📝 Criando cookie para login...');
-    if (!createAuthCookie(res, userData)) {
+    const cookieCreated = createAuthCookie(res, userData);
+    
+    if (!cookieCreated) {
       console.error('❌ Falha ao criar cookie no login');
       return res.render('auth/login', { error: 'Erro ao criar sessão' });
+    }
+
+    // IMPORTANTE: Verificar se o cookie foi realmente definido
+    console.log('🔍 Verificando se cookie foi definido na resposta...');
+    const setCookieHeader = res.getHeader('Set-Cookie');
+    if (setCookieHeader) {
+      console.log('✅ Set-Cookie header encontrado:', Array.isArray(setCookieHeader) ? setCookieHeader[0].substring(0, 50) + '...' : setCookieHeader.substring(0, 50) + '...');
+    } else {
+      console.error('❌ Set-Cookie header NÃO encontrado!');
     }
 
     // Redirecionar
     const redirectUrl = user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
     console.log('🔀 Redirecionando para:', redirectUrl);
-    res.redirect(redirectUrl);
+    
+    // Usar redirect explícito
+    return res.redirect(302, redirectUrl);
   } catch (error) {
     console.error('❌ Erro no login:', error);
     res.render('auth/login', { error: 'Erro ao fazer login' });
