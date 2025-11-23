@@ -15,13 +15,23 @@ const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
  */
 const readAuthCookie = (req) => {
   try {
+    console.log('🔍 Lendo cookie...');
+    console.log('   req.cookies:', req.cookies ? Object.keys(req.cookies) : 'null');
+    
     const cookieValue = req.cookies?.user_data;
     
-    if (!cookieValue || typeof cookieValue !== 'string') {
+    if (!cookieValue) {
+      console.log('   ❌ Cookie user_data não encontrado');
+      return null;
+    }
+
+    if (typeof cookieValue !== 'string') {
+      console.log('   ❌ Cookie não é string:', typeof cookieValue);
       return null;
     }
 
     if (!cookieValue.includes('.')) {
+      console.log('   ❌ Cookie não tem assinatura (sem ponto)');
       return null;
     }
 
@@ -29,12 +39,17 @@ const readAuthCookie = (req) => {
     const expectedSignature = crypto.createHmac('sha256', SECRET).update(userData).digest('hex');
     
     if (signature !== expectedSignature) {
+      console.log('   ❌ Assinatura inválida');
+      console.log('      Recebida:', signature.substring(0, 20) + '...');
+      console.log('      Esperada:', expectedSignature.substring(0, 20) + '...');
       return null;
     }
 
     const user = JSON.parse(userData);
+    console.log('   ✅ Cookie válido, usuário:', user.username);
     return user;
   } catch (err) {
+    console.error('   ❌ Erro ao ler cookie:', err.message);
     return null;
   }
 };
@@ -44,6 +59,7 @@ const readAuthCookie = (req) => {
  */
 const createAuthCookie = (res, user) => {
   try {
+    console.log('🍪 Criando cookie para:', user.username);
     const userData = JSON.stringify({
       id: user.id,
       username: user.username,
@@ -54,6 +70,9 @@ const createAuthCookie = (res, user) => {
     const signature = crypto.createHmac('sha256', SECRET).update(userData).digest('hex');
     const signedData = `${userData}.${signature}`;
     
+    console.log('   Tamanho do cookie:', signedData.length);
+    console.log('   Ambiente Vercel:', isVercel);
+    
     res.cookie('user_data', signedData, {
       httpOnly: true,
       secure: isVercel ? true : false,
@@ -62,6 +81,7 @@ const createAuthCookie = (res, user) => {
       path: '/'
     });
     
+    console.log('   ✅ Cookie criado com sucesso');
     return true;
   } catch (err) {
     console.error('❌ Erro ao criar cookie:', err);
@@ -85,7 +105,15 @@ const clearAuthCookie = (res) => {
  * Middleware global: anexar usuário do cookie
  */
 const attachUser = (req, res, next) => {
-  req.user = readAuthCookie(req);
+  const user = readAuthCookie(req);
+  req.user = user;
+  
+  if (user) {
+    console.log('✅ Usuário anexado:', user.username, 'Role:', user.role);
+  } else {
+    console.log('⚠️  Nenhum usuário autenticado');
+  }
+  
   next();
 };
 
@@ -93,9 +121,15 @@ const attachUser = (req, res, next) => {
  * Middleware: verificar autenticação
  */
 const requireAuth = (req, res, next) => {
+  console.log('🔒 requireAuth - Verificando autenticação...');
+  console.log('   req.user:', req.user ? req.user.username : 'null');
+  
   if (!req.user) {
+    console.log('   ❌ Não autenticado, redirecionando para login');
     return res.redirect('/auth/login');
   }
+  
+  console.log('   ✅ Autenticado, permitindo acesso');
   next();
 };
 

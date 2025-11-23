@@ -44,12 +44,15 @@ router.post('/login', async (req, res) => {
       role: user.role
     };
 
+    console.log('📝 Criando cookie para login...');
     if (!createAuthCookie(res, userData)) {
+      console.error('❌ Falha ao criar cookie no login');
       return res.render('auth/login', { error: 'Erro ao criar sessão' });
     }
 
     // Redirecionar
     const redirectUrl = user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
+    console.log('🔀 Redirecionando para:', redirectUrl);
     res.redirect(redirectUrl);
   } catch (error) {
     console.error('❌ Erro no login:', error);
