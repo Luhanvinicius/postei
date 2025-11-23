@@ -1,6 +1,7 @@
 const express = require('express');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
+const cookieParser = require('cookie-parser');
 const fileUpload = require('express-fileupload');
 const path = require('path');
 const fs = require('fs-extra');
@@ -57,6 +58,7 @@ if (!isVercel) {
 // Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser()); // Para ler cookies
 app.use(fileUpload({
   limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
   createParentPath: true
@@ -136,9 +138,31 @@ const requireAuth = (req, res, next) => {
   console.log('📝 Session ID:', req.sessionID);
   console.log('👤 Session user:', req.session?.user);
   
+  // Verificar sessão normal
   if (req.session && req.session.user) {
-    console.log('✅ Usuário autenticado:', req.session.user.username);
+    console.log('✅ Usuário autenticado via sessão:', req.session.user.username);
     return next();
+  }
+  
+  // No Vercel, verificar cookie de backup se a sessão não existir
+  if ((process.env.VERCEL || process.env.VERCEL_ENV) && req.cookies && req.cookies.user_data) {
+    try {
+      const cookie = require('cookie');
+      const crypto = require('crypto');
+      const signedData = req.cookies.user_data;
+      const [userData, signature] = signedData.split('.');
+      const secret = process.env.SESSION_SECRET || 'change-this-secret-key';
+      const expectedSignature = crypto.createHmac('sha256', secret).update(userData).digest('hex');
+      
+      if (signature === expectedSignature) {
+        const user = JSON.parse(userData);
+        req.session.user = user; // Restaurar sessão do cookie
+        console.log('✅ Usuário autenticado via cookie de backup:', user.username);
+        return next();
+      }
+    } catch (err) {
+      console.error('❌ Erro ao verificar cookie de backup:', err);
+    }
   }
   
   console.log('❌ Usuário não autenticado, redirecionando para login');

@@ -45,6 +45,29 @@ router.post('/login', async (req, res) => {
 
     console.log('📝 Sessão criada:', req.session.user);
 
+    // No Vercel, também salvar em cookie assinado como backup (para MemoryStore)
+    const cookie = require('cookie');
+    const crypto = require('crypto');
+    if (process.env.VERCEL || process.env.VERCEL_ENV) {
+      const userData = JSON.stringify({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      });
+      const secret = process.env.SESSION_SECRET || 'change-this-secret-key';
+      const signature = crypto.createHmac('sha256', secret).update(userData).digest('hex');
+      const signedData = `${userData}.${signature}`;
+      res.cookie('user_data', signedData, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        maxAge: 24 * 60 * 60 * 1000,
+        path: '/'
+      });
+      console.log('🍪 Cookie de backup criado');
+    }
+
     // Salvar sessão explicitamente e aguardar antes de redirecionar
     req.session.save((err) => {
       if (err) {
