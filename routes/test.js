@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { users, configs } = require('../database');
+const { readAuthCookie } = require('../middleware/auth');
 
 // Página de teste de conexão
 router.get('/test', async (req, res) => {
@@ -152,6 +153,21 @@ router.post('/test-login', async (req, res) => {
   }
 
   res.json(testResults);
+});
+
+// Rota de debug de cookies
+router.get('/debug-cookie', (req, res) => {
+  const debug = {
+    cookies: req.cookies || {},
+    signedCookies: req.signedCookies || {},
+    headers: {
+      cookie: req.headers.cookie || 'não encontrado'
+    },
+    userFromCookie: readAuthCookie(req),
+    reqUser: req.user || null
+  };
+  
+  res.json(debug);
 });
 
 module.exports = router;
