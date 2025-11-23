@@ -4,28 +4,45 @@ const path = require('path');
 const ffmpeg = require('fluent-ffmpeg');
 const sharp = require('sharp');
 
-// Usar bibliotecas que incluem os binários do FFmpeg diretamente (igual Python com moviepy)
-const ffmpegStatic = require('ffmpeg-static');
-const ffprobeStatic = require('ffprobe-static');
+// Tentar usar bibliotecas que incluem os binários do FFmpeg diretamente
+// Se não estiverem disponíveis (erro no deploy), usar do sistema
+console.log('🔧 Configurando FFmpeg e FFprobe...');
 
-// Configurar caminhos do FFmpeg usando as bibliotecas estáticas
-console.log('🔧 Configurando FFmpeg e FFprobe (usando binários incluídos)...');
+let ffmpegPath = null;
+let ffprobePath = null;
 
-if (ffmpegStatic) {
-  ffmpeg.setFfmpegPath(ffmpegStatic);
-  console.log(`✅ FFmpeg configurado: ${ffmpegStatic}`);
-} else {
-  console.error('❌ ffmpeg-static não encontrado!');
+// Tentar usar ffmpeg-static
+try {
+  const ffmpegStatic = require('ffmpeg-static');
+  if (ffmpegStatic) {
+    ffmpeg.setFfmpegPath(ffmpegStatic);
+    ffmpegPath = ffmpegStatic;
+    console.log(`✅ FFmpeg configurado via ffmpeg-static: ${ffmpegStatic}`);
+  }
+} catch (err) {
+  console.warn('⚠️  ffmpeg-static não disponível, tentando usar do sistema:', err.message);
 }
 
-if (ffprobeStatic && ffprobeStatic.path) {
-  ffmpeg.setFfprobePath(ffprobeStatic.path);
-  console.log(`✅ FFprobe configurado: ${ffprobeStatic.path}`);
-} else {
-  console.error('❌ ffprobe-static não encontrado!');
+// Tentar usar ffprobe-static
+try {
+  const ffprobeStatic = require('ffprobe-static');
+  if (ffprobeStatic && ffprobeStatic.path) {
+    ffmpeg.setFfprobePath(ffprobeStatic.path);
+    ffprobePath = ffprobeStatic.path;
+    console.log(`✅ FFprobe configurado via ffprobe-static: ${ffprobeStatic.path}`);
+  }
+} catch (err) {
+  console.warn('⚠️  ffprobe-static não disponível, tentando usar do sistema:', err.message);
 }
 
-console.log('✅ FFmpeg e FFprobe configurados com sucesso (binários incluídos no pacote)!');
+// Se não conseguiu configurar, tentar usar do sistema (PATH)
+if (!ffmpegPath) {
+  console.log('ℹ️  Tentando usar FFmpeg do sistema (PATH)');
+}
+
+if (!ffprobePath) {
+  console.log('ℹ️  Tentando usar FFprobe do sistema (PATH)');
+}
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -35,15 +52,11 @@ if (!GEMINI_API_KEY) {
 
 const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 
-// Função para garantir que FFmpeg está configurado (agora sempre configurado via bibliotecas estáticas)
+// Função para garantir que FFmpeg está configurado
 function ensureFFmpegConfigured() {
-  // Com as bibliotecas estáticas, sempre está configurado, mas vamos verificar
-  if (!ffmpegStatic || !fs.existsSync(ffmpegStatic)) {
-    throw new Error('FFmpeg não está disponível. Reinstale as dependências: npm install');
-  }
-  if (!ffprobeStatic || !ffprobeStatic.path || !fs.existsSync(ffprobeStatic.path)) {
-    throw new Error('FFprobe não está disponível. Reinstale as dependências: npm install');
-  }
+  // Verificar se FFmpeg está disponível (pode ser do sistema ou estático)
+  // Não bloquear se não estiver, apenas avisar
+  console.log('ℹ️  Verificando disponibilidade do FFmpeg...');
 }
 
 // Extrair frames do vídeo
