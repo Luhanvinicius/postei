@@ -498,7 +498,7 @@ router.post('/videos/publish', async (req, res) => {
     if (result.success) {
       // Salvar no banco de vídeos publicados
       const { published } = require('../database');
-      published.create(userId, videoPath, result.videoId, result.videoUrl, title, description || '#shorts');
+      published.create(userId, videoPath, result.videoId, result.videoUrl, title, description || '#shorts', thumbnailAbsolutePath);
 
       res.json({ 
         success: true, 

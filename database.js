@@ -1,17 +1,36 @@
-const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs-extra');
+// Detectar se está no Vercel ou se DATABASE_URL está configurada
+const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+const hasPostgresUrl = !!(process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.PRISMA_DATABASE_URL);
 
-const DB_PATH = path.join(__dirname, 'data', 'database.db');
+// Usar PostgreSQL se estiver no Vercel ou se DATABASE_URL estiver configurada
+if (isVercel || hasPostgresUrl) {
+  console.log('📊 Usando PostgreSQL (Vercel/Produção)');
+  const pgDb = require('./database-pg');
+  
+  // Inicializar banco
+  pgDb.initDatabase().catch(err => {
+    console.error('❌ Erro ao inicializar PostgreSQL:', err);
+  });
+  
+  module.exports = pgDb;
+} else {
+  // Usar SQLite localmente
+  console.log('📊 Usando SQLite (Desenvolvimento Local)');
+  
+  const Database = require('better-sqlite3');
+  const path = require('path');
+  const fs = require('fs-extra');
 
-// Garantir que o diretório existe
-fs.ensureDirSync(path.dirname(DB_PATH));
+  const DB_PATH = path.join(__dirname, 'data', 'database.db');
 
-// Criar conexão com o banco
-const db = new Database(DB_PATH);
+  // Garantir que o diretório existe
+  fs.ensureDirSync(path.dirname(DB_PATH));
 
-// Habilitar foreign keys
-db.pragma('foreign_keys = ON');
+  // Criar conexão com o banco
+  const db = new Database(DB_PATH);
+
+  // Habilitar foreign keys
+  db.pragma('foreign_keys = ON');
 
 // Criar tabelas
 function initDatabase() {
@@ -82,10 +101,18 @@ function initDatabase() {
       video_url TEXT NOT NULL,
       title TEXT NOT NULL,
       description TEXT,
+      thumbnail_path TEXT,
       published_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+  
+  // Adicionar coluna thumbnail_path se não existir (migração)
+  try {
+    db.exec('ALTER TABLE published_videos ADD COLUMN thumbnail_path TEXT');
+  } catch (e) {
+    // Coluna já existe, ignorar erro
+  }
 
   // Criar usuário admin padrão se não existir
   const adminExists = db.prepare('SELECT id FROM users WHERE username = ?').get('admin');
@@ -163,8 +190,8 @@ const scheduleQueries = {
     ORDER BY scheduled_time
   `),
   create: db.prepare(`
-    INSERT INTO scheduled_videos (user_id, video_path, scheduled_time, title, description, status)
-    VALUES (?, ?, ?, ?, ?, 'pending')
+    INSERT INTO scheduled_videos (user_id, video_path, scheduled_time, title, description, thumbnail_path, status)
+    VALUES (?, ?, ?, ?, ?, ?, 'pending')
   `),
   updateStatus: db.prepare(`
     UPDATE scheduled_videos SET
@@ -237,8 +264,8 @@ module.exports = {
   schedules: {
     findByUserId: (userId) => scheduleQueries.findByUserId.all(userId),
     findPending: () => scheduleQueries.findPending.all(),
-    create: (userId, videoPath, scheduledTime, title, description) => {
-      const result = scheduleQueries.create.run(userId, videoPath, scheduledTime, title, description);
+    create: (userId, videoPath, scheduledTime, title, description, thumbnailPath = null) => {
+      const result = scheduleQueries.create.run(userId, videoPath, scheduledTime, title, description, thumbnailPath);
       return result.lastInsertRowid;
     },
     updateStatus: (id, status, videoId = null, error = null) => {
@@ -252,5 +279,69 @@ module.exports = {
     },
     findByVideoId: (videoId) => publishedQueries.findByVideoId.get(videoId)
   }
-};
+  };
+
+  module.exports = {
+    db,
+    users: {
+      findByUsername: (username) => userQueries.findByUsername.get(username, username),
+      findByUsernameOnly: (username) => userQueries.findByUsernameOnly.get(username),
+      findByEmail: (email) => userQueries.findByEmail.get(email),
+      findById: (id) => userQueries.findById.get(id),
+      create: (username, email, password, role = 'user') => {
+        try {
+          const result = userQueries.create.run(username, email, password, role);
+          return result.lastInsertRowid;
+        } catch (error) {
+          throw error;
+        }
+      },
+      delete: (id) => {
+        const result = userQueries.delete.run(id);
+        return result.changes > 0;
+      },
+      getAll: () => userQueries.getAll.all()
+    },
+    configs: {
+      findByUserId: (userId) => configQueries.findByUserId.get(userId),
+      upsert: (userId, configPath) => configQueries.upsert.run(userId, configPath),
+      updateAuth: (userId, isAuthenticated, channelId, channelName, refreshToken, accessToken) => {
+        configQueries.updateAuth.run(
+          isAuthenticated ? 1 : 0,
+          channelId,
+          channelName,
+          refreshToken,
+          accessToken,
+          userId
+        );
+      },
+      updateDefaultFolder: (userId, folderPath) => {
+        const existing = configQueries.findByUserId.get(userId);
+        if (existing) {
+          configQueries.updateDefaultFolder.run(folderPath || null, userId);
+        } else {
+          configQueries.upsertDefaultFolder.run(userId, folderPath || null);
+        }
+      }
+    },
+    schedules: {
+      findByUserId: (userId) => scheduleQueries.findByUserId.all(userId),
+      findPending: () => scheduleQueries.findPending.all(),
+      create: (userId, videoPath, scheduledTime, title, description) => {
+        const result = scheduleQueries.create.run(userId, videoPath, scheduledTime, title, description);
+        return result.lastInsertRowid;
+      },
+      updateStatus: (id, status, videoId = null, error = null) => {
+        scheduleQueries.updateStatus.run(status, videoId, error, status, status, id);
+      }
+    },
+    published: {
+      findByUserId: (userId) => publishedQueries.findByUserId.all(userId),
+      create: (userId, videoPath, videoId, videoUrl, title, description, thumbnailPath = null) => {
+        publishedQueries.create.run(userId, videoPath, videoId, videoUrl, title, description, thumbnailPath);
+      },
+      findByVideoId: (videoId) => publishedQueries.findByVideoId.get(videoId)
+    }
+  };
+}
 
