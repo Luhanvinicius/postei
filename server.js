@@ -67,15 +67,17 @@ app.use(fileUpload({
 // Vamos usar MemoryStore mas com aviso, ou considerar usar Redis/Upstash no futuro
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'change-this-secret-key',
-  resave: false,
+  resave: true, // Mudado para true no Vercel para garantir que salva
   saveUninitialized: false,
   name: 'sessionId', // Nome customizado para evitar conflitos
+  rolling: true, // Renovar cookie a cada requisição
   cookie: {
     secure: isVercel ? true : false, // HTTPS no Vercel
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 horas
-    sameSite: isVercel ? 'none' : 'lax', // Necessário para HTTPS no Vercel
-    path: '/'
+    sameSite: isVercel ? 'none' : 'lax', // Necessário para HTTPS no Vercel com cross-site
+    path: '/',
+    domain: undefined // Não definir domain para funcionar em todos os subdomínios do Vercel
   }
 };
 
