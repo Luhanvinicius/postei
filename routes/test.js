@@ -177,47 +177,43 @@ router.get('/debug-cookie', (req, res) => {
       console.error('Erro ao ler cookie:', err);
     }
     
+    // Informações básicas sobre cookies (sem substring que pode dar erro)
+    const cookieInfo = cookieValue ? {
+      exists: true,
+      type: typeof cookieValue,
+      length: cookieValue.length,
+      hasSignature: cookieValue.includes('.'),
+      preview: cookieValue.length > 50 ? cookieValue.substring(0, 50) + '...' : cookieValue
+    } : {
+      exists: false
+    };
+    
     const debug = {
-    timestamp: new Date().toISOString(),
-    environment: {
-      isVercel: process.env.VERCEL === '1' || !!process.env.VERCEL_ENV,
-      nodeEnv: process.env.NODE_ENV
-    },
-    cookies: {
-      all: req.cookies || {},
-      user_data: cookieValue ? {
-        exists: true,
-        type: typeof cookieValue,
-        length: cookieValue.length,
-        preview: cookieValue.substring(0, 100) + '...',
-        hasSignature: cookieValue.includes('.')
-      } : {
-        exists: false
+      timestamp: new Date().toISOString(),
+      environment: {
+        isVercel: !!(process.env.VERCEL || process.env.VERCEL_ENV),
+        nodeEnv: process.env.NODE_ENV || 'development'
       },
-      signedCookies: req.signedCookies || {}
-    },
-    headers: {
-      cookie: req.headers.cookie || 'não encontrado',
-      'user-agent': req.headers['user-agent'] || 'não encontrado'
-    },
-    authentication: {
-      userFromCookie: userFromCookie,
-      reqUser: req.user || null,
-      match: userFromCookie && req.user ? 
-        (userFromCookie.username === req.user.username) : false
-    },
-    session: {
-      exists: !!req.session,
-      user: req.session?.user || null
-    }
-  };
+      cookies: {
+        all: req.cookies || {},
+        user_data: cookieInfo,
+        signedCookies: req.signedCookies || {}
+      },
+      headers: {
+        cookie: req.headers.cookie || 'não encontrado'
+      },
+      authentication: {
+        userFromCookie: userFromCookie,
+        reqUser: req.user || null
+      },
+      session: {
+        exists: !!req.session,
+        user: req.session?.user || null
+      }
+    };
   
-  // Se for requisição com Accept: text/html, renderizar página HTML
-  if (req.headers.accept && req.headers.accept.includes('text/html')) {
-    res.render('test-debug', { debug });
-  } else {
+    // Retornar JSON sempre (mais simples e seguro)
     res.json(debug);
-  }
 });
 
 module.exports = router;
