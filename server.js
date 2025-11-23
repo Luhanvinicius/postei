@@ -146,8 +146,11 @@ const requireAuth = async (req, res, next) => {
     return next();
   }
   
-  // Verificar cookie de backup se a sessão não existir (principalmente no Vercel)
-  if (req.cookies && req.cookies.user_data) {
+  // Verificar cookie de backup se a sessão não existir (sempre, não só no Vercel)
+  // O cookie pode estar em req.cookies (não assinado) ou req.signedCookies (assinado)
+  const cookieValue = req.cookies?.user_data || req.signedCookies?.user_data;
+  
+  if (cookieValue) {
     try {
       console.log('🔍 Tentando restaurar sessão do cookie de backup...');
       const crypto = require('crypto');
