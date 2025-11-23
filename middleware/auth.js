@@ -1,126 +1,82 @@
-const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 
-const SECRET = process.env.SESSION_SECRET || 'change-this-secret-key';
-const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+const SECRET = process.env.SESSION_SECRET || process.env.JWT_SECRET || 'change-this-secret-key';
 
 /**
- * LÓGICA SIMPLES: 100% COOKIE
- * 1. Login cria cookie
- * 2. attachUser lê cookie em TODAS as requisições
- * 3. requireAuth verifica se tem req.user
+ * NOVA ABORDAGEM: JWT Tokens (sem cookies)
+ * 1. Login cria token JWT
+ * 2. Token é enviado via header Authorization
+ * 3. attachUser lê token do header
  */
 
 /**
- * Ler usuário do cookie
+ * Criar token JWT
  */
-const readAuthCookie = (req) => {
+const createToken = (user) => {
   try {
-    console.log('🔍 Lendo cookie...');
-    console.log('   req.cookies:', req.cookies ? Object.keys(req.cookies) : 'null');
+    const payload = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role
+    };
     
-    const cookieValue = req.cookies?.user_data;
-    
-    if (!cookieValue) {
-      console.log('   ❌ Cookie user_data não encontrado');
-      return null;
-    }
-
-    if (typeof cookieValue !== 'string') {
-      console.log('   ❌ Cookie não é string:', typeof cookieValue);
-      return null;
-    }
-
-    if (!cookieValue.includes('.')) {
-      console.log('   ❌ Cookie não tem assinatura (sem ponto)');
-      return null;
-    }
-
-    const [userData, signature] = cookieValue.split('.');
-    const expectedSignature = crypto.createHmac('sha256', SECRET).update(userData).digest('hex');
-    
-    if (signature !== expectedSignature) {
-      console.log('   ❌ Assinatura inválida');
-      console.log('      Recebida:', signature.substring(0, 20) + '...');
-      console.log('      Esperada:', expectedSignature.substring(0, 20) + '...');
-      return null;
-    }
-
-    const user = JSON.parse(userData);
-    console.log('   ✅ Cookie válido, usuário:', user.username);
-    return user;
+    const token = jwt.sign(payload, SECRET, { expiresIn: '24h' });
+    console.log('✅ Token JWT criado para:', user.username);
+    return token;
   } catch (err) {
-    console.error('   ❌ Erro ao ler cookie:', err.message);
+    console.error('❌ Erro ao criar token:', err);
     return null;
   }
 };
 
 /**
- * Criar cookie de autenticação
+ * Verificar e decodificar token JWT
  */
-const createAuthCookie = (res, user) => {
+const verifyToken = (token) => {
   try {
-    console.log('🍪 Criando cookie para:', user.username);
-    const userData = JSON.stringify({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role
-    });
+    if (!token) {
+      return null;
+    }
     
-    const signature = crypto.createHmac('sha256', SECRET).update(userData).digest('hex');
-    const signedData = `${userData}.${signature}`;
+    // Remover "Bearer " se presente
+    if (token.startsWith('Bearer ')) {
+      token = token.substring(7);
+    }
     
-    console.log('   Tamanho do cookie:', signedData.length);
-    console.log('   Ambiente Vercel:', isVercel);
-    
-    res.cookie('user_data', signedData, {
-      httpOnly: true,
-      secure: isVercel ? true : false,
-      sameSite: isVercel ? 'none' : 'lax',
-      maxAge: 24 * 60 * 60 * 1000,
-      path: '/'
-    });
-    
-    console.log('   ✅ Cookie criado com sucesso');
-    return true;
+    const decoded = jwt.verify(token, SECRET);
+    return decoded;
   } catch (err) {
-    console.error('❌ Erro ao criar cookie:', err);
-    return false;
+    return null;
   }
 };
 
 /**
- * Remover cookie
- */
-const clearAuthCookie = (res) => {
-  res.clearCookie('user_data', {
-    path: '/',
-    httpOnly: true,
-    secure: isVercel ? true : false,
-    sameSite: isVercel ? 'none' : 'lax'
-  });
-};
-
-/**
- * Middleware global: anexar usuário do cookie
+ * Middleware global: anexar usuário do token
  */
 const attachUser = (req, res, next) => {
-  // Log completo dos cookies recebidos
-  console.log('🔍 attachUser - Verificando cookies...');
-  console.log('   URL:', req.url);
-  console.log('   Method:', req.method);
-  console.log('   Cookies recebidos:', req.cookies ? Object.keys(req.cookies) : 'nenhum');
-  console.log('   Cookie user_data existe?', !!req.cookies?.user_data);
+  // Tentar pegar token do header Authorization
+  const authHeader = req.headers.authorization;
+  let user = null;
   
-  const user = readAuthCookie(req);
-  req.user = user;
-  
-  if (user) {
-    console.log('✅ Usuário anexado:', user.username, 'Role:', user.role);
-  } else {
-    console.log('⚠️  Nenhum usuário autenticado');
+  if (authHeader) {
+    user = verifyToken(authHeader);
+    if (user) {
+      console.log('✅ Usuário autenticado via token:', user.username);
+    }
   }
   
+  // Se não tiver token, tentar pegar do body (para formulários)
+  if (!user && req.body && req.body.token) {
+    user = verifyToken(req.body.token);
+  }
+  
+  // Se não tiver token, tentar pegar da query (fallback)
+  if (!user && req.query && req.query.token) {
+    user = verifyToken(req.query.token);
+  }
+  
+  req.user = user;
   next();
 };
 
@@ -128,15 +84,10 @@ const attachUser = (req, res, next) => {
  * Middleware: verificar autenticação
  */
 const requireAuth = (req, res, next) => {
-  console.log('🔒 requireAuth - Verificando autenticação...');
-  console.log('   req.user:', req.user ? req.user.username : 'null');
-  
   if (!req.user) {
-    console.log('   ❌ Não autenticado, redirecionando para login');
+    console.log('❌ Não autenticado - redirecionando para login');
     return res.redirect('/auth/login');
   }
-  
-  console.log('   ✅ Autenticado, permitindo acesso');
   next();
 };
 
@@ -145,6 +96,7 @@ const requireAuth = (req, res, next) => {
  */
 const requireAdmin = (req, res, next) => {
   if (!req.user || req.user.role !== 'admin') {
+    console.log('❌ Acesso negado - não é admin');
     return res.status(403).send('Acesso negado. Apenas administradores.');
   }
   next();
@@ -154,7 +106,6 @@ module.exports = {
   attachUser,
   requireAuth,
   requireAdmin,
-  createAuthCookie,
-  clearAuthCookie,
-  readAuthCookie
+  createToken,
+  verifyToken
 };

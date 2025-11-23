@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const router = express.Router();
 const { users } = require('../database');
-const { createAuthCookie, clearAuthCookie } = require('../middleware/auth');
+const { createToken } = require('../middleware/auth');
 
 // Login
 router.get('/login', (req, res) => {
@@ -36,7 +36,7 @@ router.post('/login', async (req, res) => {
       return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
     }
 
-    // Criar cookie
+    // Criar token JWT
     const userData = {
       id: user.id,
       username: user.username,
@@ -44,29 +44,19 @@ router.post('/login', async (req, res) => {
       role: user.role
     };
 
-    console.log('📝 Criando cookie para login...');
-    const cookieCreated = createAuthCookie(res, userData);
+    const token = createToken(userData);
     
-    if (!cookieCreated) {
-      console.error('❌ Falha ao criar cookie no login');
+    if (!token) {
+      console.error('❌ Falha ao criar token no login');
       return res.render('auth/login', { error: 'Erro ao criar sessão' });
     }
 
-    // IMPORTANTE: Verificar se o cookie foi realmente definido
-    console.log('🔍 Verificando se cookie foi definido na resposta...');
-    const setCookieHeader = res.getHeader('Set-Cookie');
-    if (setCookieHeader) {
-      console.log('✅ Set-Cookie header encontrado:', Array.isArray(setCookieHeader) ? setCookieHeader[0].substring(0, 50) + '...' : setCookieHeader.substring(0, 50) + '...');
-    } else {
-      console.error('❌ Set-Cookie header NÃO encontrado!');
-    }
-
-    // Redirecionar
+    // Redirecionar com token na query string
     const redirectUrl = user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
-    console.log('🔀 Redirecionando para:', redirectUrl);
+    console.log('🔀 Redirecionando para:', redirectUrl, 'com token');
     
-    // Usar redirect explícito
-    return res.redirect(302, redirectUrl);
+    // Redirecionar com token na query (o frontend vai salvar no localStorage)
+    return res.redirect(`${redirectUrl}?token=${token}`);
   } catch (error) {
     console.error('❌ Erro no login:', error);
     res.render('auth/login', { error: 'Erro ao fazer login' });
