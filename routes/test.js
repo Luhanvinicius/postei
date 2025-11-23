@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { users, configs } = require('../database');
 
-// Importar função de leitura de cookie
+// Importar função de leitura de cookie com tratamento de erro
 let readAuthCookie;
 try {
   const authMiddleware = require('../middleware/auth');
@@ -11,7 +11,6 @@ try {
   console.error('Erro ao importar middleware de auth:', err);
   readAuthCookie = () => null;
 }
-const { readAuthCookie } = require('../middleware/auth');
 
 // Página de teste de conexão
 router.get('/test', async (req, res) => {
@@ -165,56 +164,39 @@ router.post('/test-login', async (req, res) => {
   res.json(testResults);
 });
 
-// Rota de debug de cookies (JSON)
+// Rota de debug de cookies (JSON) - Versão ultra simplificada
 router.get('/debug-cookie', (req, res) => {
   try {
     const cookieValue = req.cookies?.user_data;
-    let userFromCookie = null;
-    
-    try {
-      userFromCookie = readAuthCookie ? readAuthCookie(req) : null;
-    } catch (err) {
-      console.error('Erro ao ler cookie:', err);
-    }
-    
-    // Informações básicas sobre cookies (sem substring que pode dar erro)
-    const cookieInfo = cookieValue ? {
-      exists: true,
-      type: typeof cookieValue,
-      length: cookieValue.length,
-      hasSignature: cookieValue.includes('.'),
-      preview: cookieValue.length > 50 ? cookieValue.substring(0, 50) + '...' : cookieValue
-    } : {
-      exists: false
-    };
     
     const debug = {
+      ok: true,
       timestamp: new Date().toISOString(),
-      environment: {
-        isVercel: !!(process.env.VERCEL || process.env.VERCEL_ENV),
-        nodeEnv: process.env.NODE_ENV || 'development'
-      },
-      cookies: {
-        all: req.cookies || {},
-        user_data: cookieInfo,
-        signedCookies: req.signedCookies || {}
-      },
-      headers: {
-        cookie: req.headers.cookie || 'não encontrado'
-      },
-      authentication: {
-        userFromCookie: userFromCookie,
-        reqUser: req.user || null
-      },
-      session: {
-        exists: !!req.session,
-        user: req.session?.user || null
-      }
+      cookieExists: !!cookieValue,
+      cookieType: cookieValue ? typeof cookieValue : null,
+      cookieLength: cookieValue ? cookieValue.length : 0,
+      hasSignature: cookieValue ? cookieValue.includes('.') : false,
+      reqUser: req.user ? {
+        username: req.user.username,
+        role: req.user.role
+      } : null,
+      sessionExists: !!req.session,
+      sessionUser: req.session?.user ? {
+        username: req.session.user.username,
+        role: req.session.user.role
+      } : null,
+      allCookies: Object.keys(req.cookies || {}),
+      cookieHeader: req.headers.cookie ? 'present' : 'missing'
     };
   
-    // Retornar JSON sempre (mais simples e seguro)
     res.json(debug);
+  } catch (error) {
+    res.status(500).json({ 
+      ok: false,
+      error: 'Internal Server Error', 
+      message: error.message
+    });
+  }
 });
 
 module.exports = router;
-
