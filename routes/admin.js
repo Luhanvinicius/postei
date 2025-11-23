@@ -3,9 +3,21 @@ const router = express.Router();
 const { users: userDB } = require('../database');
 
 // Dashboard admin
-router.get('/dashboard', (req, res) => {
+router.get('/dashboard', async (req, res) => {
   try {
-    const allUsers = userDB.getAll();
+    // O middleware requireAuth já garante que req.session.user existe
+    console.log('📊 Dashboard admin acessado por:', req.session.user.username);
+    
+    let allUsers;
+    try {
+      if (userDB.getAll.constructor.name === 'AsyncFunction') {
+        allUsers = await userDB.getAll();
+      } else {
+        allUsers = await Promise.resolve(userDB.getAll());
+      }
+    } catch (err) {
+      allUsers = userDB.getAll();
+    }
     
     // Log para debug - mostrar todos os usuários
     console.log(`📊 Total de usuários no banco: ${allUsers.length}`);
