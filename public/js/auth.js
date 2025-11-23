@@ -68,20 +68,41 @@ XMLHttpRequest.prototype.send = function(...args) {
   return originalSend.apply(this, args);
 };
 
-// Adicionar token em formulários via hidden input
+// Adicionar token em links e formulários
 document.addEventListener('DOMContentLoaded', function() {
   const token = getToken();
   if (token) {
+    // Adicionar token em todos os links internos
+    const links = document.querySelectorAll('a[href^="/"]');
+    links.forEach(link => {
+      link.addEventListener('click', function(e) {
+        const href = this.getAttribute('href');
+        if (href && !href.includes('token=')) {
+          const separator = href.includes('?') ? '&' : '?';
+          this.setAttribute('href', href + separator + 'token=' + encodeURIComponent(token));
+        }
+      });
+    });
+    
     // Adicionar token em todos os formulários
     const forms = document.querySelectorAll('form');
     forms.forEach(form => {
-      // Verificar se já não tem um input de token
+      // Adicionar token como hidden input
       if (!form.querySelector('input[name="token"]')) {
         const tokenInput = document.createElement('input');
         tokenInput.type = 'hidden';
         tokenInput.name = 'token';
         tokenInput.value = token;
         form.appendChild(tokenInput);
+      }
+      
+      // Ou adicionar na action URL se for GET
+      if (form.method.toUpperCase() === 'GET') {
+        const action = form.getAttribute('action') || '';
+        if (action && !action.includes('token=')) {
+          const separator = action.includes('?') ? '&' : '?';
+          form.setAttribute('action', action + separator + 'token=' + encodeURIComponent(token));
+        }
       }
     });
   }
