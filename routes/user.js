@@ -7,13 +7,40 @@ const { configs, schedules } = require('../database');
 const USER_CONFIGS_DIR = path.join(__dirname, '../user_configs');
 
 // Dashboard do usuário
-router.get('/dashboard', (req, res) => {
-  const userId = req.session.user.id;
+router.get('/dashboard', async (req, res) => {
+  // No Vercel, a sessão pode não persistir, então vamos verificar novamente
+  let userId;
+  if (req.session && req.session.user) {
+    userId = req.session.user.id;
+  } else {
+    // Se não tiver sessão, redirecionar para login
+    console.log('⚠️  Sessão não encontrada no dashboard, redirecionando...');
+    return res.redirect('/auth/login');
+  }
   
-  // Buscar estatísticas
+  // Buscar estatísticas (assíncrono no PostgreSQL)
   const { schedules, published } = require('../database');
-  const userSchedules = schedules.findByUserId(userId);
-  const userPublished = published.findByUserId(userId);
+  let userSchedules, userPublished;
+  
+  try {
+    if (schedules.findByUserId.constructor.name === 'AsyncFunction') {
+      userSchedules = await schedules.findByUserId(userId);
+    } else {
+      userSchedules = await Promise.resolve(schedules.findByUserId(userId));
+    }
+  } catch (err) {
+    userSchedules = schedules.findByUserId(userId);
+  }
+  
+  try {
+    if (published.findByUserId.constructor.name === 'AsyncFunction') {
+      userPublished = await published.findByUserId(userId);
+    } else {
+      userPublished = await Promise.resolve(published.findByUserId(userId));
+    }
+  } catch (err) {
+    userPublished = published.findByUserId(userId);
+  }
   
   // Calcular estatísticas
   const totalPublished = userPublished.length;
