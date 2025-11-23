@@ -581,7 +581,7 @@ router.get('/scheduled', (req, res) => {
   const userSchedules = schedules.findByUserId(userId);
   
   res.render('user/scheduled', {
-    user: req.session.user,
+    user: req.user,
     schedules: userSchedules
   });
 });
@@ -593,7 +593,7 @@ router.get('/published', (req, res) => {
   const userPublished = published.findByUserId(userId);
   
   res.render('user/published', {
-    user: req.session.user,
+    user: req.user,
     videos: userPublished
   });
 });
