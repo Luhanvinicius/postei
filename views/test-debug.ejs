@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug de Cookies - YouTube Automation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .status-box {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .status-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .status-error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .status-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">🔍 Debug de Cookies</h1>
+        
+        <!-- Ambiente -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>🌍 Ambiente</h3>
+            </div>
+            <div class="card-body">
+                <p><strong>Vercel:</strong> <%= debug.environment.isVercel ? '✅ Sim' : '❌ Não' %></p>
+                <p><strong>Node Env:</strong> <%= debug.environment.nodeEnv || 'development' %></p>
+                <p><strong>Timestamp:</strong> <%= debug.timestamp %></p>
+            </div>
+        </div>
+
+        <!-- Cookie user_data -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>🍪 Cookie user_data</h3>
+            </div>
+            <div class="card-body">
+                <% if (debug.cookies.user_data.exists) { %>
+                    <div class="status-box status-success">
+                        <h5>✅ Cookie encontrado!</h5>
+                        <p><strong>Tipo:</strong> <%= debug.cookies.user_data.type %></p>
+                        <p><strong>Tamanho:</strong> <%= debug.cookies.user_data.length %> caracteres</p>
+                        <p><strong>Tem assinatura:</strong> <%= debug.cookies.user_data.hasSignature ? '✅ Sim' : '❌ Não' %></p>
+                        <p><strong>Preview:</strong> <code><%= debug.cookies.user_data.preview %></code></p>
+                    </div>
+                <% } else { %>
+                    <div class="status-box status-error">
+                        <h5>❌ Cookie NÃO encontrado!</h5>
+                        <p>O cookie <code>user_data</code> não está presente na requisição.</p>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+
+        <!-- Autenticação -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>🔐 Autenticação</h3>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h5>Usuário do Cookie:</h5>
+                    <% if (debug.authentication.userFromCookie) { %>
+                        <div class="status-box status-success">
+                            <p><strong>Username:</strong> <%= debug.authentication.userFromCookie.username %></p>
+                            <p><strong>Email:</strong> <%= debug.authentication.userFromCookie.email %></p>
+                            <p><strong>Role:</strong> <%= debug.authentication.userFromCookie.role %></p>
+                        </div>
+                    <% } else { %>
+                        <div class="status-box status-error">
+                            <p>❌ Nenhum usuário encontrado no cookie</p>
+                        </div>
+                    <% } %>
+                </div>
+
+                <div class="mb-3">
+                    <h5>req.user (do middleware attachUser):</h5>
+                    <% if (debug.authentication.reqUser) { %>
+                        <div class="status-box status-success">
+                            <p><strong>Username:</strong> <%= debug.authentication.reqUser.username %></p>
+                            <p><strong>Email:</strong> <%= debug.authentication.reqUser.email %></p>
+                            <p><strong>Role:</strong> <%= debug.authentication.reqUser.role %></p>
+                        </div>
+                    <% } else { %>
+                        <div class="status-box status-error">
+                            <p>❌ req.user é null</p>
+                        </div>
+                    <% } %>
+                </div>
+
+                <div class="mb-3">
+                    <h5>Match:</h5>
+                    <% if (debug.authentication.match) { %>
+                        <div class="status-box status-success">
+                            <p>✅ Cookie e req.user correspondem!</p>
+                        </div>
+                    <% } else { %>
+                        <div class="status-box status-warning">
+                            <p>⚠️ Cookie e req.user NÃO correspondem ou um deles está null</p>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+
+        <!-- Todos os cookies -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>🍪 Todos os Cookies</h3>
+            </div>
+            <div class="card-body">
+                <pre><%= JSON.stringify(debug.cookies.all, null, 2) %></pre>
+            </div>
+        </div>
+
+        <!-- Headers -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>📋 Headers</h3>
+            </div>
+            <div class="card-body">
+                <p><strong>Cookie Header:</strong></p>
+                <pre><%= debug.headers.cookie %></pre>
+            </div>
+        </div>
+
+        <!-- JSON Completo -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>📄 JSON Completo</h3>
+            </div>
+            <div class="card-body">
+                <pre><%= JSON.stringify(debug, null, 2) %></pre>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <a href="/test/debug-cookie" class="btn btn-primary">🔄 Atualizar</a>
+            <a href="/auth/login" class="btn btn-secondary">🔐 Ir para Login</a>
+        </div>
+    </div>
+</body>
+</html>
+

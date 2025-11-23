@@ -155,7 +155,7 @@ router.post('/test-login', async (req, res) => {
   res.json(testResults);
 });
 
-// Rota de debug de cookies
+// Rota de debug de cookies (JSON)
 router.get('/debug-cookie', (req, res) => {
   const cookieValue = req.cookies?.user_data;
   const userFromCookie = readAuthCookie(req);
@@ -195,7 +195,12 @@ router.get('/debug-cookie', (req, res) => {
     }
   };
   
-  res.json(debug);
+  // Se for requisição com Accept: text/html, renderizar página HTML
+  if (req.headers.accept && req.headers.accept.includes('text/html')) {
+    res.render('test-debug', { debug });
+  } else {
+    res.json(debug);
+  }
 });
 
 module.exports = router;
