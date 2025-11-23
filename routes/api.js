@@ -19,7 +19,7 @@ router.post('/generate-content', async (req, res) => {
 router.post('/schedule-video', async (req, res) => {
   try {
     const { videoPath, scheduledTime, title, description } = req.body;
-    const userId = req.session.user.id;
+    const userId = req.user.id;
     
     const { schedules } = require('../database');
     const scheduleId = schedules.create(userId, videoPath, scheduledTime, title, description);
@@ -34,7 +34,7 @@ router.post('/schedule-video', async (req, res) => {
 // API para listar vídeos agendados
 router.get('/scheduled-videos', async (req, res) => {
   try {
-    const userId = req.session.user.id;
+    const userId = req.user.id;
     const { schedules } = require('../database');
     const videos = schedules.findByUserId(userId);
     

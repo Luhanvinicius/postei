@@ -5,8 +5,8 @@ const { users: userDB } = require('../database');
 // Dashboard admin
 router.get('/dashboard', async (req, res) => {
   try {
-    // O middleware requireAuth já garante que req.session.user existe
-    console.log('📊 Dashboard admin acessado por:', req.session.user.username);
+    // O middleware requireAuth já garante que req.user existe
+    console.log('📊 Dashboard admin acessado por:', req.user.username);
     
     let allUsers;
     try {
@@ -26,7 +26,7 @@ router.get('/dashboard', async (req, res) => {
     });
     
     res.render('admin/dashboard', {
-      user: req.session.user,
+      user: req.user,
       users: allUsers,
       totalUsers: allUsers.length,
       adminUsers: allUsers.filter(u => u.role === 'admin').length,
@@ -35,7 +35,7 @@ router.get('/dashboard', async (req, res) => {
   } catch (error) {
     console.error('Erro ao carregar dashboard:', error);
     res.render('admin/dashboard', {
-      user: req.session.user,
+      user: req.user,
       users: [],
       totalUsers: 0,
       adminUsers: 0,
@@ -49,13 +49,13 @@ router.get('/users', (req, res) => {
   try {
     const allUsers = userDB.getAll();
     res.render('admin/users', {
-      user: req.session.user,
+      user: req.user,
       users: allUsers
     });
   } catch (error) {
     console.error('Erro ao carregar usuários:', error);
     res.render('admin/users', {
-      user: req.session.user,
+      user: req.user,
       users: []
     });
   }

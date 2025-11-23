@@ -2,11 +2,15 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const router = express.Router();
 const { users } = require('../database');
+const { createAuthCookie, clearAuthCookie } = require('../middleware/auth');
 
 // Login
 router.get('/login', (req, res) => {
-  if (req.session && req.session.user) {
-    return res.redirect('/');
+  // Usar getAuthenticatedUser para verificar se já está logado
+  const { getAuthenticatedUser } = require('../middleware/auth');
+  if (getAuthenticatedUser(req)) {
+    const user = getAuthenticatedUser(req);
+    return res.redirect(user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard');
   }
   res.render('auth/login', { error: null });
 });
@@ -34,61 +38,26 @@ router.post('/login', async (req, res) => {
       return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
     }
 
-    console.log('✅ Senha correta! Criando sessão para:', username);
+    console.log('✅ Senha correta! Autenticando usuário:', username);
     
-    req.session.user = {
+    const userData = {
       id: user.id,
       username: user.username,
       email: user.email,
       role: user.role
     };
 
-    console.log('📝 Sessão criada:', req.session.user);
+    // Criar sessão (funciona localmente, mas não é crítico no Vercel)
+    if (req.session) {
+      req.session.user = userData;
+      // Salvar sessão em background (não bloquear)
+      req.session.save(() => {});
+    }
 
-    // No Vercel, SEMPRE salvar em cookie assinado como backup (para MemoryStore)
-    // Isso é crítico porque MemoryStore não persiste entre requisições no Vercel
-    const crypto = require('crypto');
-    const userData = JSON.stringify({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role
-    });
-    const secret = process.env.SESSION_SECRET || 'change-this-secret-key';
-    const signature = crypto.createHmac('sha256', secret).update(userData).digest('hex');
-    const signedData = `${userData}.${signature}`;
-    
-    // SEMPRE criar cookie de backup (crítico para Vercel onde MemoryStore não persiste)
-    // IMPORTANTE: Não usar signed: true aqui, porque vamos assinar manualmente
-    const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
-    res.cookie('user_data', signedData, {
-      httpOnly: true,
-      secure: isVercel ? true : false, // HTTPS no Vercel
-      sameSite: isVercel ? 'none' : 'lax', // Necessário para HTTPS no Vercel
-      maxAge: 24 * 60 * 60 * 1000, // 24 horas
-      path: '/',
-      signed: false // Não usar signed do cookie-parser, vamos assinar manualmente
-    });
-    console.log('🍪 Cookie de backup criado');
-    console.log('   Ambiente:', isVercel ? 'Vercel (HTTPS)' : 'Local');
-    console.log('   Tamanho:', signedData.length, 'caracteres');
+    // SEMPRE criar cookie (funciona no Vercel E localmente)
+    createAuthCookie(res, userData);
 
-    // Salvar sessão explicitamente (igual ao teste - usando await Promise)
-    await new Promise((resolve, reject) => {
-      req.session.save((err) => {
-        if (err) {
-          console.error('❌ Erro ao salvar sessão:', err);
-          reject(err);
-        } else {
-          console.log('✅ Sessão salva com sucesso!');
-          console.log('📝 Sessão ID:', req.sessionID);
-          console.log('👤 Role do usuário:', user.role);
-          resolve();
-        }
-      });
-    });
-
-    // Redirecionar após salvar (igual ao teste)
+    // Redirecionar imediatamente (não esperar sessão salvar)
     const redirectUrl = user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
     console.log('🔀 Redirecionando para:', redirectUrl);
     return res.redirect(redirectUrl);
@@ -171,7 +140,10 @@ router.post('/register', async (req, res) => {
 
 // Logout
 router.post('/logout', (req, res) => {
-  req.session.destroy();
+  if (req.session) {
+    req.session.destroy();
+  }
+  clearAuthCookie(res);
   res.redirect('/auth/login');
 });
 

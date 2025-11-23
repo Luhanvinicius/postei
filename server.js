@@ -11,7 +11,7 @@ require('dotenv').config();
 const db = require('./database');
 
 // Importar middlewares de autenticação (ANTES de usar)
-const { restoreSessionFromCookie, requireAuth, requireAdmin } = require('./middleware/auth');
+const { attachUser, requireAuth, requireAdmin } = require('./middleware/auth');
 
 // Garantir que o banco está inicializado antes de processar requisições
 let dbReady = false;
@@ -135,13 +135,14 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// Middleware global para restaurar sessão do cookie (DEPOIS do banco, ANTES das rotas)
-app.use(restoreSessionFromCookie);
+// Middleware global para anexar usuário (de sessão OU cookie) em req.user
+app.use(attachUser);
 
 // Rotas
 app.get('/', (req, res) => {
-  if (req.session && req.session.user) {
-    if (req.session.user.role === 'admin') {
+  // req.user está disponível via attachUser middleware
+  if (req.user) {
+    if (req.user.role === 'admin') {
       res.redirect('/admin/dashboard');
     } else {
       res.redirect('/user/dashboard');

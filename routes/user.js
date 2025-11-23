@@ -8,9 +8,9 @@ const USER_CONFIGS_DIR = path.join(__dirname, '../user_configs');
 
 // Dashboard do usuário
 router.get('/dashboard', async (req, res) => {
-  // O middleware requireAuth já garante que req.session.user existe
-  const userId = req.session.user.id;
-  console.log('📊 Dashboard acessado por:', req.session.user.username, 'ID:', userId);
+  // O middleware requireAuth já garante que req.user existe
+  const userId = req.user.id;
+  console.log('📊 Dashboard acessado por:', req.user.username, 'ID:', userId);
   
   // Buscar estatísticas (assíncrono no PostgreSQL)
   const { schedules, published } = require('../database');
@@ -64,7 +64,7 @@ router.get('/dashboard', async (req, res) => {
 
 // Página de vincular contas
 router.get('/accounts', (req, res) => {
-  const userId = req.session.user.id;
+  const userId = req.user.id;
   
   // Buscar configuração do banco
   const dbConfig = configs.findByUserId(userId);
@@ -82,7 +82,7 @@ router.get('/accounts', (req, res) => {
   }
 
   res.render('user/accounts', {
-    user: req.session.user,
+    user: req.user,
     hasConfig: !!userConfig,
     config: userConfig,
     query: req.query
@@ -95,7 +95,7 @@ router.post('/upload-config', async (req, res) => {
     return res.json({ success: false, error: 'Nenhum arquivo enviado' });
   }
 
-  const userId = req.session.user.id;
+  const userId = req.user.id;
   const configFile = req.files.configFile;
   const userConfigDir = path.join(USER_CONFIGS_DIR, `user_${userId}`);
   const userConfigPath = path.join(userConfigDir, 'client_secrets.json');
@@ -130,7 +130,7 @@ router.post('/upload-config', async (req, res) => {
 
 // Autenticar canal do YouTube
 router.post('/authenticate', async (req, res) => {
-  const userId = req.session.user.id;
+  const userId = req.user.id;
 
   try {
     const dbConfig = configs.findByUserId(userId);
@@ -184,7 +184,7 @@ router.post('/authenticate', async (req, res) => {
 // Callback do OAuth (GET) - Google redireciona aqui após autenticação
 router.get('/auth/callback', async (req, res) => {
   const { code, error } = req.query;
-  const userId = req.session.user.id;
+  const userId = req.user.id;
 
   if (error) {
     console.error('❌ Erro no OAuth:', error);
@@ -230,7 +230,7 @@ router.post('/upload-video', async (req, res) => {
     return res.json({ success: false, error: 'Nenhum vídeo enviado' });
   }
 
-  const userId = req.session.user.id;
+  const userId = req.user.id;
   const video = req.files.video;
   const videosDir = path.join(__dirname, '../videos', `user_${userId}`);
 
@@ -257,7 +257,7 @@ router.get('/test-gemini', (req, res) => {
 });
 
 router.get('/videos', (req, res) => {
-  const userId = req.session.user.id;
+  const userId = req.user.id;
   const dbConfig = configs.findByUserId(userId);
   
   res.render('user/videos', {
@@ -270,7 +270,7 @@ router.get('/videos', (req, res) => {
 router.post('/videos/save-folder', async (req, res) => {
   try {
     const { folderPath } = req.body;
-    const userId = req.session.user.id;
+    const userId = req.user.id;
     
     console.log('💾 Salvando pasta padrão:', folderPath, 'para usuário:', userId);
     
@@ -476,7 +476,7 @@ router.post('/videos/generate', async (req, res) => {
 router.post('/videos/publish', async (req, res) => {
   try {
     const { videoPath, title, description, thumbnail_path } = req.body;
-    const userId = req.session.user.id;
+    const userId = req.user.id;
 
     if (!videoPath || !fs.existsSync(videoPath)) {
       return res.json({ success: false, error: 'Vídeo não encontrado' });
@@ -540,7 +540,7 @@ router.post('/videos/publish', async (req, res) => {
 router.post('/videos/schedule', async (req, res) => {
   try {
     const { videoPath, scheduledTime, title, description } = req.body;
-    const userId = req.session.user.id;
+    const userId = req.user.id;
 
     if (!videoPath || !fs.existsSync(videoPath)) {
       return res.json({ success: false, error: 'Vídeo não encontrado' });
@@ -577,7 +577,7 @@ router.post('/videos/schedule', async (req, res) => {
 
 // Tela de vídeos agendados
 router.get('/scheduled', (req, res) => {
-  const userId = req.session.user.id;
+  const userId = req.user.id;
   const userSchedules = schedules.findByUserId(userId);
   
   res.render('user/scheduled', {
@@ -588,7 +588,7 @@ router.get('/scheduled', (req, res) => {
 
 // Tela de vídeos publicados
 router.get('/published', (req, res) => {
-  const userId = req.session.user.id;
+  const userId = req.user.id;
   const { published } = require('../database');
   const userPublished = published.findByUserId(userId);
   

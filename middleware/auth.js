@@ -1,23 +1,28 @@
 const crypto = require('crypto');
 
+const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+
 /**
- * Middleware global para restaurar sessão do cookie de backup
- * Deve ser aplicado ANTES do requireAuth
+ * NOVA ABORDAGEM: No Vercel, usar APENAS cookies (não depender de sessões)
+ * Localmente, usar sessões normais
  */
-const restoreSessionFromCookie = async (req, res, next) => {
-  // Se já tem sessão, não precisa restaurar
+
+/**
+ * Obter usuário autenticado (de sessão OU cookie)
+ */
+const getAuthenticatedUser = (req) => {
+  // 1. Tentar pegar da sessão (funciona localmente)
   if (req.session && req.session.user) {
-    return next();
+    return req.session.user;
   }
 
-  // Tentar restaurar do cookie de backup
+  // 2. No Vercel, pegar do cookie (não depender de sessão)
   const cookieValue = req.cookies?.user_data || req.signedCookies?.user_data;
   
   if (cookieValue) {
     try {
       if (!cookieValue.includes('.')) {
-        // Cookie inválido, continuar sem restaurar
-        return next();
+        return null;
       }
 
       const [userData, signature] = cookieValue.split('.');
@@ -26,62 +31,111 @@ const restoreSessionFromCookie = async (req, res, next) => {
       
       if (signature === expectedSignature) {
         const user = JSON.parse(userData);
-        
-        // Restaurar sessão do cookie
-        req.session.user = user;
-        
-        // Salvar a sessão restaurada
-        await new Promise((resolve, reject) => {
-          req.session.save((err) => {
-            if (err) {
-              console.error('❌ Erro ao salvar sessão restaurada:', err);
-              // Não bloquear, apenas logar o erro
-            }
-            resolve();
-          });
-        });
-        
-        console.log('✅ Sessão restaurada do cookie:', user.username);
+        // Também salvar na sessão para consistência
+        if (req.session) {
+          req.session.user = user;
+        }
+        return user;
       }
     } catch (err) {
-      // Erro ao restaurar, continuar sem bloquear
-      console.error('❌ Erro ao restaurar sessão do cookie:', err.message);
+      console.error('❌ Erro ao ler cookie:', err.message);
     }
   }
-  
+
+  return null;
+};
+
+/**
+ * Middleware global para garantir que req.user está disponível
+ */
+const attachUser = (req, res, next) => {
+  req.user = getAuthenticatedUser(req);
   next();
 };
 
 /**
- * Middleware para verificar se o usuário está autenticado
+ * Middleware para verificar autenticação
+ * Funciona tanto com sessão quanto com cookie
  */
-const requireAuth = async (req, res, next) => {
-  // Verificar se tem sessão (pode ter sido restaurada do cookie)
-  if (req.session && req.session.user) {
+const requireAuth = (req, res, next) => {
+  const user = getAuthenticatedUser(req);
+  
+  if (user) {
+    // Garantir que req.user está definido
+    req.user = user;
+    if (req.session) {
+      req.session.user = user;
+    }
     return next();
   }
   
-  // Se não tem sessão e não tem cookie, redirecionar para login
-  console.log('❌ Usuário não autenticado, redirecionando para login');
+  console.log('❌ Usuário não autenticado');
   return res.redirect('/auth/login');
 };
 
 /**
- * Middleware para verificar se o usuário é admin
- * Deve ser usado DEPOIS do requireAuth
+ * Middleware para verificar se é admin
  */
 const requireAdmin = (req, res, next) => {
-  if (req.session && req.session.user && req.session.user.role === 'admin') {
+  const user = getAuthenticatedUser(req);
+  
+  if (user && user.role === 'admin') {
+    req.user = user;
+    if (req.session) {
+      req.session.user = user;
+    }
     return next();
   }
   
-  console.log('❌ Acesso negado - usuário não é admin');
+  console.log('❌ Acesso negado - não é admin');
   res.status(403).send('Acesso negado. Apenas administradores.');
 };
 
-module.exports = {
-  restoreSessionFromCookie,
-  requireAuth,
-  requireAdmin
+/**
+ * Criar cookie de autenticação
+ */
+const createAuthCookie = (res, user) => {
+  const userData = JSON.stringify({
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    role: user.role
+  });
+  
+  const secret = process.env.SESSION_SECRET || 'change-this-secret-key';
+  const signature = crypto.createHmac('sha256', secret).update(userData).digest('hex');
+  const signedData = `${userData}.${signature}`;
+  
+  res.cookie('user_data', signedData, {
+    httpOnly: true,
+    secure: isVercel ? true : false,
+    sameSite: isVercel ? 'none' : 'lax',
+    maxAge: 24 * 60 * 60 * 1000, // 24 horas
+    path: '/',
+    signed: false
+  });
+  
+  console.log('🍪 Cookie de autenticação criado para:', user.username);
 };
 
+/**
+ * Remover cookie de autenticação
+ */
+const clearAuthCookie = (res) => {
+  res.clearCookie('user_data', {
+    path: '/',
+    httpOnly: true,
+    secure: isVercel ? true : false,
+    sameSite: isVercel ? 'none' : 'lax'
+  });
+  console.log('🍪 Cookie de autenticação removido');
+};
+
+module.exports = {
+  attachUser,
+  requireAuth,
+  requireAdmin,
+  createAuthCookie,
+  clearAuthCookie,
+  getAuthenticatedUser
+};
