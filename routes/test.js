@@ -83,7 +83,8 @@ router.post('/test-login', async (req, res) => {
     success: false,
     message: '',
     user: null,
-    session: null,
+    cookie: null,
+    redirect: null,
     errors: []
   };
 
@@ -125,31 +126,24 @@ router.post('/test-login', async (req, res) => {
       return res.json(testResults);
     }
 
-    // Criar sessão
-    req.session.user = {
+    // Criar cookie (mesma lógica do login normal)
+    const { createAuthCookie } = require('../middleware/auth');
+    const userData = {
       id: user.id,
       username: user.username,
       email: user.email,
       role: user.role
     };
 
-    // Salvar sessão
-    await new Promise((resolve, reject) => {
-      req.session.save((err) => {
-        if (err) {
-          testResults.errors.push('Erro ao salvar sessão: ' + err.message);
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
-
-    testResults.success = true;
-    testResults.message = 'Login realizado com sucesso!';
-    testResults.session = req.session.user;
-
-    console.log('✅ Login de teste bem-sucedido:', testResults.session);
+    if (createAuthCookie(res, userData)) {
+      testResults.success = true;
+      testResults.message = 'Login realizado com sucesso!';
+      testResults.cookie = 'Cookie criado';
+      testResults.redirect = user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
+      console.log('✅ Login de teste bem-sucedido, redirecionando para:', testResults.redirect);
+    } else {
+      testResults.errors.push('Erro ao criar cookie');
+    }
 
   } catch (error) {
     testResults.message = 'Erro durante teste: ' + error.message;

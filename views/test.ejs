@@ -174,9 +174,17 @@
                     resultDiv.innerHTML = `
                         <div class="alert alert-success">
                             <h5>✅ ${result.message}</h5>
+                            <p>Redirecionando para o dashboard...</p>
                             <pre>${JSON.stringify(result, null, 2)}</pre>
                         </div>
                     `;
+                    
+                    // Redirecionar para o dashboard
+                    if (result.redirect) {
+                        setTimeout(() => {
+                            window.location.href = result.redirect;
+                        }, 1000);
+                    }
                 } else {
                     resultDiv.innerHTML = `
                         <div class="alert alert-danger">
