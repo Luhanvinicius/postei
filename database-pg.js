@@ -326,18 +326,23 @@ const publishedQueries = {
 // Inicializar banco
 let initPromise = null;
 let isInitialized = false;
+let initError = null;
 
 function ensureInitialized() {
   if (!initPromise) {
     initPromise = initDatabase()
       .then(() => {
         isInitialized = true;
+        initError = null;
         console.log('✅ Banco de dados PostgreSQL inicializado com sucesso');
       })
       .catch((err) => {
         console.error('❌ Erro ao inicializar PostgreSQL:', err);
+        console.error('Stack:', err.stack);
         isInitialized = false;
-        throw err;
+        initError = err;
+        // Não relançar o erro, apenas logar
+        // Permite que o servidor continue funcionando
       });
   }
   return initPromise;

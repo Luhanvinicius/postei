@@ -98,13 +98,22 @@ app.use('/thumbnails', express.static(path.join(__dirname, 'thumbnails')));
 
 // Middleware para garantir que o banco está pronto
 app.use(async (req, res, next) => {
+  // Rotas estáticas não precisam do banco
+  if (req.path.startsWith('/thumbnails') || req.path.startsWith('/images') || req.path.startsWith('/css') || req.path.startsWith('/js')) {
+    return next();
+  }
+
   if (!dbReady && db.initDatabase) {
     try {
+      console.log('🔄 Inicializando banco de dados na primeira requisição...');
       await db.initDatabase();
       dbReady = true;
+      console.log('✅ Banco de dados pronto!');
     } catch (err) {
       console.error('❌ Erro ao inicializar banco na requisição:', err);
-      return res.status(500).send('Erro ao conectar com o banco de dados. Tente novamente em alguns segundos.');
+      console.error('Stack:', err.stack);
+      // Não bloquear a requisição, apenas logar o erro
+      // O banco pode estar inicializando em background
     }
   }
   next();
