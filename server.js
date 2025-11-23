@@ -6,6 +6,26 @@ const path = require('path');
 const fs = require('fs-extra');
 require('dotenv').config();
 
+// Inicializar banco de dados ANTES de carregar rotas
+const db = require('./database');
+
+// Garantir que o banco está inicializado antes de processar requisições
+let dbReady = false;
+if (db.initDatabase) {
+  db.initDatabase()
+    .then(() => {
+      dbReady = true;
+      console.log('✅ Banco de dados pronto');
+    })
+    .catch(err => {
+      console.error('❌ Erro ao inicializar banco de dados:', err);
+      // Não bloquear o servidor, mas logar o erro
+    });
+} else {
+  // SQLite inicializa síncronamente
+  dbReady = true;
+}
+
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/user');
@@ -75,6 +95,20 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Servir thumbnails
 app.use('/thumbnails', express.static(path.join(__dirname, 'thumbnails')));
+
+// Middleware para garantir que o banco está pronto
+app.use(async (req, res, next) => {
+  if (!dbReady && db.initDatabase) {
+    try {
+      await db.initDatabase();
+      dbReady = true;
+    } catch (err) {
+      console.error('❌ Erro ao inicializar banco na requisição:', err);
+      return res.status(500).send('Erro ao conectar com o banco de dados. Tente novamente em alguns segundos.');
+    }
+  }
+  next();
+});
 
 // Middleware de autenticação
 const requireAuth = (req, res, next) => {

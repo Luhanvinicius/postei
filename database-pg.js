@@ -2,19 +2,32 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 // Usar DATABASE_URL ou POSTGRES_URL (Vercel pode usar qualquer uma)
-const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.PRISMA_DATABASE_URL;
+// PRISMA_DATABASE_URL usa formato especial (prisma+postgres://), precisa converter
+let connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+
+// Se usar PRISMA_DATABASE_URL, extrair a URL real do PostgreSQL
+if (!connectionString && process.env.PRISMA_DATABASE_URL) {
+  const prismaUrl = process.env.PRISMA_DATABASE_URL;
+  // PRISMA_DATABASE_URL tem formato: prisma+postgres://accelerate.prisma-data.net/?api_key=...
+  // Precisamos usar DATABASE_URL ou POSTGRES_URL diretamente
+  console.warn('⚠️ PRISMA_DATABASE_URL detectada, mas precisa de DATABASE_URL ou POSTGRES_URL');
+  console.warn('⚠️ Use a URL direta do PostgreSQL (não a URL do Prisma Accelerate)');
+}
 
 if (!connectionString) {
-  console.error('❌ DATABASE_URL não encontrada nas variáveis de ambiente!');
-  throw new Error('DATABASE_URL é obrigatória');
+  console.error('❌ DATABASE_URL ou POSTGRES_URL não encontrada nas variáveis de ambiente!');
+  console.error('Variáveis disponíveis:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('POSTGRES')));
+  throw new Error('DATABASE_URL ou POSTGRES_URL é obrigatória');
 }
+
+console.log('📊 Usando connection string:', connectionString.substring(0, 20) + '...');
 
 const pool = new Pool({
   connectionString: connectionString,
   ssl: process.env.NODE_ENV === 'production' || process.env.VERCEL ? { rejectUnauthorized: false } : false,
   max: 20, // Máximo de conexões no pool
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 10000, // Aumentado para 10 segundos
 });
 
 // Testar conexão
@@ -28,8 +41,11 @@ pool.on('error', (err) => {
 
 // Criar tabelas
 async function initDatabase() {
-  const client = await pool.connect();
+  let client;
   try {
+    console.log('🔄 Tentando conectar ao PostgreSQL...');
+    client = await pool.connect();
+    console.log('✅ Conexão com PostgreSQL estabelecida');
     // Tabela de usuários
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -109,9 +125,15 @@ async function initDatabase() {
     console.log('✅ Banco de dados PostgreSQL inicializado');
   } catch (error) {
     console.error('❌ Erro ao inicializar banco de dados:', error);
+    console.error('Stack:', error.stack);
+    if (error.code) {
+      console.error('Código do erro:', error.code);
+    }
     throw error;
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
   }
 }
 
@@ -288,12 +310,28 @@ const publishedQueries = {
 
 // Inicializar banco
 let initPromise = null;
+let isInitialized = false;
+
 function ensureInitialized() {
   if (!initPromise) {
-    initPromise = initDatabase();
+    initPromise = initDatabase()
+      .then(() => {
+        isInitialized = true;
+        console.log('✅ Banco de dados PostgreSQL inicializado com sucesso');
+      })
+      .catch((err) => {
+        console.error('❌ Erro ao inicializar PostgreSQL:', err);
+        isInitialized = false;
+        throw err;
+      });
   }
   return initPromise;
 }
+
+// Inicializar imediatamente (não esperar)
+ensureInitialized().catch(err => {
+  console.error('❌ Falha na inicialização do banco:', err);
+});
 
 module.exports = {
   pool,
