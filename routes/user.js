@@ -8,15 +8,9 @@ const USER_CONFIGS_DIR = path.join(__dirname, '../user_configs');
 
 // Dashboard do usuário
 router.get('/dashboard', async (req, res) => {
-  // No Vercel, a sessão pode não persistir, então vamos verificar novamente
-  let userId;
-  if (req.session && req.session.user) {
-    userId = req.session.user.id;
-  } else {
-    // Se não tiver sessão, redirecionar para login
-    console.log('⚠️  Sessão não encontrada no dashboard, redirecionando...');
-    return res.redirect('/auth/login');
-  }
+  // O middleware requireAuth já garante que req.session.user existe
+  const userId = req.session.user.id;
+  console.log('📊 Dashboard acessado por:', req.session.user.username, 'ID:', userId);
   
   // Buscar estatísticas (assíncrono no PostgreSQL)
   const { schedules, published } = require('../database');

@@ -133,12 +133,13 @@ app.use(async (req, res, next) => {
 });
 
 // Middleware de autenticação
-const requireAuth = (req, res, next) => {
+const requireAuth = async (req, res, next) => {
   console.log('🔒 Verificando autenticação...');
   console.log('📝 Session ID:', req.sessionID);
   console.log('👤 Session user:', req.session?.user);
+  console.log('🍪 Cookies recebidos:', Object.keys(req.cookies || {}));
   
-  // Verificar sessão normal
+  // Verificar sessão normal primeiro
   if (req.session && req.session.user) {
     console.log('✅ Usuário autenticado via sessão:', req.session.user.username);
     return next();
@@ -147,26 +148,51 @@ const requireAuth = (req, res, next) => {
   // No Vercel, verificar cookie de backup se a sessão não existir
   if ((process.env.VERCEL || process.env.VERCEL_ENV) && req.cookies && req.cookies.user_data) {
     try {
-      const cookie = require('cookie');
+      console.log('🔍 Tentando restaurar sessão do cookie de backup...');
       const crypto = require('crypto');
       const signedData = req.cookies.user_data;
-      const [userData, signature] = signedData.split('.');
-      const secret = process.env.SESSION_SECRET || 'change-this-secret-key';
-      const expectedSignature = crypto.createHmac('sha256', secret).update(userData).digest('hex');
       
-      if (signature === expectedSignature) {
-        const user = JSON.parse(userData);
-        req.session.user = user; // Restaurar sessão do cookie
-        console.log('✅ Usuário autenticado via cookie de backup:', user.username);
-        return next();
+      if (!signedData || !signedData.includes('.')) {
+        console.log('⚠️  Cookie de backup inválido (sem assinatura)');
+      } else {
+        const [userData, signature] = signedData.split('.');
+        const secret = process.env.SESSION_SECRET || 'change-this-secret-key';
+        const expectedSignature = crypto.createHmac('sha256', secret).update(userData).digest('hex');
+        
+        if (signature === expectedSignature) {
+          const user = JSON.parse(userData);
+          // Restaurar sessão do cookie
+          req.session.user = user;
+          
+          // Salvar a sessão restaurada
+          await new Promise((resolve, reject) => {
+            req.session.save((err) => {
+              if (err) {
+                console.error('❌ Erro ao salvar sessão restaurada:', err);
+                reject(err);
+              } else {
+                console.log('✅ Sessão restaurada do cookie e salva:', user.username);
+                resolve();
+              }
+            });
+          });
+          
+          console.log('✅ Usuário autenticado via cookie de backup:', user.username);
+          return next();
+        } else {
+          console.log('⚠️  Assinatura do cookie inválida');
+        }
       }
     } catch (err) {
       console.error('❌ Erro ao verificar cookie de backup:', err);
+      console.error('Stack:', err.stack);
     }
+  } else {
+    console.log('⚠️  Cookie de backup não encontrado');
   }
   
   console.log('❌ Usuário não autenticado, redirecionando para login');
-  res.redirect('/auth/login');
+  return res.redirect('/auth/login');
 };
 
 const requireAdmin = (req, res, next) => {
