@@ -157,14 +157,42 @@ router.post('/test-login', async (req, res) => {
 
 // Rota de debug de cookies
 router.get('/debug-cookie', (req, res) => {
+  const cookieValue = req.cookies?.user_data;
+  const userFromCookie = readAuthCookie(req);
+  
   const debug = {
-    cookies: req.cookies || {},
-    signedCookies: req.signedCookies || {},
-    headers: {
-      cookie: req.headers.cookie || 'não encontrado'
+    timestamp: new Date().toISOString(),
+    environment: {
+      isVercel: process.env.VERCEL === '1' || !!process.env.VERCEL_ENV,
+      nodeEnv: process.env.NODE_ENV
     },
-    userFromCookie: readAuthCookie(req),
-    reqUser: req.user || null
+    cookies: {
+      all: req.cookies || {},
+      user_data: cookieValue ? {
+        exists: true,
+        type: typeof cookieValue,
+        length: cookieValue.length,
+        preview: cookieValue.substring(0, 100) + '...',
+        hasSignature: cookieValue.includes('.')
+      } : {
+        exists: false
+      },
+      signedCookies: req.signedCookies || {}
+    },
+    headers: {
+      cookie: req.headers.cookie || 'não encontrado',
+      'user-agent': req.headers['user-agent'] || 'não encontrado'
+    },
+    authentication: {
+      userFromCookie: userFromCookie,
+      reqUser: req.user || null,
+      match: userFromCookie && req.user ? 
+        (userFromCookie.username === req.user.username) : false
+    },
+    session: {
+      exists: !!req.session,
+      user: req.session?.user || null
+    }
   };
   
   res.json(debug);
