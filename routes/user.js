@@ -51,7 +51,7 @@ router.get('/dashboard', async (req, res) => {
   }).length;
 
   res.render('user/dashboard', {
-    user: req.session.user,
+    user: req.user,
     stats: {
       totalPublished,
       totalScheduled,
@@ -261,7 +261,7 @@ router.get('/videos', (req, res) => {
   const dbConfig = configs.findByUserId(userId);
   
   res.render('user/videos', {
-    user: req.session.user,
+    user: req.user,
     defaultFolder: dbConfig?.default_video_folder || null
   });
 });
