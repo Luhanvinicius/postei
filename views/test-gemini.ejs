@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Gemini - Geração de Conteúdo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .thumbnail-preview {
+            max-width: 100%;
+            max-height: 400px;
+            border: 3px solid #ddd;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .log-area {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .log-success { color: #4ec9b0; }
+        .log-error { color: #f48771; }
+        .log-info { color: #569cd6; }
+        .log-warning { color: #dcdcaa; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1 class="mb-4">🧪 Teste de Geração com Gemini</h1>
+        
+        <div class="mb-4">
+            <label class="form-label fw-bold">Caminho do Vídeo ou Pasta:</label>
+            <div class="input-group">
+                <input type="text" class="form-control" id="videoPath" placeholder="Ex: F:\isauro\videos\video.mp4 ou F:\isauro\videos">
+                <button class="btn btn-primary" onclick="testGenerate()">🚀 Gerar Conteúdo</button>
+            </div>
+            <small class="text-muted">Cole o caminho completo do vídeo OU da pasta (se for pasta, será usado o primeiro vídeo encontrado)</small>
+        </div>
+
+        <div id="loading" style="display: none;" class="text-center mb-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Gerando...</span>
+            </div>
+            <p class="mt-2">⏳ Gerando título, descrição e thumbnail...</p>
+        </div>
+
+        <div id="results" style="display: none;">
+            <h3 class="mb-3">✅ Resultado:</h3>
+            
+            <div class="mb-3">
+                <label class="form-label fw-bold">📸 Thumbnail:</label>
+                <div id="thumbnailContainer">
+                    <img id="thumbnailImg" src="" alt="Thumbnail" class="thumbnail-preview" style="display: none;">
+                    <div id="thumbnailError" class="alert alert-warning" style="display: none;">
+                        ⚠️ Thumbnail não foi gerado ou não pôde ser carregado
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">Caminho: <span id="thumbnailPath"></span></small>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">📝 Título:</label>
+                <input type="text" class="form-control" id="resultTitle" readonly>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">📄 Descrição:</label>
+                <textarea class="form-control" id="resultDescription" rows="5" readonly></textarea>
+            </div>
+        </div>
+
+        <div class="log-area" id="logArea">
+            <div class="log-info">📋 Logs aparecerão aqui...</div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function addLog(message, type = 'info') {
+            const logArea = document.getElementById('logArea');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logArea.appendChild(logEntry);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        async function testGenerate() {
+            const videoPath = document.getElementById('videoPath').value.trim();
+            
+            if (!videoPath) {
+                alert('Por favor, digite o caminho do vídeo');
+                return;
+            }
+
+            // Limpar resultados anteriores
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('logArea').innerHTML = '';
+            
+            addLog('🚀 Iniciando teste de geração...', 'info');
+            addLog(`📁 Caminho do vídeo: ${videoPath}`, 'info');
+
+            try {
+                // Timeout de 5 minutos (300 segundos) para processamento de vídeo
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutos
+                
+                addLog('📤 Enviando requisição para o servidor...', 'info');
+                
+                const response = await fetch('/user/videos/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ videoPath }),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    addLog(`❌ Erro HTTP ${response.status}: ${errorText}`, 'error');
+                    throw new Error(`Erro ${response.status}: ${errorText}`);
+                }
+
+                const data = await response.json();
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('results').style.display = 'block';
+
+                addLog('✅ Resposta recebida do servidor', 'success');
+                addLog(`📦 Dados: ${JSON.stringify(data, null, 2)}`, 'info');
+
+                if (data.success) {
+                    addLog('✅ Geração bem-sucedida!', 'success');
+                    
+                    // Preencher título e descrição
+                    document.getElementById('resultTitle').value = data.title || 'N/A';
+                    document.getElementById('resultDescription').value = data.description || 'N/A';
+                    
+                    addLog(`📝 Título: ${data.title}`, 'success');
+                    addLog(`📄 Descrição: ${data.description?.substring(0, 50)}...`, 'success');
+
+                    // Processar thumbnail - usar diretamente a URL retornada pelo backend
+                    const thumbnailImg = document.getElementById('thumbnailImg');
+                    const thumbnailError = document.getElementById('thumbnailError');
+                    const thumbnailPath = document.getElementById('thumbnailPath');
+                    
+                    if (data.thumbnail_path) {
+                        addLog(`📸 Thumbnail path recebido: ${data.thumbnail_path}`, 'info');
+                        
+                        // O backend já retorna a URL relativa correta (/thumbnails/nome_arquivo.jpg)
+                        const thumbnailUrl = data.thumbnail_path;
+                        
+                        addLog(`🔗 Thumbnail URL: ${thumbnailUrl}`, 'info');
+                        
+                        thumbnailPath.textContent = thumbnailUrl;
+                        
+                        // Limpar src anterior para forçar recarregamento
+                        thumbnailImg.src = '';
+                        
+                        // Configurar handlers ANTES de definir o src
+                        thumbnailImg.onload = function() {
+                            addLog('✅ Thumbnail carregado com sucesso!', 'success');
+                            console.log('✅ Thumbnail carregado:', thumbnailUrl);
+                            this.style.display = 'block';
+                            thumbnailError.style.display = 'none';
+                        };
+                        
+                        thumbnailImg.onerror = function() {
+                            addLog(`❌ Erro ao carregar thumbnail: ${thumbnailUrl}`, 'error');
+                            console.error('❌ Erro ao carregar thumbnail:', thumbnailUrl);
+                            console.error('   URL tentada:', this.src);
+                            this.style.display = 'none';
+                            thumbnailError.style.display = 'block';
+                        };
+                        
+                        // Definir src com timestamp para evitar cache
+                        thumbnailImg.src = thumbnailUrl + '?t=' + Date.now();
+                        thumbnailImg.style.display = 'block';
+                        thumbnailError.style.display = 'none';
+                    } else {
+                        addLog('⚠️ Nenhum thumbnail retornado (thumbnail_path é null)', 'warning');
+                        thumbnailImg.style.display = 'none';
+                        thumbnailError.style.display = 'block';
+                        thumbnailPath.textContent = 'N/A';
+                    }
+                } else {
+                    addLog(`❌ Erro: ${data.error || 'Erro desconhecido'}`, 'error');
+                    alert(`Erro: ${data.error || 'Erro desconhecido'}`);
+                }
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                
+                let errorMessage = error.message;
+                if (error.name === 'AbortError') {
+                    errorMessage = 'Timeout: A requisição demorou mais de 5 minutos. O vídeo pode ser muito grande ou o servidor está lento.';
+                } else if (error.message.includes('Failed to fetch')) {
+                    errorMessage = 'Erro de conexão: Verifique se o servidor está rodando e acessível.';
+                }
+                
+                addLog(`❌ Erro na requisição: ${errorMessage}`, 'error');
+                console.error('Erro completo:', error);
+                alert(`Erro: ${errorMessage}\n\nVerifique o console do servidor para mais detalhes.`);
+            }
+        }
+
+        // Permitir Enter no input
+        document.getElementById('videoPath').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                testGenerate();
+            }
+        });
+    </script>
+</body>
+</html>
+

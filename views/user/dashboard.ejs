@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - YouTube Automation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">📹 YouTube Automation</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link active" href="/user/dashboard">Dashboard</a>
+                <a class="nav-link" href="/user/accounts">Vincular Contas</a>
+                <a class="nav-link" href="/user/videos">Vídeos</a>
+                <a class="nav-link" href="/user/scheduled">Agendados</a>
+                <a class="nav-link" href="/user/published">Publicados</a>
+                <span class="navbar-text me-3">Olá, <strong><%= user.username %></strong></span>
+                <form action="/auth/logout" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-link nav-link text-white">Sair</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4">📊 Dashboard</h1>
+            </div>
+        </div>
+
+        <!-- Cards de Estatísticas -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">📤 Total Publicados</h5>
+                        <h2 class="text-primary"><%= stats.totalPublished %></h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">📅 Total Agendados</h5>
+                        <h2 class="text-warning"><%= stats.totalScheduled %></h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">⏳ Pendentes</h5>
+                        <h2 class="text-info"><%= stats.pendingScheduled %></h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">📆 Publicados Hoje</h5>
+                        <h2 class="text-success"><%= stats.publishedToday %></h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráfico -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">📈 Estatísticas</h5>
+                        <canvas id="statsChart" height="100"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Como Usar -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">📖 Como Usar a Plataforma</h5>
+                        <div class="mt-3">
+                            <h6>1. Vincular Conta do YouTube</h6>
+                            <p class="text-muted">
+                                Acesse a página <strong>"Vincular Contas"</strong> e faça upload do arquivo <code>client_secrets.json</code> 
+                                obtido no Google Cloud Console. Em seguida, clique em "Autenticar Canal" para vincular sua conta do YouTube.
+                            </p>
+
+                            <h6 class="mt-4">2. Selecionar Pasta de Vídeos</h6>
+                            <p class="text-muted">
+                                Na página <strong>"Vídeos"</strong>, selecione a pasta que contém seus vídeos. Você pode escolher a pasta 
+                                diretamente ou digitar o caminho manualmente. A pasta será salva como padrão para uso futuro.
+                            </p>
+
+                            <h6 class="mt-4">3. Gerar Conteúdo com IA</h6>
+                            <p class="text-muted">
+                                Para cada vídeo, você pode clicar em <strong>"Gerar com IA"</strong> para criar automaticamente um título 
+                                e descrição baseados no conteúdo visual do vídeo usando o Google Gemini.
+                            </p>
+
+                            <h6 class="mt-4">4. Publicar ou Agendar</h6>
+                            <p class="text-muted">
+                                Você pode <strong>"Publicar Agora"</strong> para enviar o vídeo imediatamente ao YouTube, ou 
+                                <strong>"Agendar"</strong> para definir uma data e hora específica para publicação automática.
+                            </p>
+
+                            <h6 class="mt-4">5. Acompanhar Publicações</h6>
+                            <p class="text-muted">
+                                Use as páginas <strong>"Agendados"</strong> e <strong>"Publicados"</strong> para acompanhar o status 
+                                de seus vídeos e acessar os links diretos no YouTube.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Gráfico de estatísticas
+        const ctx = document.getElementById('statsChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Total Publicados', 'Total Agendados', 'Pendentes', 'Publicados Hoje'],
+                datasets: [{
+                    label: 'Estatísticas',
+                    data: [
+                        <%= stats.totalPublished %>,
+                        <%= stats.totalScheduled %>,
+                        <%= stats.pendingScheduled %>,
+                        <%= stats.publishedToday %>
+                    ],
+                    backgroundColor: [
+                        'rgba(54, 162, 235, 0.6)',
+                        'rgba(255, 206, 86, 0.6)',
+                        'rgba(75, 192, 192, 0.6)',
+                        'rgba(153, 102, 255, 0.6)'
+                    ],
+                    borderColor: [
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

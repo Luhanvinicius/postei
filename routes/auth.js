@@ -1,0 +1,117 @@
+const express = require('express');
+const bcrypt = require('bcryptjs');
+const router = express.Router();
+const { users } = require('../database');
+
+// Login
+router.get('/login', (req, res) => {
+  if (req.session && req.session.user) {
+    return res.redirect('/');
+  }
+  res.render('auth/login', { error: null });
+});
+
+router.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
+    const user = users.findByUsername(username);
+
+    if (!user) {
+      return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
+    }
+
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role
+    };
+
+    // Salvar sessão explicitamente
+    req.session.save((err) => {
+      if (err) {
+        console.error('Erro ao salvar sessão:', err);
+        return res.render('auth/login', { error: 'Erro ao fazer login' });
+      }
+
+      if (user.role === 'admin') {
+        res.redirect('/admin/dashboard');
+      } else {
+        res.redirect('/user/dashboard');
+      }
+    });
+  } catch (error) {
+    console.error('Erro no login:', error);
+    res.render('auth/login', { error: 'Erro ao fazer login' });
+  }
+});
+
+// Registro (apenas para criar usuários normais)
+router.get('/register', (req, res) => {
+  res.render('auth/register', { error: null });
+});
+
+router.post('/register', async (req, res) => {
+  const { username, email, password, confirmPassword } = req.body;
+
+  if (password !== confirmPassword) {
+    return res.render('auth/register', { error: 'Senhas não coincidem' });
+  }
+
+  try {
+    // Verificar se usuário já existe
+    const existingUser = users.findByUsername(username);
+    if (existingUser) {
+      return res.render('auth/register', { error: 'Usuário ou email já existe' });
+    }
+
+    // Verificar se email já existe
+    const existingByEmail = users.findByEmail(email);
+    if (existingByEmail) {
+      return res.render('auth/register', { error: 'Email já está em uso' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Tentar criar com tratamento de erro
+    let userId;
+    try {
+      userId = users.create(username, email, hashedPassword, 'user');
+    } catch (createError) {
+      if (createError.message && createError.message.includes('UNIQUE constraint')) {
+        if (createError.message.includes('email')) {
+          return res.render('auth/register', { error: 'Email já está em uso' });
+        } else if (createError.message.includes('username')) {
+          return res.render('auth/register', { error: 'Nome de usuário já existe' });
+        }
+      }
+      throw createError;
+    }
+
+    // Verificar se foi criado corretamente
+    const createdUser = users.findById(userId);
+    if (!createdUser) {
+      return res.render('auth/register', { error: 'Erro ao criar conta. Tente novamente.' });
+    }
+
+    res.redirect('/auth/login?registered=true');
+  } catch (error) {
+    console.error('Erro no registro:', error);
+    res.render('auth/register', { error: 'Erro ao criar conta: ' + error.message });
+  }
+});
+
+// Logout
+router.post('/logout', (req, res) => {
+  req.session.destroy();
+  res.redirect('/auth/login');
+});
+
+module.exports = router;
+

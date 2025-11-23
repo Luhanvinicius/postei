@@ -1,0 +1,24 @@
+<svg width="400" height="120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#9333ea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ec4899;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a0d2e;stop-opacity:1" />
+      <stop offset="66%" style="stop-color:#1a0d2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b2be2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background with gradient -->
+  <rect width="400" height="120" fill="url(#bgGradient)"/>
+  
+  <!-- White line at top -->
+  <line x1="0" y1="0" x2="400" y2="0" stroke="white" stroke-width="2"/>
+  
+  <!-- Text POSTEI AUTOMAÇÕES centered -->
+  <text x="200" y="70" font-family="'Segoe UI', Arial, sans-serif" font-size="32" font-weight="bold" text-anchor="middle" fill="url(#textGradient)" letter-spacing="2px">POSTEI AUTOMAÇÕES</text>
+</svg>
+

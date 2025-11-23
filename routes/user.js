@@ -1,0 +1,581 @@
+const express = require('express');
+const path = require('path');
+const fs = require('fs-extra');
+const router = express.Router();
+const { configs, schedules } = require('../database');
+
+const USER_CONFIGS_DIR = path.join(__dirname, '../user_configs');
+
+// Dashboard do usuário
+router.get('/dashboard', (req, res) => {
+  const userId = req.session.user.id;
+  
+  // Buscar estatísticas
+  const { schedules, published } = require('../database');
+  const userSchedules = schedules.findByUserId(userId);
+  const userPublished = published.findByUserId(userId);
+  
+  // Calcular estatísticas
+  const totalPublished = userPublished.length;
+  const totalScheduled = userSchedules.length;
+  const pendingScheduled = userSchedules.filter(s => s.status === 'pending').length;
+  
+  // Publicados hoje
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const publishedToday = userPublished.filter(v => {
+    const publishedDate = new Date(v.published_at);
+    publishedDate.setHours(0, 0, 0, 0);
+    return publishedDate.getTime() === today.getTime();
+  }).length;
+
+  res.render('user/dashboard', {
+    user: req.session.user,
+    stats: {
+      totalPublished,
+      totalScheduled,
+      pendingScheduled,
+      publishedToday
+    },
+    query: req.query
+  });
+});
+
+// Página de vincular contas
+router.get('/accounts', (req, res) => {
+  const userId = req.session.user.id;
+  
+  // Buscar configuração do banco
+  const dbConfig = configs.findByUserId(userId);
+  
+  let userConfig = null;
+  if (dbConfig) {
+    userConfig = {
+      configPath: dbConfig.config_path,
+      uploadedAt: dbConfig.uploaded_at,
+      channelId: dbConfig.channel_id,
+      channelName: dbConfig.channel_name,
+      isAuthenticated: dbConfig.is_authenticated === 1,
+      authenticatedAt: dbConfig.authenticated_at
+    };
+  }
+
+  res.render('user/accounts', {
+    user: req.session.user,
+    hasConfig: !!userConfig,
+    config: userConfig,
+    query: req.query
+  });
+});
+
+// Upload de configuração do YouTube
+router.post('/upload-config', async (req, res) => {
+  if (!req.files || !req.files.configFile) {
+    return res.json({ success: false, error: 'Nenhum arquivo enviado' });
+  }
+
+  const userId = req.session.user.id;
+  const configFile = req.files.configFile;
+  const userConfigDir = path.join(USER_CONFIGS_DIR, `user_${userId}`);
+  const userConfigPath = path.join(userConfigDir, 'client_secrets.json');
+
+  try {
+    // Criar diretório do usuário
+    fs.ensureDirSync(userConfigDir);
+
+    // Validar se é um JSON válido
+    try {
+      const fileContent = configFile.data.toString('utf8');
+      JSON.parse(fileContent);
+    } catch (parseError) {
+      return res.json({ success: false, error: 'Arquivo JSON inválido. Verifique o formato do arquivo.' });
+    }
+
+    // Salvar arquivo (substitui o anterior se existir)
+    await configFile.mv(userConfigPath);
+
+    // Salvar no banco de dados
+    configs.upsert(userId, userConfigPath);
+
+    res.json({ 
+      success: true, 
+      message: 'Configuração atualizada com sucesso! Agora você pode autenticar seu canal.' 
+    });
+  } catch (error) {
+    console.error('Erro ao fazer upload:', error);
+    res.json({ success: false, error: 'Erro ao fazer upload do arquivo: ' + error.message });
+  }
+});
+
+// Autenticar canal do YouTube
+router.post('/authenticate', async (req, res) => {
+  const userId = req.session.user.id;
+
+  try {
+    const dbConfig = configs.findByUserId(userId);
+    if (!dbConfig || !dbConfig.config_path) {
+      return res.json({ success: false, error: 'Configure primeiro seu arquivo de credenciais' });
+    }
+
+    const { authenticateYouTube } = require('../services/youtube-auth');
+    const authResult = await authenticateYouTube(userId, dbConfig.config_path);
+    
+    if (authResult.success) {
+      // Atualizar no banco
+      configs.updateAuth(
+        userId,
+        true,
+        authResult.channelId,
+        authResult.channelName,
+        authResult.refreshToken || dbConfig.refresh_token,
+        authResult.accessToken || dbConfig.access_token
+      );
+
+      res.json({ 
+        success: true, 
+        message: 'Canal autenticado com sucesso!',
+        channelName: authResult.channelName
+      });
+    } else if (authResult.needsAuth && authResult.authUrl) {
+      // Precisa autenticar - redirecionar para OAuth
+      console.log('🔗 Redirecionando para autenticação OAuth');
+      console.log('🔗 Redirect URI:', authResult.redirectUri);
+      res.json({ 
+        success: false, 
+        needsAuth: true,
+        authUrl: authResult.authUrl,
+        redirectUri: authResult.redirectUri,
+        message: `IMPORTANTE: Configure o redirect_uri "${authResult.redirectUri}" no Google Cloud Console antes de autenticar!`
+      });
+    } else {
+      console.error('❌ Erro na autenticação:', authResult.error);
+      res.json({ 
+        success: false, 
+        error: authResult.error || 'Erro ao autenticar. Verifique o console do servidor para mais detalhes.' 
+      });
+    }
+  } catch (error) {
+    console.error('❌ Erro na autenticação:', error);
+    res.json({ success: false, error: 'Erro ao autenticar canal: ' + error.message });
+  }
+});
+
+// Callback do OAuth (GET) - Google redireciona aqui após autenticação
+router.get('/auth/callback', async (req, res) => {
+  const { code, error } = req.query;
+  const userId = req.session.user.id;
+
+  if (error) {
+    console.error('❌ Erro no OAuth:', error);
+    return res.redirect(`/user/dashboard?error=${encodeURIComponent(error)}`);
+  }
+
+  if (!code) {
+    return res.redirect('/user/dashboard?error=no_code');
+  }
+
+  try {
+    const dbConfig = configs.findByUserId(userId);
+    if (!dbConfig || !dbConfig.config_path) {
+      return res.redirect('/user/dashboard?error=config_not_found');
+    }
+
+    const { handleAuthCallback } = require('../services/youtube-auth');
+    const result = await handleAuthCallback(userId, code);
+
+    if (result.success) {
+      // Atualizar no banco
+      configs.updateAuth(
+        userId,
+        true,
+        result.channelId,
+        result.channelName,
+        result.refreshToken,
+        result.accessToken
+      );
+      res.redirect('/user/dashboard?success=authenticated');
+    } else {
+      res.redirect('/user/dashboard?error=' + encodeURIComponent(result.error || 'Erro ao autenticar'));
+    }
+  } catch (error) {
+    console.error('❌ Erro no callback:', error);
+    res.redirect('/user/dashboard?error=' + encodeURIComponent(error.message || 'Erro no callback'));
+  }
+});
+
+// Upload de vídeo
+router.post('/upload-video', async (req, res) => {
+  if (!req.files || !req.files.video) {
+    return res.json({ success: false, error: 'Nenhum vídeo enviado' });
+  }
+
+  const userId = req.session.user.id;
+  const video = req.files.video;
+  const videosDir = path.join(__dirname, '../videos', `user_${userId}`);
+
+  try {
+    fs.ensureDirSync(videosDir);
+    const videoPath = path.join(videosDir, video.name);
+    await video.mv(videoPath);
+
+    res.json({ 
+      success: true, 
+      message: 'Vídeo enviado com sucesso!',
+      videoPath: videoPath
+    });
+  } catch (error) {
+    console.error('Erro ao fazer upload do vídeo:', error);
+    res.json({ success: false, error: 'Erro ao fazer upload do vídeo' });
+  }
+});
+
+// Página de gerenciamento de vídeos
+// Rota de teste para Gemini
+router.get('/test-gemini', (req, res) => {
+  res.render('test-gemini');
+});
+
+router.get('/videos', (req, res) => {
+  const userId = req.session.user.id;
+  const dbConfig = configs.findByUserId(userId);
+  
+  res.render('user/videos', {
+    user: req.session.user,
+    defaultFolder: dbConfig?.default_video_folder || null
+  });
+});
+
+// API: Salvar pasta padrão
+router.post('/videos/save-folder', async (req, res) => {
+  try {
+    const { folderPath } = req.body;
+    const userId = req.session.user.id;
+    
+    console.log('💾 Salvando pasta padrão:', folderPath, 'para usuário:', userId);
+    
+    // Permitir salvar mesmo se folderPath for vazio (para limpar)
+    configs.updateDefaultFolder(userId, folderPath || '');
+    
+    console.log('✅ Pasta salva com sucesso');
+    res.json({ success: true, message: folderPath ? 'Pasta salva como padrão' : 'Pasta padrão removida' });
+  } catch (error) {
+    console.error('❌ Erro ao salvar pasta:', error);
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// API: Escanear pasta e listar vídeos
+router.post('/videos/scan', async (req, res) => {
+  try {
+    let { folderPath } = req.body;
+    
+    if (!folderPath) {
+      return res.json({ success: false, error: 'Caminho da pasta não fornecido' });
+    }
+    
+    // Limpar e normalizar o caminho
+    folderPath = folderPath.trim();
+    
+    // Verificar se a pasta existe
+    if (!fs.existsSync(folderPath)) {
+      console.error('❌ Pasta não encontrada:', folderPath);
+      return res.json({ success: false, error: `Pasta não encontrada: ${folderPath}` });
+    }
+    
+    // Verificar se é realmente uma pasta
+    const stat = fs.statSync(folderPath);
+    if (!stat.isDirectory()) {
+      return res.json({ success: false, error: 'O caminho especificado não é uma pasta' });
+    }
+
+    const videoExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv'];
+    const videos = [];
+
+    const files = fs.readdirSync(folderPath);
+    for (const file of files) {
+      const filePath = path.join(folderPath, file);
+      const stat = fs.statSync(filePath);
+      
+      if (stat.isFile()) {
+        const ext = path.extname(file).toLowerCase();
+        if (videoExtensions.includes(ext)) {
+          videos.push({
+            name: file,
+            path: filePath,
+            size: stat.size,
+            sizeMB: (stat.size / (1024 * 1024)).toFixed(2)
+          });
+        }
+      }
+    }
+
+    res.json({ success: true, videos });
+  } catch (error) {
+    console.error('Erro ao escanear pasta:', error);
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// API: Gerar conteúdo com IA
+router.post('/videos/generate', async (req, res) => {
+  // Timeout de 5 minutos
+  req.setTimeout(300000); // 5 minutos
+    
+  try {
+    let { videoPath } = req.body;
+    
+    console.log(`📥 Recebido pedido para gerar conteúdo: ${videoPath}`);
+    console.log(`⏱️  Timeout configurado: 5 minutos`);
+    
+    if (!videoPath) {
+      return res.json({ success: false, error: 'Caminho do vídeo não fornecido' });
+    }
+    
+    // Normalizar caminho (Windows)
+    let normalizedPath = videoPath.replace(/\\/g, path.sep).trim();
+    
+    // Se não existe, verificar se é uma pasta e procurar vídeos
+    if (!fs.existsSync(normalizedPath)) {
+      console.warn(`⚠️  Caminho não encontrado: ${normalizedPath}`);
+      return res.json({ success: false, error: `Caminho não encontrado: ${normalizedPath}` });
+    }
+
+    // Verificar se é uma pasta ou arquivo
+    const stat = fs.statSync(normalizedPath);
+    
+    if (stat.isDirectory()) {
+      // É uma pasta, procurar primeiro vídeo
+      console.log(`📁 É uma pasta, procurando vídeos...`);
+      const videoExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv'];
+      const files = fs.readdirSync(normalizedPath);
+      
+      let videoFile = null;
+      for (const file of files) {
+        const ext = path.extname(file).toLowerCase();
+        if (videoExtensions.includes(ext)) {
+          videoFile = path.join(normalizedPath, file);
+          break;
+        }
+      }
+      
+      if (!videoFile) {
+        return res.json({ success: false, error: `Nenhum vídeo encontrado na pasta: ${normalizedPath}` });
+      }
+      
+      normalizedPath = videoFile;
+      console.log(`✅ Vídeo encontrado na pasta: ${normalizedPath}`);
+    } else if (!stat.isFile()) {
+      return res.json({ success: false, error: `O caminho não é um arquivo nem uma pasta: ${normalizedPath}` });
+    }
+
+    // Verificar extensão do arquivo
+    const ext = path.extname(normalizedPath).toLowerCase();
+    const videoExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv'];
+    if (!videoExtensions.includes(ext)) {
+      return res.json({ success: false, error: `Arquivo não é um vídeo válido: ${ext}` });
+    }
+
+    console.log(`✅ Vídeo encontrado: ${normalizedPath}`);
+    
+    const { generateContentWithGemini } = require('../services/gemini-service');
+    const videoName = path.basename(normalizedPath);
+    const content = await generateContentWithGemini(normalizedPath, videoName);
+
+    console.log(`✅ Conteúdo gerado com sucesso para: ${videoName}`);
+    console.log(`📸 Thumbnail path recebido (raw): ${content.thumbnail_path}`);
+    console.log(`📸 Thumbnail path tipo: ${typeof content.thumbnail_path}`);
+    console.log(`📸 Thumbnail path existe? ${content.thumbnail_path ? fs.existsSync(content.thumbnail_path) : 'N/A'}`);
+    
+    // Converter caminho absoluto para caminho relativo da web
+    let thumbnailUrl = null;
+    if (content.thumbnail_path) {
+      try {
+        // Extrair apenas o nome do arquivo do caminho
+        const thumbnailFileName = path.basename(content.thumbnail_path);
+        console.log(`📸 Nome do arquivo extraído: ${thumbnailFileName}`);
+        
+        // Verificar se o arquivo realmente existe na pasta thumbnails
+        const thumbnailsDir = path.join(__dirname, '../thumbnails');
+        const fullThumbnailPath = path.join(thumbnailsDir, thumbnailFileName);
+        console.log(`📸 Caminho completo verificado: ${fullThumbnailPath}`);
+        console.log(`📸 Arquivo existe na pasta thumbnails? ${fs.existsSync(fullThumbnailPath)}`);
+        
+        // Se o arquivo existe na pasta thumbnails, criar URL relativa
+        if (fs.existsSync(fullThumbnailPath)) {
+          // Express.static lida com espaços automaticamente, mas vamos codificar para garantir
+          // Usar encodeURIComponent para caracteres especiais (espaços, etc)
+          const encodedFileName = encodeURIComponent(thumbnailFileName);
+          thumbnailUrl = `/thumbnails/${encodedFileName}`;
+          console.log(`📸 Thumbnail URL para web: ${thumbnailUrl}`);
+          console.log(`📸 Nome original: ${thumbnailFileName}`);
+          console.log(`📸 Nome codificado: ${encodedFileName}`);
+        } else {
+          // Se não existe na pasta thumbnails, mas existe no caminho original, copiar
+          if (fs.existsSync(content.thumbnail_path)) {
+            console.log(`📸 Arquivo existe no caminho original, copiando para pasta thumbnails...`);
+            try {
+              fs.copyFileSync(content.thumbnail_path, fullThumbnailPath);
+              console.log(`✅ Arquivo copiado para pasta thumbnails!`);
+              const encodedFileName = encodeURIComponent(thumbnailFileName);
+              thumbnailUrl = `/thumbnails/${encodedFileName}`;
+              console.log(`📸 Thumbnail URL para web: ${thumbnailUrl}`);
+            } catch (copyError) {
+              console.error(`❌ Erro ao copiar arquivo: ${copyError.message}`);
+            }
+          } else {
+            console.warn(`⚠️  Arquivo não encontrado nem no caminho original nem na pasta thumbnails`);
+            console.warn(`   Caminho original: ${content.thumbnail_path}`);
+            console.warn(`   Caminho thumbnails: ${fullThumbnailPath}`);
+          }
+        }
+      } catch (conversionError) {
+        console.error(`❌ Erro ao converter thumbnail path: ${conversionError.message}`);
+        console.error(`   Stack: ${conversionError.stack}`);
+      }
+    } else {
+      console.warn(`⚠️  content.thumbnail_path é null ou undefined`);
+    }
+    
+    console.log(`📸 Thumbnail URL final para retornar: ${thumbnailUrl}`);
+    
+    // Retornar no mesmo formato do bot antigo
+    res.json({ 
+      success: true, 
+      title: content.title,
+      description: content.description,
+      thumbnail_path: thumbnailUrl || null  // URL relativa para a web
+    });
+  } catch (error) {
+    console.error('❌ Erro ao gerar conteúdo:', error);
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// API: Publicar vídeo agora
+router.post('/videos/publish', async (req, res) => {
+  try {
+    const { videoPath, title, description, thumbnail_path } = req.body;
+    const userId = req.session.user.id;
+
+    if (!videoPath || !fs.existsSync(videoPath)) {
+      return res.json({ success: false, error: 'Vídeo não encontrado' });
+    }
+
+    if (!title) {
+      return res.json({ success: false, error: 'Título é obrigatório' });
+    }
+
+    // Converter URL relativa para caminho absoluto do thumbnail
+    let thumbnailAbsolutePath = null;
+    if (thumbnail_path) {
+      // Se for URL relativa (/thumbnails/nome.jpg), converter para caminho absoluto
+      if (thumbnail_path.startsWith('/thumbnails/')) {
+        const thumbnailFileName = decodeURIComponent(thumbnail_path.replace('/thumbnails/', ''));
+        const thumbnailsDir = path.join(__dirname, '../thumbnails');
+        thumbnailAbsolutePath = path.join(thumbnailsDir, thumbnailFileName);
+        
+        if (!fs.existsSync(thumbnailAbsolutePath)) {
+          console.warn(`⚠️  Thumbnail não encontrado: ${thumbnailAbsolutePath}`);
+          thumbnailAbsolutePath = null;
+        } else {
+          console.log(`✅ Thumbnail encontrado: ${thumbnailAbsolutePath}`);
+        }
+      } else if (fs.existsSync(thumbnail_path)) {
+        // Se já for caminho absoluto
+        thumbnailAbsolutePath = thumbnail_path;
+      }
+    }
+
+    const { uploadVideoToYouTube } = require('../services/youtube-uploader');
+    const result = await uploadVideoToYouTube(
+      userId, 
+      videoPath, 
+      title, 
+      description || '#shorts',
+      thumbnailAbsolutePath  // Passar caminho do thumbnail
+    );
+
+    if (result.success) {
+      // Salvar no banco de vídeos publicados
+      const { published } = require('../database');
+      published.create(userId, videoPath, result.videoId, result.videoUrl, title, description || '#shorts');
+
+      res.json({ 
+        success: true, 
+        message: 'Vídeo publicado com sucesso!',
+        videoId: result.videoId,
+        videoUrl: result.videoUrl
+      });
+    } else {
+      res.json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    console.error('Erro ao publicar vídeo:', error);
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// API: Agendar vídeo
+router.post('/videos/schedule', async (req, res) => {
+  try {
+    const { videoPath, scheduledTime, title, description } = req.body;
+    const userId = req.session.user.id;
+
+    if (!videoPath || !fs.existsSync(videoPath)) {
+      return res.json({ success: false, error: 'Vídeo não encontrado' });
+    }
+
+    if (!scheduledTime) {
+      return res.json({ success: false, error: 'Data/hora de agendamento é obrigatória' });
+    }
+
+    if (!title) {
+      return res.json({ success: false, error: 'Título é obrigatório' });
+    }
+
+    // Mover vídeo para pasta scheduled
+    const scheduledDir = path.join(__dirname, '../scheduled', `user_${userId}`);
+    fs.ensureDirSync(scheduledDir);
+    const scheduledVideoPath = path.join(scheduledDir, path.basename(videoPath));
+    
+    // Copiar vídeo (não mover, pois pode estar na pasta original do usuário)
+    await fs.copy(videoPath, scheduledVideoPath);
+
+    const scheduleId = schedules.create(userId, scheduledVideoPath, scheduledTime, title, description || '#shorts');
+
+    res.json({ 
+      success: true, 
+      message: 'Vídeo agendado com sucesso!',
+      scheduleId
+    });
+  } catch (error) {
+    console.error('Erro ao agendar vídeo:', error);
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// Tela de vídeos agendados
+router.get('/scheduled', (req, res) => {
+  const userId = req.session.user.id;
+  const userSchedules = schedules.findByUserId(userId);
+  
+  res.render('user/scheduled', {
+    user: req.session.user,
+    schedules: userSchedules
+  });
+});
+
+// Tela de vídeos publicados
+router.get('/published', (req, res) => {
+  const userId = req.session.user.id;
+  const { published } = require('../database');
+  const userPublished = published.findByUserId(userId);
+  
+  res.render('user/published', {
+    user: req.session.user,
+    videos: userPublished
+  });
+});
+
+module.exports = router;
+
