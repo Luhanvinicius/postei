@@ -55,28 +55,39 @@ const verifyToken = (token) => {
  * Middleware global: anexar usuário do token
  */
 const attachUser = (req, res, next) => {
-  // Tentar pegar token do header Authorization
-  const authHeader = req.headers.authorization;
   let user = null;
   
+  // 1. Tentar pegar token do header Authorization
+  const authHeader = req.headers.authorization;
   if (authHeader) {
     user = verifyToken(authHeader);
     if (user) {
-      console.log('✅ Usuário autenticado via token:', user.username);
+      console.log('✅ Usuário autenticado via header Authorization:', user.username);
     }
   }
   
-  // Se não tiver token, tentar pegar do body (para formulários)
-  if (!user && req.body && req.body.token) {
-    user = verifyToken(req.body.token);
-  }
-  
-  // Se não tiver token, tentar pegar da query (fallback)
+  // 2. Se não tiver token, tentar pegar da query string (para navegação)
   if (!user && req.query && req.query.token) {
     user = verifyToken(req.query.token);
+    if (user) {
+      console.log('✅ Usuário autenticado via query token:', user.username);
+    }
+  }
+  
+  // 3. Se não tiver token, tentar pegar do body (para formulários POST)
+  if (!user && req.body && req.body.token) {
+    user = verifyToken(req.body.token);
+    if (user) {
+      console.log('✅ Usuário autenticado via body token:', user.username);
+    }
   }
   
   req.user = user;
+  
+  if (!user) {
+    console.log('⚠️  Nenhum token válido encontrado na requisição:', req.url);
+  }
+  
   next();
 };
 

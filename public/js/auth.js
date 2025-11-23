@@ -32,7 +32,13 @@ function removeToken() {
     // Remover token da URL
     const newUrl = window.location.pathname;
     window.history.replaceState({}, document.title, newUrl);
-    console.log('✅ Token capturado da URL e salvo');
+    console.log('✅ Token capturado da URL e salvo no localStorage');
+    
+    // Recarregar a página sem o token na URL (agora vai usar o token do localStorage)
+    // Mas só se não estiver na página de login
+    if (!window.location.pathname.includes('/auth/login')) {
+      window.location.reload();
+    }
   }
 })();
 
