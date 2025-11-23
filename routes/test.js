@@ -167,10 +167,17 @@ router.post('/test-login', async (req, res) => {
 
 // Rota de debug de cookies (JSON)
 router.get('/debug-cookie', (req, res) => {
-  const cookieValue = req.cookies?.user_data;
-  const userFromCookie = readAuthCookie(req);
-  
-  const debug = {
+  try {
+    const cookieValue = req.cookies?.user_data;
+    let userFromCookie = null;
+    
+    try {
+      userFromCookie = readAuthCookie ? readAuthCookie(req) : null;
+    } catch (err) {
+      console.error('Erro ao ler cookie:', err);
+    }
+    
+    const debug = {
     timestamp: new Date().toISOString(),
     environment: {
       isVercel: process.env.VERCEL === '1' || !!process.env.VERCEL_ENV,
