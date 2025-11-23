@@ -1,26 +1,41 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Usar DATABASE_URL ou POSTGRES_URL (Vercel pode usar qualquer uma)
-// PRISMA_DATABASE_URL usa formato especial (prisma+postgres://), precisa converter
+// Usar DATABASE_URL (prioridade) ou POSTGRES_URL
+// IMPORTANTE: PRISMA_DATABASE_URL não funciona diretamente com pg
+// Use sempre DATABASE_URL ou POSTGRES_URL
 let connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
-// Se usar PRISMA_DATABASE_URL, extrair a URL real do PostgreSQL
-if (!connectionString && process.env.PRISMA_DATABASE_URL) {
-  const prismaUrl = process.env.PRISMA_DATABASE_URL;
-  // PRISMA_DATABASE_URL tem formato: prisma+postgres://accelerate.prisma-data.net/?api_key=...
-  // Precisamos usar DATABASE_URL ou POSTGRES_URL diretamente
-  console.warn('⚠️ PRISMA_DATABASE_URL detectada, mas precisa de DATABASE_URL ou POSTGRES_URL');
-  console.warn('⚠️ Use a URL direta do PostgreSQL (não a URL do Prisma Accelerate)');
-}
-
 if (!connectionString) {
-  console.error('❌ DATABASE_URL ou POSTGRES_URL não encontrada nas variáveis de ambiente!');
-  console.error('Variáveis disponíveis:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('POSTGRES')));
-  throw new Error('DATABASE_URL ou POSTGRES_URL é obrigatória');
+  console.error('❌ DATABASE_URL não encontrada nas variáveis de ambiente!');
+  console.error('📋 Variáveis de ambiente disponíveis relacionadas a banco:');
+  const dbVars = Object.keys(process.env).filter(k => 
+    k.includes('DATABASE') || k.includes('POSTGRES') || k.includes('PRISMA')
+  );
+  if (dbVars.length > 0) {
+    dbVars.forEach(key => {
+      const value = process.env[key];
+      console.error(`  - ${key}: ${value ? value.substring(0, 30) + '...' : '(vazia)'}`);
+    });
+  } else {
+    console.error('  Nenhuma variável de banco encontrada!');
+  }
+  console.error('');
+  console.error('🔧 SOLUÇÃO:');
+  console.error('  1. Vá em Vercel → Settings → Environment Variables');
+  console.error('  2. Adicione DATABASE_URL com a Connection String do seu banco');
+  console.error('  3. A Connection String está em: Storage → Seu Banco → Settings');
+  throw new Error('DATABASE_URL é obrigatória. Configure no Vercel: Settings → Environment Variables');
 }
 
-console.log('📊 Usando connection string:', connectionString.substring(0, 20) + '...');
+// Validar formato da URL
+if (!connectionString.startsWith('postgres://') && !connectionString.startsWith('postgresql://')) {
+  console.error('❌ DATABASE_URL inválida! Deve começar com postgres:// ou postgresql://');
+  console.error('URL recebida:', connectionString.substring(0, 50) + '...');
+  throw new Error('DATABASE_URL deve ser uma URL PostgreSQL válida (postgres://...)');
+}
+
+console.log('✅ DATABASE_URL encontrada e válida');
 
 const pool = new Pool({
   connectionString: connectionString,
