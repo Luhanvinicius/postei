@@ -58,19 +58,20 @@ router.post('/login', async (req, res) => {
     const signature = crypto.createHmac('sha256', secret).update(userData).digest('hex');
     const signedData = `${userData}.${signature}`;
     
-    // Sempre criar cookie (não só no Vercel, mas principalmente lá)
+    // SEMPRE criar cookie de backup (crítico para Vercel onde MemoryStore não persiste)
     // IMPORTANTE: Não usar signed: true aqui, porque vamos assinar manualmente
+    const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
     res.cookie('user_data', signedData, {
       httpOnly: true,
-      secure: process.env.VERCEL || process.env.VERCEL_ENV ? true : false,
-      sameSite: process.env.VERCEL || process.env.VERCEL_ENV ? 'none' : 'lax',
+      secure: isVercel ? true : false, // HTTPS no Vercel
+      sameSite: isVercel ? 'none' : 'lax', // Necessário para HTTPS no Vercel
       maxAge: 24 * 60 * 60 * 1000, // 24 horas
       path: '/',
       signed: false // Não usar signed do cookie-parser, vamos assinar manualmente
     });
-    console.log('🍪 Cookie de backup criado (não assinado pelo cookie-parser)');
+    console.log('🍪 Cookie de backup criado');
+    console.log('   Ambiente:', isVercel ? 'Vercel (HTTPS)' : 'Local');
     console.log('   Tamanho:', signedData.length, 'caracteres');
-    console.log('   Primeiros 50 chars:', signedData.substring(0, 50) + '...');
 
     // Salvar sessão explicitamente (igual ao teste - usando await Promise)
     await new Promise((resolve, reject) => {

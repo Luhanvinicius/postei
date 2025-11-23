@@ -10,6 +10,9 @@ require('dotenv').config();
 // Inicializar banco de dados ANTES de carregar rotas
 const db = require('./database');
 
+// Importar middlewares de autenticação (ANTES de usar)
+const { restoreSessionFromCookie, requireAuth, requireAdmin } = require('./middleware/auth');
+
 // Garantir que o banco está inicializado antes de processar requisições
 let dbReady = false;
 if (db.initDatabase) {
@@ -109,9 +112,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Servir thumbnails
 app.use('/thumbnails', express.static(path.join(__dirname, 'thumbnails')));
 
-// Middleware global para restaurar sessão do cookie (ANTES de qualquer verificação)
-app.use(restoreSessionFromCookie);
-
 // Middleware para garantir que o banco está pronto
 app.use(async (req, res, next) => {
   // Rotas estáticas não precisam do banco
@@ -135,8 +135,8 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// Importar middlewares de autenticação
-const { restoreSessionFromCookie, requireAuth, requireAdmin } = require('./middleware/auth');
+// Middleware global para restaurar sessão do cookie (DEPOIS do banco, ANTES das rotas)
+app.use(restoreSessionFromCookie);
 
 // Rotas
 app.get('/', (req, res) => {
