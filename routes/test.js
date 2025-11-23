@@ -1,6 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const { users, configs } = require('../database');
+
+// Importar função de leitura de cookie
+let readAuthCookie;
+try {
+  const authMiddleware = require('../middleware/auth');
+  readAuthCookie = authMiddleware.readAuthCookie || (() => null);
+} catch (err) {
+  console.error('Erro ao importar middleware de auth:', err);
+  readAuthCookie = () => null;
+}
 const { readAuthCookie } = require('../middleware/auth');
 
 // Página de teste de conexão

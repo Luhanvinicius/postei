@@ -155,5 +155,6 @@ module.exports = {
   requireAuth,
   requireAdmin,
   createAuthCookie,
-  clearAuthCookie
+  clearAuthCookie,
+  readAuthCookie
 };
