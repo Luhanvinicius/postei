@@ -15,7 +15,7 @@ const attachUser = (req, res, next) => {
 /**
  * Middleware: verificar autenticação
  */
-const requireAuth = (req, res, next) => {
+const requireAuth = async (req, res, next) => {
   if (!req.session || !req.session.user) {
     console.log('❌ Não autenticado - redirecionando para login');
     return res.redirect('/auth/login');
