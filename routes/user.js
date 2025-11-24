@@ -610,14 +610,32 @@ router.post('/videos/generate', async (req, res) => {
 
     console.log(`✅ Vídeo encontrado: ${normalizedPath}`);
     
-    const { generateContentWithGemini } = require('../services/gemini-service');
-    const videoName = path.basename(normalizedPath);
-    const content = await generateContentWithGemini(normalizedPath, videoName);
+        const { generateContentWithGemini } = require('../services/gemini-service');
+        const videoName = path.basename(normalizedPath);
+        
+        console.log(`\n🎬 ===== INICIANDO GERAÇÃO DE CONTEÚDO =====`);
+        console.log(`📹 Vídeo: ${videoName}`);
+        console.log(`📁 Caminho: ${normalizedPath}`);
+        
+        const content = await generateContentWithGemini(normalizedPath, videoName);
 
-    console.log(`✅ Conteúdo gerado com sucesso para: ${videoName}`);
-    console.log(`📸 Thumbnail path recebido (raw): ${content.thumbnail_path}`);
-    console.log(`📸 Thumbnail path tipo: ${typeof content.thumbnail_path}`);
-    console.log(`📸 Thumbnail path existe? ${content.thumbnail_path ? fs.existsSync(content.thumbnail_path) : 'N/A'}`);
+        console.log(`\n✅ ===== CONTEÚDO GERADO =====`);
+        console.log(`✅ Título recebido: ${content.title || 'N/A'}`);
+        console.log(`✅ Descrição recebida: ${content.description || 'N/A'}`);
+        console.log(`📸 Thumbnail path recebido (raw): ${content.thumbnail_path || 'N/A'}`);
+        console.log(`📸 Thumbnail path tipo: ${typeof content.thumbnail_path}`);
+        console.log(`📸 Thumbnail path existe? ${content.thumbnail_path ? fs.existsSync(content.thumbnail_path) : 'N/A'}`);
+        
+        // Validar se título e descrição foram gerados
+        if (!content.title || content.title.trim().length === 0) {
+          console.error('❌ ERRO: Título não foi gerado!');
+          return res.json({ success: false, error: 'Erro ao gerar título. Tente novamente.' });
+        }
+        
+        if (!content.description || content.description.trim().length === 0) {
+          console.warn('⚠️  Descrição não foi gerada, usando padrão...');
+          content.description = '#shorts';
+        }
     
     // Converter caminho absoluto para caminho relativo da web
     let thumbnailUrl = null;

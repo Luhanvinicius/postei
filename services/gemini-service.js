@@ -624,6 +624,10 @@ Responda APENAS em formato JSON:
 
     // Fallback se ainda for genérico ou vazio
     if (!title || title.length < 5) {
+      console.warn('⚠️  Título ainda está vazio ou muito curto após todas as tentativas');
+      console.warn(`   Título atual: "${title}"`);
+      console.warn('   Usando fallback baseado no nome do arquivo...');
+      
       const nameClean = videoName.replace(/\.[^/.]+$/, '').replace(/[()]/g, ' ').trim();
       const words = nameClean.split(/\s+/).filter(w => w.length > 2);
       if (words.length > 0) {
@@ -631,7 +635,19 @@ Responda APENAS em formato JSON:
       } else {
         title = 'Conteúdo que você precisa ver! 🚀';
       }
+      console.log(`✅ Título fallback gerado: ${title}`);
     }
+    
+    // Garantir que description não está vazia
+    if (!description || description.trim().length === 0) {
+      console.warn('⚠️  Descrição está vazia, usando padrão...');
+      description = '#shorts';
+    }
+    
+    console.log(`\n✅ ===== RESULTADO FINAL =====`);
+    console.log(`✅ Título: ${title}`);
+    console.log(`✅ Descrição: ${description}`);
+    console.log(`✅ Thumbnail: ${thumbnailPath || 'N/A'}`);
 
     // Thumbnail é um dos frames extraídos (igual bot antigo)
     // SEMPRE copiar frame para pasta de thumbnails ANTES de retornar
