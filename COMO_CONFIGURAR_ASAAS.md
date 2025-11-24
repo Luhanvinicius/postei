@@ -37,19 +37,21 @@ ASAAS_API_KEY=sua_chave_api_aqui
 ASAAS_ENVIRONMENT=production
 ```
 
-**OU para testes:**
+**OU para testes (Sandbox):**
 
 ```
-ASAAS_API_KEY=sua_chave_api_sandbox_aqui
+ASAAS_API_KEY=$aact_hmlg_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjMxMDU4ZjNhLWFmMjktNGFmZS1hZjdiLTZmNTEzY2NlZTNmNDo6JGFhY2hfZDIwZWEwYzgtODU0Ny00ZTkxLWI1MGUtOWE0NWZlNGE2NGNi
 ASAAS_ENVIRONMENT=sandbox
 ```
+
+**⚠️ NOTA:** O token acima é o token sandbox configurado. Para produção, você precisará gerar um novo token na sua conta Asaas.
 
 ### Localmente (Desenvolvimento)
 
 Crie ou edite o arquivo `.env` na raiz do projeto:
 
 ```env
-ASAAS_API_KEY=sua_chave_api_aqui
+ASAAS_API_KEY=$aact_hmlg_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjMxMDU4ZjNhLWFmMjktNGFmZS1hZjdiLTZmNTEzY2NlZTNmNDo6JGFhY2hfZDIwZWEwYzgtODU0Ny00ZTkxLWI1MGUtOWE0NWZlNGE2NGNi
 ASAAS_ENVIRONMENT=sandbox
 ```
 
