@@ -4,21 +4,69 @@ const fs = require('fs-extra');
 
 async function uploadVideoToYouTube(userId, videoPath, title, description, thumbnailPath = null) {
   try {
-    // Carregar configuração do banco
-    const { configs } = require('../database');
-    const dbConfig = configs.findByUserId(userId);
+    console.log(`\n📤 ===== INICIANDO UPLOAD PARA YOUTUBE =====`);
+    console.log(`👤 User ID: ${userId}`);
+    console.log(`📹 Vídeo: ${videoPath}`);
+    console.log(`📝 Título: ${title}`);
     
-    if (!dbConfig || !dbConfig.is_authenticated || !dbConfig.refresh_token) {
-      return { success: false, error: 'Canal não autenticado' };
+    // Carregar configuração do banco (pode ser async no PostgreSQL)
+    const { configs } = require('../database');
+    let dbConfig;
+    try {
+      if (configs.findByUserId.constructor.name === 'AsyncFunction') {
+        dbConfig = await configs.findByUserId(userId);
+        console.log('✅ Configuração carregada (PostgreSQL)');
+      } else {
+        dbConfig = configs.findByUserId(userId);
+        console.log('✅ Configuração carregada (SQLite)');
+      }
+    } catch (err) {
+      dbConfig = configs.findByUserId(userId);
+      console.log('✅ Configuração carregada (fallback)');
     }
+    
+    console.log('🔍 Verificando autenticação...');
+    console.log('   dbConfig existe?', !!dbConfig);
+    console.log('   is_authenticated?', dbConfig?.is_authenticated);
+    console.log('   refresh_token existe?', !!dbConfig?.refresh_token);
+    console.log('   channel_name?', dbConfig?.channel_name);
+    
+    if (!dbConfig) {
+      console.error('❌ Configuração do usuário não encontrada no banco de dados');
+      return { success: false, error: 'Configuração do YouTube não encontrada. Por favor, faça upload do arquivo client_secrets.json e autentique seu canal na página "Vincular Contas".' };
+    }
+    
+    if (!dbConfig.is_authenticated || dbConfig.is_authenticated === 0) {
+      console.error('❌ Canal não está marcado como autenticado no banco');
+      return { success: false, error: 'Canal não autenticado. Por favor, autentique seu canal na página "Vincular Contas".' };
+    }
+    
+    if (!dbConfig.refresh_token) {
+      console.error('❌ Refresh token não encontrado no banco');
+      return { success: false, error: 'Token de autenticação não encontrado. Por favor, autentique seu canal novamente na página "Vincular Contas".' };
+    }
+    
+    console.log('✅ Canal autenticado:', dbConfig.channel_name);
 
     // Verificar se vídeo existe
     if (!fs.existsSync(videoPath)) {
-      return { success: false, error: 'Vídeo não encontrado' };
+      console.error(`❌ Vídeo não encontrado: ${videoPath}`);
+      return { success: false, error: `Vídeo não encontrado: ${videoPath}` };
     }
+    
+    console.log('✅ Vídeo encontrado');
+
+    // Verificar se arquivo de credenciais existe
+    if (!dbConfig.config_path || !fs.existsSync(dbConfig.config_path)) {
+      console.error(`❌ Arquivo de credenciais não encontrado: ${dbConfig.config_path}`);
+      return { success: false, error: 'Arquivo de credenciais não encontrado. Por favor, faça upload novamente do arquivo client_secrets.json.' };
+    }
+    
+    console.log('✅ Arquivo de credenciais encontrado');
 
     // Ler credenciais do arquivo do usuário
     const userCredentials = JSON.parse(fs.readFileSync(dbConfig.config_path, 'utf8'));
+    console.log('✅ Credenciais lidas do arquivo');
     const clientId = userCredentials.installed?.client_id || userCredentials.web?.client_id;
     const clientSecret = userCredentials.installed?.client_secret || userCredentials.web?.client_secret;
 
