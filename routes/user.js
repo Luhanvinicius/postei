@@ -911,14 +911,14 @@ router.post('/videos/schedule-weekly', async (req, res) => {
           const tempTitle = video.name.replace(/\.[^/.]+$/, '');
           const tempDescription = '#shorts';
 
-          // Combinar data e hora
+          // Combinar data e hora (usar data exata do diaConfig)
           const [hours, minutes] = time.split(':');
           const scheduledDateTime = new Date(targetDate);
           scheduledDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
           // Verificar se a data não é no passado
           if (scheduledDateTime < new Date()) {
-            // Se for no passado, adicionar 7 dias (próxima semana)
+            // Se for no passado, adicionar 7 dias
             scheduledDateTime.setDate(scheduledDateTime.getDate() + 7);
           }
 
