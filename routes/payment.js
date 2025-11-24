@@ -18,13 +18,19 @@ router.get('/pending', requireAuth, async (req, res) => {
     let invoiceData = null;
     if (invoice) {
       try {
-        if (invoices.findById.constructor.name === 'AsyncFunction') {
-          invoiceData = await invoices.findById(invoice);
-        } else {
-          invoiceData = invoices.findById(invoice);
+        if (invoices && invoices.findById) {
+          const isAsync = invoices.findById.constructor && invoices.findById.constructor.name === 'AsyncFunction';
+          if (isAsync) {
+            invoiceData = await invoices.findById(invoice);
+          } else {
+            invoiceData = invoices.findById(invoice);
+          }
         }
       } catch (err) {
-        invoiceData = invoices.findById(invoice);
+        console.error('Erro ao buscar fatura:', err);
+        if (invoices && invoices.findById) {
+          invoiceData = invoices.findById(invoice);
+        }
       }
     } else {
       // Buscar última fatura pendente do usuário
@@ -74,13 +80,19 @@ router.get('/checkout/:planSlug', requireAuth, async (req, res) => {
     // Buscar plano
     let plan;
     try {
-      if (plans.findBySlug.constructor.name === 'AsyncFunction') {
-        plan = await plans.findBySlug(planSlug);
-      } else {
-        plan = plans.findBySlug(planSlug);
+      if (plans && plans.findBySlug) {
+        const isAsync = plans.findBySlug.constructor && plans.findBySlug.constructor.name === 'AsyncFunction';
+        if (isAsync) {
+          plan = await plans.findBySlug(planSlug);
+        } else {
+          plan = plans.findBySlug(planSlug);
+        }
       }
     } catch (err) {
-      plan = plans.findBySlug(planSlug);
+      console.error('Erro ao buscar plano:', err);
+      if (plans && plans.findBySlug) {
+        plan = plans.findBySlug(planSlug);
+      }
     }
 
     if (!plan) {
