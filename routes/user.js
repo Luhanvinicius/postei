@@ -229,9 +229,26 @@ router.get('/auth/callback', async (req, res) => {
   }
 
   try {
-    const dbConfig = configs.findByUserId(userId);
+    // Buscar configuração (pode ser async no PostgreSQL)
+    let dbConfig;
+    try {
+      if (configs.findByUserId.constructor.name === 'AsyncFunction') {
+        dbConfig = await configs.findByUserId(userId);
+      } else {
+        dbConfig = configs.findByUserId(userId);
+      }
+    } catch (err) {
+      dbConfig = configs.findByUserId(userId);
+    }
+    
     if (!dbConfig || !dbConfig.config_path) {
       return res.redirect('/user/dashboard?error=config_not_found');
+    }
+    
+    // Verificar se o arquivo existe
+    if (!fs.existsSync(dbConfig.config_path)) {
+      console.error('❌ Arquivo de credenciais não encontrado no callback:', dbConfig.config_path);
+      return res.redirect('/user/accounts?error=file_not_found');
     }
 
     const { handleAuthCallback } = require('../services/youtube-auth');
