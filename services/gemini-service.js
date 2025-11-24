@@ -558,7 +558,7 @@ Responda APENAS em formato JSON (sem markdown, sem código):
       }
       
       // Se não tem frames válidos, usar modo texto
-      if (frames.length === 0 || validFrameData.length === 0) {
+      if (frames.length === 0) {
         console.log(`⚠️  Nenhum frame disponível para ${videoName}, usando modo texto`);
         // Modo texto - mas ainda usa Gemini
         prompt = `Crie um título ÚNICO e ESPECÍFICO para este vídeo do YouTube Shorts.
