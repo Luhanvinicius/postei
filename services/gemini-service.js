@@ -414,47 +414,46 @@ async function generateContentWithGemini(videoPath, videoName) {
           
           // Continuar apenas se tiver frames válidos
           if (validFrameData.length > 0) {
-            // Prompt melhorado baseado no bot antigo
+            // Prompt focado em redes sociais - igual bot antigo
             prompt = `Você está vendo frames reais de um vídeo do YouTube Shorts.
 
 SUA TAREFA:
 Analise ATENTAMENTE o que você VÊ nas imagens acima e crie um título e descrição COMPLETAMENTE ÚNICOS baseados APENAS no conteúdo visual que você observa.
 
-⚠️ PROIBIÇÕES ABSOLUTAS - SEU TÍTULO SERÁ REJEITADO SE CONTIVER:
-❌ "Você NÃO vai acreditar" (QUALQUER variação)
-❌ "Você não vai acreditar nesse"
-❌ "Você não vai acreditar no"
-❌ "Isso vai mudar tudo"
-❌ "Você precisa ver"
-❌ Qualquer fórmula genérica ou template
-❌ Títulos repetitivos
-
-Se você usar qualquer uma dessas fórmulas, seu título será REJEITADO e você terá que criar outro.
+IMPORTANTE:
+- Você TEM LIBERDADE TOTAL para criar títulos criativos e chamativos
+- Foque em criar títulos que funcionem bem em redes sociais (curiosidade, emoção, impacto)
+- Cada vídeo é ÚNICO - crie algo específico baseado no que você REALMENTE vê
+- Use emojis relevantes ao conteúdo visual
+- Seja ESPECÍFICO sobre o que aparece nas imagens
 
 O QUE FAZER:
-✅ Analise CADA frame individualmente - o que você REALMENTE vê?
-✅ Descreva EXATAMENTE o conteúdo visual:
-   - Se vê uma pessoa: "Pessoa fazendo [ação específica]"
-   - Se vê um objeto: "Objeto [nome] sendo usado para [ação]"
-   - Se vê uma cena: "Cena de [tipo] com [elementos visíveis]"
-✅ Crie um título ESPECÍFICO baseado no que você VÊ, não em fórmulas
-✅ Use emojis relevantes ao conteúdo visual que você observa
-✅ Seja CRIATIVO e ORIGINAL - cada vídeo é diferente!
+✅ Analise CADA frame - o que você REALMENTE vê?
+✅ Identifique o CONTEÚDO PRINCIPAL do vídeo
+✅ Crie um título que desperte CURIOSIDADE e seja ESPECÍFICO ao conteúdo
+✅ Use linguagem natural e envolvente para redes sociais
+✅ Seja CRIATIVO e ORIGINAL
 
-EXEMPLOS DO QUE CRIAR (baseado no que você vê):
-- Se vê uma cena de ação: "A cena mais épica que você vai ver hoje! 💥"
-- Se vê um tutorial: "Aprenda isso em 30 segundos! 🎓"
-- Se vê algo engraçado: "Isso é hilário demais! 😂"
-- Se vê um produto: "Este produto vai mudar sua vida! 🛍️"
-- Baseie-se no que você REALMENTE VÊ nas imagens!
+EXEMPLOS (baseado no que você vê):
+- Se vê uma pessoa fazendo algo interessante: "Como [pessoa] faz [ação] de forma incrível! 🤯"
+- Se vê uma cena emocionante: "Isso aconteceu e você não vai acreditar! 😱"
+- Se vê algo educativo: "Aprenda [técnica] em segundos! 🎓"
+- Se vê algo engraçado: "Isso é mais engraçado do que parece! 😂"
+- Se vê um produto/objeto: "Você precisa conhecer isso! 🛍️"
+- Se vê uma cena de ação: "A cena mais épica que você vai ver! 💥"
+
+⚠️ NÃO USE:
+- Títulos genéricos como "Por que [palavra] está viralizando?"
+- Títulos que não descrevem o conteúdo visual
+- Fórmulas repetitivas
 
 Informações técnicas:
 - Nome do arquivo: ${videoName}
 
 Responda APENAS em formato JSON (sem markdown, sem código):
 {
-    "title": "título único e específico baseado no conteúdo visual que você vê",
-    "description": "#shorts descrição detalhada com hashtags relevantes ao conteúdo visual"
+    "title": "título criativo e específico baseado no conteúdo visual que você vê, focado em redes sociais",
+    "description": "#shorts #viral descrição detalhada com hashtags relevantes ao conteúdo visual"
 }`;
 
         console.log('🤖 Enviando frames para análise do Gemini...');
@@ -570,27 +569,33 @@ Responda APENAS em formato JSON (sem markdown, sem código):
       // Se não tem frames válidos, usar modo texto
       if (frames.length === 0) {
         console.log(`⚠️  Nenhum frame disponível para ${videoName}, usando modo texto`);
-        // Modo texto - mas ainda usa Gemini
-        prompt = `Crie um título ÚNICO e ESPECÍFICO para este vídeo do YouTube Shorts.
+        // Modo texto - mas ainda usa Gemini com foco em redes sociais
+        prompt = `Crie um título ÚNICO, CRIATIVO e ESPECÍFICO para este vídeo do YouTube Shorts, focado em redes sociais.
 
 Nome do arquivo: ${videoName}
 
-⚠️ PROIBIÇÕES ABSOLUTAS:
-❌ "Você NÃO vai acreditar" (QUALQUER variação)
-❌ "Isso vai mudar tudo"
-❌ "Você precisa ver"
-❌ Qualquer fórmula genérica
+IMPORTANTE:
+- Você TEM LIBERDADE TOTAL para criar títulos criativos e chamativos
+- Foque em criar títulos que funcionem bem em redes sociais (curiosidade, emoção, impacto)
+- Analise o nome do arquivo e crie algo ESPECÍFICO e envolvente
+- Use emojis relevantes
+- Seja CRIATIVO e ORIGINAL - cada vídeo precisa de um título TOTALMENTE DIFERENTE
 
-O QUE FAZER:
-✅ Analise o nome do arquivo e crie algo ESPECÍFICO
-✅ Seja CRIATIVO e ORIGINAL
-✅ Use emojis relevantes
-✅ Cada vídeo precisa de um título TOTALMENTE DIFERENTE
+EXEMPLOS DE TÍTULOS CRIATIVOS:
+- "Isso sobre [tema] vai te surpreender! 🤯"
+- "Você precisa ver isso! 👀"
+- "Descubra o segredo de [tema]! 🔥"
+- "Como [tema] funciona de forma incrível! 💡"
+
+⚠️ NÃO USE:
+- Títulos genéricos como "Por que [palavra] está viralizando?"
+- Fórmulas repetitivas
+- Títulos que não despertam curiosidade
 
 Responda APENAS em formato JSON:
 {
-    "title": "título único e específico baseado no nome do arquivo",
-    "description": "#shorts descrição com hashtags relevantes"
+    "title": "título criativo e específico baseado no nome do arquivo, focado em redes sociais",
+    "description": "#shorts #viral descrição com hashtags relevantes"
 }`;
 
         console.log('🤖 Enviando prompt de texto para Gemini...');
