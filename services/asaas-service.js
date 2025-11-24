@@ -19,19 +19,32 @@ class AsaasService {
     this.client = axios.create({
       baseURL: this.baseURL,
       headers: {
-        'access_token': this.apiKey,
         'Content-Type': 'application/json',
         'User-Agent': 'YouTube-Automation/1.0'
       }
     });
     
-    // Interceptor para log de requisições (apenas em desenvolvimento)
-    if (process.env.NODE_ENV !== 'production') {
-      this.client.interceptors.request.use(request => {
-        console.log('📤 Asaas API Request:', request.method?.toUpperCase(), request.url);
-        return request;
-      });
+    // Interceptor para adicionar o token de acesso em todas as requisições
+    // O Asaas aceita o token como header 'access_token' ou como parâmetro na URL
+    // Vamos usar o header, mas garantindo que não há caracteres inválidos
+    this.client.interceptors.request.use(request => {
+      // Limpar o token de caracteres inválidos (espaços, quebras de linha, etc.)
+      const cleanToken = this.apiKey.trim().replace(/[\r\n]/g, '');
       
+      // Adicionar o token como header (formato correto do Asaas)
+      request.headers['access_token'] = cleanToken;
+      
+      // Log apenas em desenvolvimento
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('📤 Asaas API Request:', request.method?.toUpperCase(), request.url);
+        console.log('   Token length:', cleanToken.length);
+      }
+      
+      return request;
+    });
+    
+    // Interceptor para log de respostas (apenas em desenvolvimento)
+    if (process.env.NODE_ENV !== 'production') {
       this.client.interceptors.response.use(
         response => {
           console.log('✅ Asaas API Response:', response.status, response.config.url);
