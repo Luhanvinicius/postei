@@ -2,7 +2,11 @@
 
 ## ⚠️ IMPORTANTE
 
-Mesmo sendo uma **aplicação Desktop**, quando você usa em **produção (Render)**, o Google **PRECISA** que você configure o redirect URI no Google Cloud Console.
+**Aplicações Desktop NÃO permitem configurar redirect URIs customizados!**
+
+Para funcionar no Render, você **PRECISA** usar uma credencial do tipo **Web Application**.
+
+Veja o guia completo: [COMO_MUDAR_PARA_WEB_APP.md](./COMO_MUDAR_PARA_WEB_APP.md)
 
 ## 📋 Passo a Passo
 
