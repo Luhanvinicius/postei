@@ -53,9 +53,19 @@ router.get('/dashboard', async (req, res) => {
 });
 
 // Gerenciar usuários
-router.get('/users', (req, res) => {
+router.get('/users', async (req, res) => {
   try {
-    const allUsers = userDB.getAll();
+    let allUsers;
+    try {
+      if (userDB.getAll.constructor.name === 'AsyncFunction') {
+        allUsers = await userDB.getAll();
+      } else {
+        allUsers = userDB.getAll();
+      }
+    } catch (err) {
+      allUsers = userDB.getAll();
+    }
+    
     res.render('admin/users', {
       user: req.user,
       users: allUsers
@@ -160,13 +170,92 @@ router.post('/users/create', async (req, res) => {
   }
 });
 
+// Atualizar role do usuário
+router.patch('/users/:id/role', async (req, res) => {
+  const userId = parseInt(req.params.id);
+  const { role } = req.body;
+
+  try {
+    if (!role || !['admin', 'user'].includes(role)) {
+      return res.json({ success: false, error: 'Role inválido. Use "admin" ou "user".' });
+    }
+
+    // Verificar se o usuário existe
+    let user;
+    try {
+      if (userDB.findById.constructor.name === 'AsyncFunction') {
+        user = await userDB.findById(userId);
+      } else {
+        user = userDB.findById(userId);
+      }
+    } catch (err) {
+      user = userDB.findById(userId);
+    }
+
+    if (!user) {
+      return res.json({ success: false, error: 'Usuário não encontrado' });
+    }
+
+    // Não permitir remover o último admin
+    if (user.role === 'admin' && role === 'user') {
+      let allUsers;
+      try {
+        if (userDB.getAll.constructor.name === 'AsyncFunction') {
+          allUsers = await userDB.getAll();
+        } else {
+          allUsers = userDB.getAll();
+        }
+      } catch (err) {
+        allUsers = userDB.getAll();
+      }
+      
+      const adminCount = allUsers.filter(u => u.role === 'admin').length;
+      if (adminCount <= 1) {
+        return res.json({ success: false, error: 'Não é possível remover o último administrador do sistema.' });
+      }
+    }
+
+    // Atualizar role
+    let updated;
+    try {
+      if (userDB.updateRole.constructor.name === 'AsyncFunction') {
+        updated = await userDB.updateRole(userId, role);
+      } else {
+        updated = userDB.updateRole(userId, role);
+      }
+    } catch (err) {
+      updated = userDB.updateRole(userId, role);
+    }
+
+    if (!updated) {
+      return res.json({ success: false, error: 'Erro ao atualizar role do usuário' });
+    }
+
+    console.log(`✅ Role atualizado: ID ${userId}, Username: ${user.username}, Novo role: ${role}`);
+    res.json({ success: true, message: `Role atualizado para ${role}` });
+  } catch (error) {
+    console.error('Erro ao atualizar role:', error);
+    res.json({ success: false, error: 'Erro ao atualizar role: ' + error.message });
+  }
+});
+
 // Deletar usuário
-router.delete('/users/:id', (req, res) => {
+router.delete('/users/:id', async (req, res) => {
   const userId = parseInt(req.params.id);
 
   try {
     // Verificar se o usuário existe antes de deletar
-    const user = userDB.findById(userId);
+    let user;
+    try {
+      if (userDB.findById.constructor.name === 'AsyncFunction') {
+        user = await userDB.findById(userId);
+      } else {
+        user = userDB.findById(userId);
+      }
+    } catch (err) {
+      user = userDB.findById(userId);
+    }
+
     if (!user) {
       return res.json({ success: false, error: 'Usuário não encontrado' });
     }
@@ -174,7 +263,16 @@ router.delete('/users/:id', (req, res) => {
     console.log(`🗑️  Deletando usuário: ID ${userId}, Username: ${user.username}, Email: ${user.email}`);
     
     // Deletar usuário
-    const deleted = userDB.delete(userId);
+    let deleted;
+    try {
+      if (userDB.delete.constructor.name === 'AsyncFunction') {
+        deleted = await userDB.delete(userId);
+      } else {
+        deleted = userDB.delete(userId);
+      }
+    } catch (err) {
+      deleted = userDB.delete(userId);
+    }
     
     if (!deleted) {
       console.error(`❌ Erro: Nenhuma linha foi deletada! ID: ${userId}`);
@@ -182,7 +280,17 @@ router.delete('/users/:id', (req, res) => {
     }
     
     // Verificar se foi deletado
-    const verifyDelete = userDB.findById(userId);
+    let verifyDelete;
+    try {
+      if (userDB.findById.constructor.name === 'AsyncFunction') {
+        verifyDelete = await userDB.findById(userId);
+      } else {
+        verifyDelete = userDB.findById(userId);
+      }
+    } catch (err) {
+      verifyDelete = userDB.findById(userId);
+    }
+
     if (verifyDelete) {
       console.error(`❌ Erro: Usuário ainda existe após deletar! ID: ${userId}`);
       return res.json({ success: false, error: 'Erro ao deletar usuário' });

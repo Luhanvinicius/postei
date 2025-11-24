@@ -160,8 +160,9 @@ const userQueries = {
     INSERT INTO users (username, email, password, role)
     VALUES (?, ?, ?, ?)
   `),
-  delete: db.prepare('DELETE FROM users WHERE id = ?'),
-  getAll: db.prepare('SELECT id, username, email, role, created_at FROM users ORDER BY id')
+    delete: db.prepare('DELETE FROM users WHERE id = ?'),
+    getAll: db.prepare('SELECT id, username, email, role, created_at FROM users ORDER BY id'),
+    updateRole: db.prepare('UPDATE users SET role = ? WHERE id = ?')
 };
 
 // Funções para configurações do YouTube
@@ -252,7 +253,16 @@ module.exports = {
       const result = userQueries.delete.run(id);
       return result.changes > 0; // Retorna true se deletou algo
     },
-    getAll: () => userQueries.getAll.all()
+    getAll: () => userQueries.getAll.all(),
+    updateRole: (id, role) => {
+      const result = userQueries.updateRole.run(role, id);
+      return result.changes > 0;
+    },
+    updatePassword: (id, hashedPassword) => {
+      const updatePasswordQuery = db.prepare('UPDATE users SET password = ? WHERE id = ?');
+      const result = updatePasswordQuery.run(hashedPassword, id);
+      return result.changes > 0;
+    }
   },
   configs: {
     findByUserId: (userId) => configQueries.findByUserId.get(userId),

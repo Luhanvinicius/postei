@@ -15,11 +15,8 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav ms-auto align-items-center">
                     <% if (typeof user !== 'undefined' && user) { %>
-                        <li class="nav-item">
-                            <span class="navbar-text me-3">Olá, <strong><%= user.username %></strong></span>
-                        </li>
                         <% if (user.role === 'admin') { %>
                             <li class="nav-item">
                                 <a class="nav-link" href="/admin/dashboard">Admin</a>
@@ -29,9 +26,57 @@
                             <a class="nav-link" href="/user/dashboard">Dashboard</a>
                         </li>
                         <li class="nav-item">
-                            <form action="/auth/logout" method="POST" class="d-inline">
-                                <button type="submit" class="btn btn-link nav-link">Sair</button>
-                            </form>
+                            <a class="nav-link" href="/user/accounts">Vincular Contas</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/user/videos">Vídeos</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/user/scheduled">Agendados</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/user/published">Publicados</a>
+                        </li>
+                        <!-- Menu Dropdown de Perfil -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; font-weight: bold;">
+                                    <%= user.username.charAt(0).toUpperCase() %>
+                                </div>
+                                <span><%= user.username %></span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown" style="min-width: 250px;">
+                                <li>
+                                    <div class="dropdown-item-text">
+                                        <div class="fw-bold"><%= user.username %></div>
+                                        <small class="text-muted"><%= user.email %></small>
+                                    </div>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item" href="/user/profile">
+                                        <span class="me-2">👤</span> Meu Perfil
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="/user/profile#plano">
+                                        <span class="me-2">💳</span> Plano e Faturas
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="/user/profile#privacidade">
+                                        <span class="me-2">🔒</span> Privacidade
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <form action="/auth/logout" method="POST" class="d-inline w-100">
+                                        <button type="submit" class="dropdown-item text-danger">
+                                            <span class="me-2">🚪</span> Sair
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
                         </li>
                     <% } else { %>
                         <li class="nav-item">

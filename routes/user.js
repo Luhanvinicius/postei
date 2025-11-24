@@ -885,5 +885,92 @@ router.get('/published', async (req, res) => {
   });
 });
 
+// Página de perfil
+router.get('/profile', async (req, res) => {
+  const userId = req.user.id;
+  const { users } = require('../database');
+  
+  // Buscar dados completos do usuário (pode ser async no PostgreSQL)
+  let userData;
+  try {
+    if (users.findById.constructor.name === 'AsyncFunction') {
+      userData = await users.findById(userId);
+    } else {
+      userData = users.findById(userId);
+    }
+  } catch (err) {
+    userData = users.findById(userId);
+  }
+  
+  res.render('user/profile', {
+    user: userData || req.user
+  });
+});
+
+// Alterar senha
+router.post('/profile/change-password', async (req, res) => {
+  const userId = req.user.id;
+  const { currentPassword, newPassword } = req.body;
+
+  try {
+    if (!currentPassword || !newPassword) {
+      return res.json({ success: false, error: 'Preencha todos os campos' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.json({ success: false, error: 'A senha deve ter no mínimo 6 caracteres' });
+    }
+
+    // Buscar usuário
+    const { users } = require('../database');
+    let user;
+    try {
+      if (users.findById.constructor.name === 'AsyncFunction') {
+        user = await users.findById(userId);
+      } else {
+        user = users.findById(userId);
+      }
+    } catch (err) {
+      user = users.findById(userId);
+    }
+
+    if (!user) {
+      return res.json({ success: false, error: 'Usuário não encontrado' });
+    }
+
+    // Verificar senha atual
+    const bcrypt = require('bcryptjs');
+    const validPassword = await bcrypt.compare(currentPassword, user.password);
+    
+    if (!validPassword) {
+      return res.json({ success: false, error: 'Senha atual incorreta' });
+    }
+
+    // Atualizar senha
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    let updated;
+    try {
+      if (users.updatePassword.constructor.name === 'AsyncFunction') {
+        updated = await users.updatePassword(userId, hashedPassword);
+      } else {
+        updated = users.updatePassword(userId, hashedPassword);
+      }
+    } catch (err) {
+      updated = users.updatePassword(userId, hashedPassword);
+    }
+
+    if (!updated) {
+      return res.json({ success: false, error: 'Erro ao atualizar senha' });
+    }
+
+    console.log(`✅ Senha alterada para usuário: ${user.username}`);
+    res.json({ success: true, message: 'Senha alterada com sucesso!' });
+  } catch (error) {
+    console.error('Erro ao alterar senha:', error);
+    res.json({ success: false, error: 'Erro ao alterar senha: ' + error.message });
+  }
+});
+
 module.exports = router;
 

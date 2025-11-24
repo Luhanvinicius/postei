@@ -203,6 +203,16 @@ const userQueries = {
   getAll: async () => {
     const result = await pool.query('SELECT id, username, email, role, created_at FROM users ORDER BY id');
     return result.rows;
+  },
+  
+  updateRole: async (id, role) => {
+    const result = await pool.query('UPDATE users SET role = $1 WHERE id = $2', [role, id]);
+    return result.rowCount > 0;
+  },
+  
+  updatePassword: async (id, hashedPassword) => {
+    const result = await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, id]);
+    return result.rowCount > 0;
   }
 };
 
