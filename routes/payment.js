@@ -140,13 +140,19 @@ router.post('/checkout/:planSlug', requireAuth, async (req, res) => {
     // Buscar plano
     let plan;
     try {
-      if (plans.findBySlug.constructor.name === 'AsyncFunction') {
-        plan = await plans.findBySlug(planSlug);
-      } else {
-        plan = plans.findBySlug(planSlug);
+      if (plans && plans.findBySlug) {
+        const isAsync = plans.findBySlug.constructor && plans.findBySlug.constructor.name === 'AsyncFunction';
+        if (isAsync) {
+          plan = await plans.findBySlug(planSlug);
+        } else {
+          plan = plans.findBySlug(planSlug);
+        }
       }
     } catch (err) {
-      plan = plans.findBySlug(planSlug);
+      console.error('Erro ao buscar plano:', err);
+      if (plans && plans.findBySlug) {
+        plan = plans.findBySlug(planSlug);
+      }
     }
 
     if (!plan) {
