@@ -36,8 +36,11 @@ async function uploadVideoToYouTube(userId, videoPath, title, description, thumb
       return { success: false, error: 'Configuração do YouTube não encontrada. Por favor, faça upload do arquivo client_secrets.json e autentique seu canal na página "Vincular Contas".' };
     }
     
-    if (!dbConfig.is_authenticated || dbConfig.is_authenticated === 0) {
+    // Verificar autenticação (PostgreSQL usa 1/0, SQLite também pode usar 1/0 ou true/false)
+    const isAuthenticated = dbConfig.is_authenticated === 1 || dbConfig.is_authenticated === true || dbConfig.is_authenticated === '1';
+    if (!isAuthenticated) {
       console.error('❌ Canal não está marcado como autenticado no banco');
+      console.error('   Valor de is_authenticated:', dbConfig.is_authenticated, 'Tipo:', typeof dbConfig.is_authenticated);
       return { success: false, error: 'Canal não autenticado. Por favor, autentique seu canal na página "Vincular Contas".' };
     }
     
