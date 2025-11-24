@@ -66,7 +66,12 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">📹 Vídeos Encontrados</h5>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="card-title mb-0">📹 Vídeos Encontrados</h5>
+                            <button class="btn btn-primary" onclick="openWeeklyScheduleModal()">
+                                <i class="bi bi-calendar-week me-1"></i>Agendamento Semanal
+                            </button>
+                        </div>
                         <div id="videosContainer"></div>
                     </div>
                 </div>
@@ -179,6 +184,55 @@
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="button" class="btn btn-primary" onclick="confirmSchedule()">
                         <span id="scheduleBtnText">📅 Agendar</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Agendamento Semanal -->
+    <div class="modal fade" id="weeklyScheduleModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">📅 Agendamento Semanal com IA</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Total de vídeos disponíveis:</strong> <span id="totalVideosCount">0</span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Data de Início (Primeiro dia da semana):</label>
+                        <input type="date" class="form-control" id="weekStartDate" required>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Dia</th>
+                                    <th>Qtd Vídeos</th>
+                                    <th>Horários</th>
+                                </tr>
+                            </thead>
+                            <tbody id="weeklyScheduleTable">
+                                <!-- Será preenchido via JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Limite:</strong> Máximo 4 vídeos por dia. Total necessário: <span id="totalNeeded">0</span> vídeos.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="processWeeklySchedule()">
+                        <i class="bi bi-calendar-check me-1"></i>Agendar Todos
                     </button>
                 </div>
             </div>

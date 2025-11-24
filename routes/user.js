@@ -815,7 +815,7 @@ router.post('/videos/publish', async (req, res) => {
 // API: Agendar vídeo
 router.post('/videos/schedule', async (req, res) => {
   try {
-    const { videoPath, scheduledTime, title, description } = req.body;
+    const { videoPath, scheduledTime, title, description, thumbnailPath } = req.body;
     const userId = req.user.id;
 
     if (!videoPath || !fs.existsSync(videoPath)) {
@@ -838,7 +838,16 @@ router.post('/videos/schedule', async (req, res) => {
     // Copiar vídeo (não mover, pois pode estar na pasta original do usuário)
     await fs.copy(videoPath, scheduledVideoPath);
 
-    const scheduleId = schedules.create(userId, scheduledVideoPath, scheduledTime, title, description || '#shorts');
+    let scheduleId;
+    try {
+      if (schedules.create.constructor.name === 'AsyncFunction') {
+        scheduleId = await schedules.create(userId, scheduledVideoPath, scheduledTime, title, description || '#shorts', thumbnailPath);
+      } else {
+        scheduleId = schedules.create(userId, scheduledVideoPath, scheduledTime, title, description || '#shorts', thumbnailPath);
+      }
+    } catch (err) {
+      scheduleId = schedules.create(userId, scheduledVideoPath, scheduledTime, title, description || '#shorts', thumbnailPath);
+    }
 
     res.json({ 
       success: true, 
@@ -848,6 +857,156 @@ router.post('/videos/schedule', async (req, res) => {
   } catch (error) {
     console.error('Erro ao agendar vídeo:', error);
     res.json({ success: false, error: error.message });
+  }
+});
+
+// API: Agendamento Semanal com IA
+router.post('/videos/schedule-weekly', async (req, res) => {
+  try {
+    const { startDate, schedule, videos } = req.body;
+    const userId = req.user.id;
+
+    if (!startDate || !schedule || !videos || videos.length === 0) {
+      return res.json({ success: false, error: 'Dados incompletos' });
+    }
+
+    // Validar total de vídeos necessários
+    const totalNeeded = schedule.reduce((sum, day) => sum + day.qtd, 0);
+    if (totalNeeded > videos.length) {
+      return res.json({ success: false, error: `Você precisa de ${totalNeeded} vídeos, mas só tem ${videos.length} disponíveis.` });
+    }
+
+    if (totalNeeded === 0) {
+      return res.json({ success: false, error: 'Nenhum vídeo configurado para agendar' });
+    }
+
+    // Validar limite de 4 vídeos por dia
+    for (const day of schedule) {
+      if (day.qtd > 4) {
+        return res.json({ success: false, error: `Máximo de 4 vídeos por dia. ${day.dayName} tem ${day.qtd} vídeos configurados.` });
+      }
+    }
+
+    const generateWithAI = require('../services/gemini-service').generateWithAI;
+    let videoIndex = 0;
+    let scheduledCount = 0;
+    const errors = [];
+
+    // Processar cada dia da semana
+    for (const dayConfig of schedule) {
+      const dayOfWeek = dayConfig.day; // 0 = Domingo, 1 = Segunda, etc.
+      const qtd = dayConfig.qtd;
+      const times = dayConfig.times;
+
+      // Calcular data do dia
+      const start = new Date(startDate);
+      const currentDay = start.getDay(); // 0 = Domingo
+      let daysToAdd = dayOfWeek - currentDay;
+      if (daysToAdd < 0) daysToAdd += 7; // Se já passou, ir para próxima semana
+      const targetDate = new Date(start);
+      targetDate.setDate(start.getDate() + daysToAdd);
+
+      // Agendar cada vídeo do dia
+      for (let i = 0; i < qtd && videoIndex < videos.length; i++) {
+        const video = videos[videoIndex];
+        const time = times[i] || times[0] || '08:00'; // Usar horário configurado ou padrão
+
+        try {
+          // Gerar conteúdo com IA
+          console.log(`🤖 Gerando conteúdo com IA para: ${video.name}`);
+          const aiResult = await generateWithAI(video.path, userId);
+          
+          if (!aiResult || !aiResult.title) {
+            console.warn(`⚠️  Falha ao gerar conteúdo para ${video.name}, usando fallback`);
+            aiResult = {
+              title: video.name.replace(/\.[^/.]+$/, ''),
+              description: '#shorts'
+            };
+          }
+
+          // Combinar data e hora
+          const [hours, minutes] = time.split(':');
+          const scheduledDateTime = new Date(targetDate);
+          scheduledDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+          // Verificar se a data não é no passado
+          if (scheduledDateTime < new Date()) {
+            // Se for no passado, adicionar 7 dias (próxima semana)
+            scheduledDateTime.setDate(scheduledDateTime.getDate() + 7);
+          }
+
+          // Agendar vídeo
+          const scheduledDir = path.join(__dirname, '../scheduled', `user_${userId}`);
+          fs.ensureDirSync(scheduledDir);
+          const scheduledVideoPath = path.join(scheduledDir, path.basename(video.path));
+          
+          // Copiar vídeo
+          if (fs.existsSync(video.path)) {
+            await fs.copy(video.path, scheduledVideoPath);
+          }
+
+          // Criar agendamento
+          let scheduleId;
+          try {
+            if (schedules.create.constructor.name === 'AsyncFunction') {
+              scheduleId = await schedules.create(
+                userId, 
+                scheduledVideoPath, 
+                scheduledDateTime.toISOString(), 
+                aiResult.title, 
+                aiResult.description || '#shorts',
+                aiResult.thumbnailPath || null
+              );
+            } else {
+              scheduleId = schedules.create(
+                userId, 
+                scheduledVideoPath, 
+                scheduledDateTime.toISOString(), 
+                aiResult.title, 
+                aiResult.description || '#shorts',
+                aiResult.thumbnailPath || null
+              );
+            }
+          } catch (err) {
+            scheduleId = schedules.create(
+              userId, 
+              scheduledVideoPath, 
+              scheduledDateTime.toISOString(), 
+              aiResult.title, 
+              aiResult.description || '#shorts',
+              aiResult.thumbnailPath || null
+            );
+          }
+
+          scheduledCount++;
+          console.log(`✅ Vídeo agendado: ${video.name} para ${scheduledDateTime.toLocaleString('pt-BR')}`);
+
+        } catch (error) {
+          console.error(`❌ Erro ao agendar vídeo ${video.name}:`, error);
+          errors.push(`${video.name}: ${error.message}`);
+        }
+
+        videoIndex++;
+      }
+    }
+
+    if (scheduledCount === 0) {
+      return res.json({ 
+        success: false, 
+        error: 'Nenhum vídeo foi agendado. Erros: ' + errors.join('; ') 
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      message: `${scheduledCount} vídeo(s) agendado(s) com sucesso!`,
+      scheduled: scheduledCount,
+      errors: errors.length > 0 ? errors : null
+    });
+
+  } catch (error) {
+    console.error('Erro ao processar agendamento semanal:', error);
+    res.json({ success: false, error: 'Erro ao processar agendamento: ' + error.message });
   }
 });
 
