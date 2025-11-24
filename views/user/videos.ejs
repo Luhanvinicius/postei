@@ -1052,41 +1052,81 @@
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const dateStr = today.toISOString().split('T')[0];
-            document.getElementById('weekStartDate').value = dateStr;
-
-            // Criar tabela de agendamento semanal
-            const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+            const dateInput = document.getElementById('weekStartDate');
+            dateInput.value = dateStr;
+            
+            // Atualizar tabela quando a data mudar
+            dateInput.onchange = updateScheduleTable;
+            
+            updateScheduleTable();
+            new bootstrap.Modal(document.getElementById('weeklyScheduleModal')).show();
+        }
+        
+        function updateScheduleTable() {
+            const startDateInput = document.getElementById('weekStartDate');
+            if (!startDateInput.value) return;
+            
+            const startDate = new Date(startDateInput.value);
             const defaultTimes = ['08:00', '12:00', '18:00', '21:00'];
             const tableBody = document.getElementById('weeklyScheduleTable');
             tableBody.innerHTML = '';
 
-            days.forEach((day, index) => {
+            // Criar 7 dias a partir da data de início
+            for (let i = 0; i < 7; i++) {
+                const currentDate = new Date(startDate);
+                currentDate.setDate(startDate.getDate() + i);
+                
+                const dateStr = currentDate.toLocaleDateString('pt-BR', { 
+                    day: '2-digit', 
+                    month: '2-digit',
+                    weekday: 'short'
+                });
+                
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><strong>${day}</strong></td>
+                    <td>
+                        <strong>${dateStr}</strong>
+                        <br><small class="text-muted">${currentDate.toLocaleDateString('pt-BR')}</small>
+                    </td>
                     <td>
                         <input type="number" class="form-control form-control-sm qtd-videos" 
                                min="0" max="4" value="0" 
-                               onchange="updateTotalNeeded()" 
-                               data-day="${index}">
+                               onchange="updateDaySchedule(${i})" 
+                               data-day="${i}">
                     </td>
                     <td>
-                        <div class="d-flex flex-wrap gap-2">
-                            ${defaultTimes.map((time, timeIndex) => `
-                                <input type="time" class="form-control form-control-sm schedule-time" 
-                                       value="${time}" 
-                                       data-day="${index}" 
-                                       data-time-index="${timeIndex}"
-                                       style="width: 100px;">
-                            `).join('')}
+                        <div class="d-flex flex-wrap gap-2" id="times-container-${i}">
+                            <!-- Horários serão adicionados dinamicamente -->
                         </div>
                     </td>
                 `;
                 tableBody.appendChild(row);
-            });
+            }
 
             updateTotalNeeded();
-            new bootstrap.Modal(document.getElementById('weeklyScheduleModal')).show();
+        }
+        
+        function updateDaySchedule(dayIndex) {
+            const qtdInput = document.querySelector(`.qtd-videos[data-day="${dayIndex}"]`);
+            const qtd = parseInt(qtdInput.value) || 0;
+            const timesContainer = document.getElementById(`times-container-${dayIndex}`);
+            const defaultTimes = ['08:00', '12:00', '18:00', '21:00'];
+            
+            timesContainer.innerHTML = '';
+            
+            // Criar apenas os campos de horário necessários (baseado na quantidade)
+            for (let i = 0; i < qtd && i < 4; i++) {
+                const timeInput = document.createElement('input');
+                timeInput.type = 'time';
+                timeInput.className = 'form-control form-control-sm schedule-time';
+                timeInput.value = defaultTimes[i] || '08:00';
+                timeInput.setAttribute('data-day', dayIndex);
+                timeInput.setAttribute('data-time-index', i);
+                timeInput.style.width = '100px';
+                timesContainer.appendChild(timeInput);
+            }
+            
+            updateTotalNeeded();
         }
 
         function updateTotalNeeded() {
@@ -1116,9 +1156,9 @@
 
             // Coletar configurações de cada dia
             const scheduleConfig = [];
-            const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+            const startDateObj = new Date(startDate);
             
-            days.forEach((day, dayIndex) => {
+            for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
                 const qtdInput = document.querySelector(`.qtd-videos[data-day="${dayIndex}"]`);
                 const qtd = parseInt(qtdInput.value) || 0;
                 
@@ -1133,17 +1173,23 @@
                     
                     // Se não tiver horários definidos, usar os padrão
                     if (times.length === 0) {
-                        times.push('08:00', '12:00', '18:00', '21:00');
+                        const defaultTimes = ['08:00', '12:00', '18:00', '21:00'];
+                        times.push(...defaultTimes.slice(0, qtd));
                     }
+                    
+                    // Calcular data exata do dia
+                    const targetDate = new Date(startDateObj);
+                    targetDate.setDate(startDateObj.getDate() + dayIndex);
                     
                     scheduleConfig.push({
                         day: dayIndex,
-                        dayName: day,
+                        date: targetDate.toISOString().split('T')[0], // Data no formato YYYY-MM-DD
+                        dateStr: targetDate.toLocaleDateString('pt-BR'),
                         qtd: qtd,
                         times: times.slice(0, qtd) // Limitar aos primeiros N horários baseado na quantidade
                     });
                 }
-            });
+            }
 
             // Validar total
             const totalNeeded = scheduleConfig.reduce((sum, day) => sum + day.qtd, 0);

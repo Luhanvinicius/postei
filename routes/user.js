@@ -892,19 +892,13 @@ router.post('/videos/schedule-weekly', async (req, res) => {
     let scheduledCount = 0;
     const errors = [];
 
-    // Processar cada dia da semana
+    // Processar cada dia configurado
     for (const dayConfig of schedule) {
-      const dayOfWeek = dayConfig.day; // 0 = Domingo, 1 = Segunda, etc.
       const qtd = dayConfig.qtd;
       const times = dayConfig.times;
 
-      // Calcular data do dia
-      const start = new Date(startDate);
-      const currentDay = start.getDay(); // 0 = Domingo
-      let daysToAdd = dayOfWeek - currentDay;
-      if (daysToAdd < 0) daysToAdd += 7; // Se já passou, ir para próxima semana
-      const targetDate = new Date(start);
-      targetDate.setDate(start.getDate() + daysToAdd);
+      // Usar data exata do dia (já vem calculada do frontend)
+      const targetDate = new Date(dayConfig.date || startDate);
 
       // Agendar cada vídeo do dia
       for (let i = 0; i < qtd && videoIndex < videos.length; i++) {
