@@ -28,12 +28,14 @@ const requireAuth = async (req, res, next) => {
   if (req.user.role !== 'admin' && req.user.payment_status === 'pending') {
     // SEMPRE permitir acesso às rotas de pagamento (checkout, pending, webhook)
     // Isso permite que o usuário complete o pagamento ou crie nova fatura
-    const path = req.path || req.originalUrl?.split('?')[0] || '';
+    const path = req.path || '';
     const originalUrl = req.originalUrl || '';
+    const baseUrl = req.baseUrl || '';
     
     console.log('🔍 Middleware - Verificando acesso para usuário com payment_status=pending');
     console.log('   Path:', path);
     console.log('   OriginalUrl:', originalUrl);
+    console.log('   BaseUrl:', baseUrl);
     console.log('   User:', req.user.username);
     
     // PRIMEIRO: Sempre permitir acesso a rotas de pagamento
@@ -42,15 +44,17 @@ const requireAuth = async (req, res, next) => {
     // Mas req.originalUrl ou req.baseUrl terá /payment
     const isPaymentRoute = 
       path.startsWith('/payment/') || 
-      originalUrl.startsWith('/payment/') || 
-      req.baseUrl === '/payment' ||
-      req.baseUrl?.includes('payment') ||
-      (req.route && req.route.path && req.route.path.includes('payment')) ||
+      originalUrl.includes('/payment/') || 
+      baseUrl === '/payment' ||
+      baseUrl.includes('payment') ||
+      path.startsWith('/checkout/') ||  // Rota relativa dentro do router /payment
+      path.startsWith('/pending') ||   // Rota relativa dentro do router /payment
+      path.startsWith('/webhook/') ||  // Rota relativa dentro do router /payment
       path.startsWith('/auth/logout');
     
     if (isPaymentRoute) {
       console.log('✅ PERMITINDO acesso à rota de pagamento');
-      console.log('   Path:', path, '| OriginalUrl:', originalUrl, '| BaseUrl:', req.baseUrl);
+      console.log('   Path:', path, '| OriginalUrl:', originalUrl, '| BaseUrl:', baseUrl);
       return next();
     }
     
