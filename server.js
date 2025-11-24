@@ -133,21 +133,23 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// Middleware global para anexar usuário (de sessão OU cookie) em req.user
-app.use(attachUser);
+// Middleware global: anexar usuário da sessão em todas as requisições
+app.use((req, res, next) => {
+  // Se tem sessão com usuário, anexar ao req.user
+  if (req.session && req.session.user) {
+    req.user = req.session.user;
+  }
+  next();
+});
 
 // Rotas públicas
 app.get('/', (req, res) => {
-  // req.user está disponível via attachUser middleware
+  // Se já está autenticado, redirecionar para dashboard apropriado
   if (req.user) {
     const redirectUrl = req.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
-    // Manter token na URL ao redirecionar
-    const token = req.query.token;
-    if (token) {
-      return res.redirect(`${redirectUrl}?token=${encodeURIComponent(token)}`);
-    }
     return res.redirect(redirectUrl);
   }
+  // Se não está autenticado, mostrar página inicial
   res.render('index');
 });
 
