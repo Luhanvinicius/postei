@@ -21,8 +21,8 @@ const createToken = (user) => {
       role: user.role
     };
     
-    const token = jwt.sign(payload, SECRET, { expiresIn: '24h' });
-    console.log('✅ Token JWT criado para:', user.username);
+    const token = jwt.sign(payload, SECRET, { expiresIn: '7d' }); // 7 dias para não expirar rápido
+    console.log('✅ Token JWT criado para:', user.username, 'expira em 7 dias');
     return token;
   } catch (err) {
     console.error('❌ Erro ao criar token:', err);
