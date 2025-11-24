@@ -17,32 +17,43 @@ async function authenticateYouTube(userId, credentialsPath) {
       return { success: false, error: 'Credenciais inválidas no arquivo. Verifique se o arquivo contém client_id e client_secret.' };
     }
 
-    // Usar redirect_uri do arquivo ou padrão
+    // Detectar tipo de aplicação (desktop/installed ou web)
+    const isDesktopApp = !!userCredentials.installed;
+    const isWebApp = !!userCredentials.web;
+    
     // Detectar se está em produção (Render/Vercel) ou local
     const isProduction = process.env.RENDER || process.env.VERCEL || process.env.NODE_ENV === 'production';
     const baseUrl = process.env.BASE_URL || (isProduction ? (process.env.RENDER_EXTERNAL_URL || process.env.VERCEL_URL || '') : 'http://localhost:3000');
     
     let redirectUri = process.env.YOUTUBE_REDIRECT_URI;
+    
     if (!redirectUri) {
-      // Tentar pegar do arquivo
-      const redirectUris = userCredentials.installed?.redirect_uris || userCredentials.web?.redirect_uris || [];
-      if (redirectUris.length > 0) {
-        redirectUri = redirectUris[0];
-        // Se for apenas "http://localhost", ajustar para o ambiente correto
-        if (redirectUri === 'http://localhost' || redirectUri.includes('localhost')) {
+      if (isDesktopApp) {
+        // Para aplicações desktop, usar http://localhost (não precisa configurar no Google Cloud Console)
+        // O Google aceita automaticamente http://localhost para desktop apps
+        redirectUri = 'http://localhost/user/auth/callback';
+        console.log('📱 Detectado: Aplicação Desktop - usando http://localhost');
+      } else if (isWebApp) {
+        // Para aplicações web, tentar pegar do arquivo ou usar padrão
+        const redirectUris = userCredentials.web?.redirect_uris || [];
+        if (redirectUris.length > 0) {
+          redirectUri = redirectUris[0];
+          if (redirectUri === 'http://localhost') {
+            redirectUri = 'http://localhost:3000/user/auth/callback';
+          }
+        } else {
+          // Usar URL base do ambiente
           if (isProduction && baseUrl) {
             redirectUri = `${baseUrl}/user/auth/callback`;
           } else {
             redirectUri = 'http://localhost:3000/user/auth/callback';
           }
         }
+        console.log('🌐 Detectado: Aplicação Web');
       } else {
-        // Usar URL base do ambiente
-        if (isProduction && baseUrl) {
-          redirectUri = `${baseUrl}/user/auth/callback`;
-        } else {
-          redirectUri = 'http://localhost:3000/user/auth/callback';
-        }
+        // Fallback: assumir desktop se não detectar
+        redirectUri = 'http://localhost/user/auth/callback';
+        console.log('⚠️  Tipo não detectado, assumindo Desktop');
       }
     }
     
@@ -160,31 +171,43 @@ async function handleAuthCallback(userId, code) {
       return { success: false, error: 'Credenciais inválidas no arquivo' };
     }
 
-    // Usar redirect_uri do arquivo ou padrão
+    // Detectar tipo de aplicação (desktop/installed ou web)
+    const isDesktopApp = !!userCredentials.installed;
+    const isWebApp = !!userCredentials.web;
+    
     // Detectar se está em produção (Render/Vercel) ou local
     const isProduction = process.env.RENDER || process.env.VERCEL || process.env.NODE_ENV === 'production';
     const baseUrl = process.env.BASE_URL || (isProduction ? (process.env.RENDER_EXTERNAL_URL || process.env.VERCEL_URL || '') : 'http://localhost:3000');
     
     let redirectUri = process.env.YOUTUBE_REDIRECT_URI;
+    
     if (!redirectUri) {
-      const redirectUris = userCredentials.installed?.redirect_uris || userCredentials.web?.redirect_uris || [];
-      if (redirectUris.length > 0) {
-        redirectUri = redirectUris[0];
-        // Se for apenas "http://localhost", ajustar para o ambiente correto
-        if (redirectUri === 'http://localhost' || redirectUri.includes('localhost')) {
+      if (isDesktopApp) {
+        // Para aplicações desktop, usar http://localhost (não precisa configurar no Google Cloud Console)
+        // O Google aceita automaticamente http://localhost para desktop apps
+        redirectUri = 'http://localhost/user/auth/callback';
+        console.log('📱 Detectado: Aplicação Desktop - usando http://localhost');
+      } else if (isWebApp) {
+        // Para aplicações web, tentar pegar do arquivo ou usar padrão
+        const redirectUris = userCredentials.web?.redirect_uris || [];
+        if (redirectUris.length > 0) {
+          redirectUri = redirectUris[0];
+          if (redirectUri === 'http://localhost') {
+            redirectUri = 'http://localhost:3000/user/auth/callback';
+          }
+        } else {
+          // Usar URL base do ambiente
           if (isProduction && baseUrl) {
             redirectUri = `${baseUrl}/user/auth/callback`;
           } else {
             redirectUri = 'http://localhost:3000/user/auth/callback';
           }
         }
+        console.log('🌐 Detectado: Aplicação Web');
       } else {
-        // Usar URL base do ambiente
-        if (isProduction && baseUrl) {
-          redirectUri = `${baseUrl}/user/auth/callback`;
-        } else {
-          redirectUri = 'http://localhost:3000/user/auth/callback';
-        }
+        // Fallback: assumir desktop se não detectar
+        redirectUri = 'http://localhost/user/auth/callback';
+        console.log('⚠️  Tipo não detectado, assumindo Desktop');
       }
     }
     
