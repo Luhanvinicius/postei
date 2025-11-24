@@ -323,5 +323,168 @@ router.get('/invoices', async (req, res) => {
   }
 });
 
+// Tela de gerenciamento de vídeos publicados
+router.get('/videos', async (req, res) => {
+  try {
+    const { published } = require('../database');
+    
+    // Buscar todos os vídeos publicados (precisa criar função findAll)
+    let allVideos = [];
+    try {
+      // Buscar todos os usuários e depois seus vídeos
+      const { users } = require('../database');
+      let allUsers;
+      try {
+        if (users.getAll.constructor.name === 'AsyncFunction') {
+          allUsers = await users.getAll();
+        } else {
+          allUsers = users.getAll();
+        }
+      } catch (err) {
+        allUsers = users.getAll();
+      }
+      
+      // Buscar vídeos de cada usuário
+      for (const user of allUsers) {
+        let userVideos;
+        try {
+          if (published.findByUserId.constructor.name === 'AsyncFunction') {
+            userVideos = await published.findByUserId(user.id);
+          } else {
+            userVideos = published.findByUserId(user.id);
+          }
+        } catch (err) {
+          userVideos = published.findByUserId(user.id);
+        }
+        
+        // Adicionar informações do usuário aos vídeos
+        userVideos.forEach(video => {
+          allVideos.push({
+            ...video,
+            username: user.username,
+            user_email: user.email
+          });
+        });
+      }
+      
+      // Ordenar por data de publicação (mais recente primeiro)
+      allVideos.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
+    } catch (err) {
+      console.error('Erro ao buscar vídeos:', err);
+    }
+    
+    res.render('admin/videos', {
+      user: req.user,
+      videos: allVideos
+    });
+  } catch (error) {
+    console.error('Erro ao carregar vídeos:', error);
+    res.render('admin/videos', {
+      user: req.user,
+      videos: []
+    });
+  }
+});
+
+// API: Deletar vídeo publicado
+router.delete('/videos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { published } = require('../database');
+    
+    // Buscar vídeo
+    let video;
+    try {
+      // Precisamos criar uma função findById no published
+      // Por enquanto, vamos buscar por todos os usuários
+      const { users } = require('../database');
+      let allUsers;
+      try {
+        if (users.getAll.constructor.name === 'AsyncFunction') {
+          allUsers = await users.getAll();
+        } else {
+          allUsers = users.getAll();
+        }
+      } catch (err) {
+        allUsers = users.getAll();
+      }
+      
+      for (const user of allUsers) {
+        let userVideos;
+        try {
+          if (published.findByUserId.constructor.name === 'AsyncFunction') {
+            userVideos = await published.findByUserId(user.id);
+          } else {
+            userVideos = published.findByUserId(user.id);
+          }
+        } catch (err) {
+          userVideos = published.findByUserId(user.id);
+        }
+        
+        video = userVideos.find(v => v.id == id);
+        if (video) break;
+      }
+    } catch (err) {
+      return res.json({ success: false, error: 'Erro ao buscar vídeo' });
+    }
+    
+    if (!video) {
+      return res.json({ success: false, error: 'Vídeo não encontrado' });
+    }
+    
+    // Deletar arquivo físico se existir
+    const fs = require('fs-extra');
+    const path = require('path');
+    
+    if (video.video_path) {
+      const postedPath = path.join(__dirname, '../posted', `user_${video.user_id}`, path.basename(video.video_path));
+      if (fs.existsSync(postedPath)) {
+        try {
+          await fs.remove(postedPath);
+          console.log(`🗑️  Vídeo deletado: ${postedPath}`);
+        } catch (deleteError) {
+          console.warn(`⚠️  Erro ao deletar arquivo: ${deleteError.message}`);
+        }
+      }
+    }
+    
+    // Deletar thumbnail se existir
+    if (video.thumbnail_path) {
+      if (fs.existsSync(video.thumbnail_path)) {
+        try {
+          await fs.remove(video.thumbnail_path);
+          console.log(`🗑️  Thumbnail deletado: ${video.thumbnail_path}`);
+        } catch (deleteError) {
+          console.warn(`⚠️  Erro ao deletar thumbnail: ${deleteError.message}`);
+        }
+      }
+    }
+    
+    // Deletar do banco de dados
+    // Precisamos criar função delete no published
+    const { db } = require('../database');
+    try {
+      if (db && db.prepare) {
+        // SQLite
+        const deleteQuery = db.prepare('DELETE FROM published_videos WHERE id = ?');
+        deleteQuery.run(id);
+      } else {
+        // PostgreSQL
+        const { pool } = require('../database');
+        await pool.query('DELETE FROM published_videos WHERE id = $1', [id]);
+      }
+    } catch (dbError) {
+      console.error('Erro ao deletar do banco:', dbError);
+      return res.json({ success: false, error: 'Erro ao deletar vídeo do banco de dados' });
+    }
+    
+    console.log(`✅ Vídeo deletado: ID ${id}`);
+    res.json({ success: true, message: 'Vídeo deletado com sucesso' });
+  } catch (error) {
+    console.error('Erro ao deletar vídeo:', error);
+    res.json({ success: false, error: 'Erro ao deletar vídeo: ' + error.message });
+  }
+});
+
 module.exports = router;
 
