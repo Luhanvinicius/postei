@@ -28,15 +28,25 @@ router.get('/pending', requireAuth, async (req, res) => {
       }
     } else {
       // Buscar última fatura pendente do usuário
-      let userInvoices;
+      let userInvoices = [];
       try {
-        if (invoices.findByUserId.constructor.name === 'AsyncFunction') {
-          userInvoices = await invoices.findByUserId(userId);
-        } else {
-          userInvoices = invoices.findByUserId(userId);
+        if (invoices && invoices.findByUserId) {
+          const isAsync = invoices.findByUserId.constructor && invoices.findByUserId.constructor.name === 'AsyncFunction';
+          if (isAsync) {
+            userInvoices = await invoices.findByUserId(userId);
+          } else {
+            userInvoices = invoices.findByUserId(userId);
+          }
         }
       } catch (err) {
-        userInvoices = invoices.findByUserId(userId);
+        console.error('Erro ao buscar faturas:', err);
+        if (invoices && invoices.findByUserId) {
+          userInvoices = invoices.findByUserId(userId);
+        }
+      }
+      
+      if (!Array.isArray(userInvoices)) {
+        userInvoices = [];
       }
       
       invoiceData = userInvoices.find(inv => inv.status === 'pending');
@@ -192,34 +202,58 @@ router.post('/checkout/:planSlug', requireAuth, async (req, res) => {
     }
 
     // Criar assinatura no banco
-    let subscriptionId;
+    let subscriptionId = null;
     try {
-      if (subscriptions.create.constructor.name === 'AsyncFunction') {
-        subscriptionId = await subscriptions.create(userId, plan.id, null);
-      } else {
-        subscriptionId = subscriptions.create(userId, plan.id, null);
+      if (subscriptions && subscriptions.create) {
+        const isAsync = subscriptions.create.constructor && subscriptions.create.constructor.name === 'AsyncFunction';
+        if (isAsync) {
+          subscriptionId = await subscriptions.create(userId, plan.id, null);
+        } else {
+          subscriptionId = subscriptions.create(userId, plan.id, null);
+        }
       }
     } catch (err) {
-      subscriptionId = subscriptions.create(userId, plan.id, null);
+      console.error('Erro ao criar assinatura:', err);
+      if (subscriptions && subscriptions.create) {
+        subscriptionId = subscriptions.create(userId, plan.id, null);
+      }
     }
 
     // Criar fatura no banco
     const invoiceNumber = `INV-${Date.now()}-${userId}`;
     let invoiceId;
     try {
-      if (invoices.create.constructor.name === 'AsyncFunction') {
-        invoiceId = await invoices.create(
-          userId,
-          plan.id,
-          subscriptionId,
-          plan.price,
-          asaasPayment.id,
-          invoiceNumber,
-          dueDateStr,
-          pixQrCode,
-          pixCopyPaste
-        );
-      } else {
+      if (invoices && invoices.create) {
+        const isAsync = invoices.create.constructor && invoices.create.constructor.name === 'AsyncFunction';
+        if (isAsync) {
+          invoiceId = await invoices.create(
+            userId,
+            plan.id,
+            subscriptionId,
+            plan.price,
+            asaasPayment.id,
+            invoiceNumber,
+            dueDateStr,
+            pixQrCode,
+            pixCopyPaste
+          );
+        } else {
+          invoiceId = invoices.create(
+            userId,
+            plan.id,
+            subscriptionId,
+            plan.price,
+            asaasPayment.id,
+            invoiceNumber,
+            dueDateStr,
+            pixQrCode,
+            pixCopyPaste
+          );
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao criar fatura:', err);
+      if (invoices && invoices.create) {
         invoiceId = invoices.create(
           userId,
           plan.id,
@@ -232,18 +266,6 @@ router.post('/checkout/:planSlug', requireAuth, async (req, res) => {
           pixCopyPaste
         );
       }
-    } catch (err) {
-      invoiceId = invoices.create(
-        userId,
-        plan.id,
-        subscriptionId,
-        plan.price,
-        asaasPayment.id,
-        invoiceNumber,
-        dueDateStr,
-        pixQrCode,
-        pixCopyPaste
-      );
     }
 
     res.json({
@@ -263,79 +285,141 @@ router.post('/checkout/:planSlug', requireAuth, async (req, res) => {
 // Webhook do Asaas (sem autenticação)
 router.post('/webhook/asaas', express.json(), async (req, res) => {
   try {
-    console.log('📥 Webhook recebido do Asaas:', JSON.stringify(req.body, null, 2));
+    console.log('📥 ===== WEBHOOK RECEBIDO DO ASAAS =====');
+    console.log('📦 Body completo:', JSON.stringify(req.body, null, 2));
+    console.log('🔍 Headers:', JSON.stringify(req.headers, null, 2));
+    
     const webhookData = asaasService.processWebhook(req.body);
+    
+    console.log('📊 Dados processados:');
+    console.log('   Event:', webhookData.event);
+    console.log('   Payment ID:', webhookData.paymentId);
+    console.log('   Status:', webhookData.status);
+    console.log('   Value:', webhookData.value);
+    
+    if (!webhookData.paymentId) {
+      console.warn('⚠️  Webhook sem paymentId, ignorando...');
+      return res.status(200).json({ received: true, message: 'Webhook recebido mas sem paymentId' });
+    }
     
     // Buscar fatura pelo ID do Asaas
     let invoice;
     try {
-      if (invoices.findByAsaasId.constructor.name === 'AsyncFunction') {
-        invoice = await invoices.findByAsaasId(webhookData.paymentId);
-      } else {
-        invoice = invoices.findByAsaasId(webhookData.paymentId);
+      if (invoices && invoices.findByAsaasId) {
+        const isAsync = invoices.findByAsaasId.constructor && invoices.findByAsaasId.constructor.name === 'AsyncFunction';
+        if (isAsync) {
+          invoice = await invoices.findByAsaasId(webhookData.paymentId);
+        } else {
+          invoice = invoices.findByAsaasId(webhookData.paymentId);
+        }
       }
     } catch (err) {
-      invoice = invoices.findByAsaasId(webhookData.paymentId);
+      console.error('❌ Erro ao buscar fatura:', err);
+      if (invoices && invoices.findByAsaasId) {
+        invoice = invoices.findByAsaasId(webhookData.paymentId);
+      }
     }
 
     if (!invoice) {
-      console.warn('Fatura não encontrada para webhook:', webhookData.paymentId);
-      return res.status(200).json({ received: true });
+      console.warn('⚠️  Fatura não encontrada para paymentId:', webhookData.paymentId);
+      console.log('   Isso pode ser normal se o pagamento não foi criado pelo nosso sistema');
+      return res.status(200).json({ received: true, message: 'Fatura não encontrada' });
     }
 
+    console.log('✅ Fatura encontrada:', invoice.id);
+    console.log('   User ID:', invoice.user_id);
+    console.log('   Status atual:', invoice.status);
+
     // Atualizar status da fatura
-    const paidAt = webhookData.event === 'PAYMENT_RECEIVED' ? new Date() : null;
+    const paidAt = (webhookData.event === 'PAYMENT_RECEIVED' || webhookData.status === 'RECEIVED') ? new Date() : null;
     const status = webhookData.status === 'RECEIVED' ? 'paid' : 
                    webhookData.status === 'OVERDUE' ? 'overdue' : 
-                   webhookData.status === 'PENDING' ? 'pending' : 'pending';
+                   webhookData.status === 'PENDING' ? 'pending' : 
+                   invoice.status || 'pending';
+
+    console.log('🔄 Atualizando fatura:');
+    console.log('   Novo status:', status);
+    console.log('   Paid at:', paidAt);
 
     try {
-      if (invoices.updateStatus.constructor.name === 'AsyncFunction') {
-        await invoices.updateStatus(invoice.id, status, paidAt);
-      } else {
-        invoices.updateStatus(invoice.id, status, paidAt);
+      if (invoices && invoices.updateStatus) {
+        const isAsync = invoices.updateStatus.constructor && invoices.updateStatus.constructor.name === 'AsyncFunction';
+        if (isAsync) {
+          await invoices.updateStatus(invoice.id, status, paidAt);
+        } else {
+          invoices.updateStatus(invoice.id, status, paidAt);
+        }
       }
     } catch (err) {
-      invoices.updateStatus(invoice.id, status, paidAt);
+      console.error('❌ Erro ao atualizar status da fatura:', err);
+      if (invoices && invoices.updateStatus) {
+        invoices.updateStatus(invoice.id, status, paidAt);
+      }
     }
 
     // Se pagamento foi confirmado, ativar assinatura e atualizar payment_status do usuário
     if (status === 'paid') {
+      console.log('💰 Pagamento confirmado! Ativando acesso do usuário...');
       const { users } = require('../database');
       
       // Atualizar payment_status do usuário para 'paid'
       try {
-        if (users.updatePaymentStatus.constructor.name === 'AsyncFunction') {
-          await users.updatePaymentStatus(invoice.user_id, 'paid');
-        } else {
-          users.updatePaymentStatus(invoice.user_id, 'paid');
+        if (users && users.updatePaymentStatus) {
+          const isAsync = users.updatePaymentStatus.constructor && users.updatePaymentStatus.constructor.name === 'AsyncFunction';
+          if (isAsync) {
+            await users.updatePaymentStatus(invoice.user_id, 'paid');
+          } else {
+            users.updatePaymentStatus(invoice.user_id, 'paid');
+          }
+          console.log('✅ Payment status do usuário atualizado para "paid"');
         }
       } catch (err) {
-        users.updatePaymentStatus(invoice.user_id, 'paid');
+        console.error('❌ Erro ao atualizar payment_status do usuário:', err);
+        if (users && users.updatePaymentStatus) {
+          users.updatePaymentStatus(invoice.user_id, 'paid');
+        }
       }
-      
-      // Atualizar sessão se o usuário estiver logado (atualizar payment_status na sessão)
-      // Isso será feito no próximo login ou refresh
       
       // Ativar assinatura se existir
       if (invoice.subscription_id) {
         try {
-          if (subscriptions.updateStatus.constructor.name === 'AsyncFunction') {
-            await subscriptions.updateStatus(invoice.subscription_id, 'active');
-          } else {
-            subscriptions.updateStatus(invoice.subscription_id, 'active');
+          if (subscriptions && subscriptions.updateStatus) {
+            const isAsync = subscriptions.updateStatus.constructor && subscriptions.updateStatus.constructor.name === 'AsyncFunction';
+            if (isAsync) {
+              await subscriptions.updateStatus(invoice.subscription_id, 'active');
+            } else {
+              subscriptions.updateStatus(invoice.subscription_id, 'active');
+            }
+            console.log('✅ Assinatura ativada');
           }
         } catch (err) {
-          subscriptions.updateStatus(invoice.subscription_id, 'active');
+          console.error('❌ Erro ao ativar assinatura:', err);
+          if (subscriptions && subscriptions.updateStatus) {
+            subscriptions.updateStatus(invoice.subscription_id, 'active');
+          }
         }
       }
     }
 
-    console.log(`✅ Webhook processado: ${webhookData.event} - Fatura ${invoice.id} - Status: ${status}`);
-    res.status(200).json({ received: true });
+    console.log(`✅ ===== WEBHOOK PROCESSADO COM SUCESSO =====`);
+    console.log(`   Event: ${webhookData.event}`);
+    console.log(`   Fatura: ${invoice.id}`);
+    console.log(`   Status: ${status}`);
+    
+    res.status(200).json({ 
+      received: true, 
+      processed: true,
+      invoiceId: invoice.id,
+      status: status
+    });
   } catch (error) {
-    console.error('Erro ao processar webhook:', error);
-    res.status(500).json({ error: 'Erro ao processar webhook' });
+    console.error('❌ ===== ERRO AO PROCESSAR WEBHOOK =====');
+    console.error('   Error:', error.message);
+    console.error('   Stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Erro ao processar webhook',
+      message: error.message
+    });
   }
 });
 
@@ -347,13 +431,19 @@ router.get('/invoice/:invoiceId', requireAuth, async (req, res) => {
 
     let invoice;
     try {
-      if (invoices.findById.constructor.name === 'AsyncFunction') {
-        invoice = await invoices.findById(invoiceId);
-      } else {
-        invoice = invoices.findById(invoiceId);
+      if (invoices && invoices.findById) {
+        const isAsync = invoices.findById.constructor && invoices.findById.constructor.name === 'AsyncFunction';
+        if (isAsync) {
+          invoice = await invoices.findById(invoiceId);
+        } else {
+          invoice = invoices.findById(invoiceId);
+        }
       }
     } catch (err) {
-      invoice = invoices.findById(invoiceId);
+      console.error('Erro ao buscar fatura:', err);
+      if (invoices && invoices.findById) {
+        invoice = invoices.findById(invoiceId);
+      }
     }
 
     if (!invoice) {

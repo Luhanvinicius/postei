@@ -20,9 +20,29 @@ class AsaasService {
       baseURL: this.baseURL,
       headers: {
         'access_token': this.apiKey,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'User-Agent': 'YouTube-Automation/1.0'
       }
     });
+    
+    // Interceptor para log de requisições (apenas em desenvolvimento)
+    if (process.env.NODE_ENV !== 'production') {
+      this.client.interceptors.request.use(request => {
+        console.log('📤 Asaas API Request:', request.method?.toUpperCase(), request.url);
+        return request;
+      });
+      
+      this.client.interceptors.response.use(
+        response => {
+          console.log('✅ Asaas API Response:', response.status, response.config.url);
+          return response;
+        },
+        error => {
+          console.error('❌ Asaas API Error:', error.response?.status, error.response?.data || error.message);
+          return Promise.reject(error);
+        }
+      );
+    }
   }
 
   /**
@@ -196,16 +216,31 @@ class AsaasService {
    */
   processWebhook(webhookData) {
     // O Asaas envia eventos como: PAYMENT_CREATED, PAYMENT_RECEIVED, PAYMENT_OVERDUE, etc.
-    const event = webhookData.event;
-    const payment = webhookData.payment;
+    // O formato pode variar, então verificamos múltiplas possibilidades
+    const event = webhookData.event || webhookData.type || 'UNKNOWN';
+    const payment = webhookData.payment || webhookData.data || webhookData;
+
+    // Normalizar status do pagamento
+    let normalizedStatus = payment?.status;
+    if (normalizedStatus) {
+      // Converter status do Asaas para nosso formato
+      normalizedStatus = normalizedStatus.toUpperCase();
+      if (normalizedStatus === 'RECEIVED' || normalizedStatus === 'CONFIRMED') {
+        normalizedStatus = 'RECEIVED';
+      } else if (normalizedStatus === 'OVERDUE' || normalizedStatus === 'VENCIDO') {
+        normalizedStatus = 'OVERDUE';
+      } else if (normalizedStatus === 'PENDING' || normalizedStatus === 'PENDENTE') {
+        normalizedStatus = 'PENDING';
+      }
+    }
 
     return {
       event,
-      paymentId: payment?.id,
-      status: payment?.status,
-      value: payment?.value,
-      dueDate: payment?.dueDate,
-      customerId: payment?.customer
+      paymentId: payment?.id || payment?.paymentId || payment?.asaasId,
+      status: normalizedStatus || 'PENDING',
+      value: payment?.value || payment?.amount,
+      dueDate: payment?.dueDate || payment?.due_date,
+      customerId: payment?.customer || payment?.customerId
     };
   }
 }
