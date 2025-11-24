@@ -37,8 +37,16 @@ const requireAuth = async (req, res, next) => {
     console.log('   User:', req.user.username);
     
     // PRIMEIRO: Sempre permitir acesso a rotas de pagamento
-    if (path.startsWith('/payment/') || originalUrl.startsWith('/payment/') || path.startsWith('/auth/logout')) {
-      console.log('✅ PERMITINDO acesso à rota de pagamento:', path);
+    // Verificar de múltiplas formas para garantir que funciona
+    const isPaymentRoute = 
+      path.startsWith('/payment/') || 
+      originalUrl.startsWith('/payment/') || 
+      req.baseUrl === '/payment' ||
+      (req.route && req.route.path && req.route.path.includes('payment')) ||
+      path.startsWith('/auth/logout');
+    
+    if (isPaymentRoute) {
+      console.log('✅ PERMITINDO acesso à rota de pagamento:', path, '| OriginalUrl:', originalUrl);
       return next();
     }
     
