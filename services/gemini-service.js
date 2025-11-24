@@ -288,11 +288,24 @@ async function generateContentWithGemini(videoPath, videoName) {
     console.log(`📁 Caminho do vídeo: ${videoPath}`);
     
     // EXTRAIR FRAMES PRIMEIRO (igual bot antigo)
-    console.log('📸 Extraindo frames do vídeo para análise visual...');
+    console.log('📸 ===== EXTRAINDO FRAMES DO VÍDEO =====');
+    console.log(`📸 Caminho do vídeo: ${videoPath}`);
+    console.log(`📸 Vídeo existe? ${fs.existsSync(videoPath)}`);
+    
     let frames = await extractVideoFrames(videoPath, 3);
     console.log(`✅ ${frames.length} frames extraídos com sucesso!`);
-    for (let i = 0; i < frames.length; i++) {
-      console.log(`   Frame ${i + 1}: ${frames[i]}`);
+    
+    if (frames.length > 0) {
+      console.log('📸 Lista de frames extraídos:');
+      for (let i = 0; i < frames.length; i++) {
+        const frameExists = fs.existsSync(frames[i]);
+        console.log(`   Frame ${i + 1}: ${frames[i]} (existe: ${frameExists})`);
+        if (!frameExists) {
+          console.error(`   ⚠️  ATENÇÃO: Frame ${i + 1} não existe no sistema de arquivos!`);
+        }
+      }
+    } else {
+      console.error('❌ NENHUM FRAME FOI EXTRAÍDO! O vídeo pode estar corrompido ou o FFmpeg não está funcionando.');
     }
     
     // Se não conseguiu extrair frames, tenta gerar thumbnail como fallback
