@@ -457,23 +457,39 @@ router.post('/videos/generate', async (req, res) => {
       
       // Tentar encontrar o arquivo na pasta padrão do usuário
       const userId = req.user.id;
-      const dbConfig = configs.findByUserId(userId);
+      let dbConfig;
+      try {
+        if (configs.findByUserId.constructor.name === 'AsyncFunction') {
+          dbConfig = await configs.findByUserId(userId);
+        } else {
+          dbConfig = configs.findByUserId(userId);
+        }
+      } catch (err) {
+        dbConfig = configs.findByUserId(userId);
+      }
       
       if (dbConfig && dbConfig.default_video_folder) {
+        console.log('📁 Pasta padrão encontrada:', dbConfig.default_video_folder);
+        
         // Tentar construir caminho absoluto a partir da pasta padrão
+        // Primeiro, tentar com o caminho completo (pode ter subpastas)
         const possiblePath = path.join(dbConfig.default_video_folder, normalizedPath);
         if (fs.existsSync(possiblePath)) {
           normalizedPath = possiblePath;
-          console.log('✅ Caminho resolvido usando pasta padrão:', normalizedPath);
+          console.log('✅ Caminho resolvido usando pasta padrão + caminho completo:', normalizedPath);
         } else {
           // Tentar apenas o nome do arquivo na pasta padrão
           const fileName = path.basename(normalizedPath);
           const possiblePath2 = path.join(dbConfig.default_video_folder, fileName);
           if (fs.existsSync(possiblePath2)) {
             normalizedPath = possiblePath2;
-            console.log('✅ Caminho resolvido usando nome do arquivo:', normalizedPath);
+            console.log('✅ Caminho resolvido usando pasta padrão + nome do arquivo:', normalizedPath);
+          } else {
+            console.warn('⚠️  Arquivo não encontrado nem com caminho completo nem apenas nome');
           }
         }
+      } else {
+        console.warn('⚠️  Nenhuma pasta padrão configurada para o usuário');
       }
     }
     
@@ -483,19 +499,29 @@ router.post('/videos/generate', async (req, res) => {
       console.warn(`🔍 Tentando encontrar arquivo pelo nome...`);
       
       // Última tentativa: procurar pelo nome do arquivo na pasta padrão
-      const userId = req.user.id;
-      const dbConfig = configs.findByUserId(userId);
-      if (dbConfig && dbConfig.default_video_folder) {
+      const userId2 = req.user.id;
+      let dbConfig2;
+      try {
+        if (configs.findByUserId.constructor.name === 'AsyncFunction') {
+          dbConfig2 = await configs.findByUserId(userId2);
+        } else {
+          dbConfig2 = configs.findByUserId(userId2);
+        }
+      } catch (err) {
+        dbConfig2 = configs.findByUserId(userId2);
+      }
+      
+      if (dbConfig2 && dbConfig2.default_video_folder) {
         const fileName = path.basename(normalizedPath);
-        const searchPath = path.join(dbConfig.default_video_folder, fileName);
+        const searchPath = path.join(dbConfig2.default_video_folder, fileName);
         if (fs.existsSync(searchPath)) {
           normalizedPath = searchPath;
           console.log('✅ Arquivo encontrado pelo nome:', normalizedPath);
         } else {
-          return res.json({ success: false, error: `Caminho não encontrado: ${videoPath}. Verifique se o arquivo existe na pasta: ${dbConfig.default_video_folder}` });
+          return res.json({ success: false, error: `Caminho não encontrado: ${videoPath}. Verifique se o arquivo existe na pasta: ${dbConfig2.default_video_folder}` });
         }
       } else {
-        return res.json({ success: false, error: `Caminho não encontrado: ${normalizedPath}` });
+        return res.json({ success: false, error: `Caminho não encontrado: ${normalizedPath}. Configure uma pasta padrão em "Selecionar Pasta".` });
       }
     }
 
