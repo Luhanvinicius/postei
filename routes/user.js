@@ -428,6 +428,7 @@ router.post('/videos/save-folder', async (req, res) => {
 router.post('/videos/scan', async (req, res) => {
   try {
     let { folderPath } = req.body;
+    const userId = req.user.id;
     
     if (!folderPath) {
       return res.json({ success: false, error: 'Caminho da pasta não fornecido' });
@@ -448,6 +449,35 @@ router.post('/videos/scan', async (req, res) => {
       return res.json({ success: false, error: 'O caminho especificado não é uma pasta' });
     }
 
+    // Buscar vídeos já publicados (pode ser async no PostgreSQL)
+    const { published } = require('../database');
+    let publishedVideos = [];
+    try {
+      if (published.findByUserId.constructor.name === 'AsyncFunction') {
+        publishedVideos = await published.findByUserId(userId);
+      } else {
+        publishedVideos = published.findByUserId(userId);
+      }
+    } catch (err) {
+      publishedVideos = published.findByUserId(userId);
+    }
+    
+    // Criar um Set com os caminhos dos vídeos já publicados (normalizado)
+    const publishedPaths = new Set();
+    publishedVideos.forEach(pv => {
+      if (pv.video_path) {
+        // Normalizar caminho para comparação (remover diferenças de barra)
+        const normalized = pv.video_path.replace(/\\/g, '/').toLowerCase();
+        publishedPaths.add(normalized);
+        // Também adicionar apenas o nome do arquivo (caso o caminho seja diferente)
+        const fileName = path.basename(pv.video_path).toLowerCase();
+        publishedPaths.add(fileName);
+      }
+    });
+    
+    console.log(`📊 Total de vídeos já publicados: ${publishedVideos.length}`);
+    console.log(`📊 Caminhos normalizados para filtrar: ${publishedPaths.size}`);
+
     const videoExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv'];
     const videos = [];
 
@@ -459,16 +489,28 @@ router.post('/videos/scan', async (req, res) => {
       if (stat.isFile()) {
         const ext = path.extname(file).toLowerCase();
         if (videoExtensions.includes(ext)) {
-          videos.push({
-            name: file,
-            path: filePath,
-            size: stat.size,
-            sizeMB: (stat.size / (1024 * 1024)).toFixed(2)
-          });
+          // Normalizar caminho para comparação
+          const normalizedPath = filePath.replace(/\\/g, '/').toLowerCase();
+          const normalizedFileName = file.toLowerCase();
+          
+          // Verificar se já foi publicado
+          const isPublished = publishedPaths.has(normalizedPath) || publishedPaths.has(normalizedFileName);
+          
+          if (!isPublished) {
+            videos.push({
+              name: file,
+              path: filePath,
+              size: stat.size,
+              sizeMB: (stat.size / (1024 * 1024)).toFixed(2)
+            });
+          } else {
+            console.log(`⏭️  Vídeo já publicado, ignorando: ${file}`);
+          }
         }
       }
     }
 
+    console.log(`✅ Vídeos encontrados: ${videos.length} (${files.length - videos.length} já publicados foram filtrados)`);
     res.json({ success: true, videos });
   } catch (error) {
     console.error('Erro ao escanear pasta:', error);

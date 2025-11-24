@@ -50,15 +50,31 @@
                                     <tbody>
                                         <% videos.forEach(video => { %>
                                             <tr>
-                                                <td><%= video.video_path.split(/[\\/]/).pop() %></td>
-                                                <td><%= video.title %></td>
+                                                <td>
+                                                    <% if (video.video_id) { %>
+                                                        <img src="https://img.youtube.com/vi/<%= video.video_id %>/maxresdefault.jpg" 
+                                                             alt="Thumbnail" 
+                                                             class="img-thumbnail" 
+                                                             style="width: 160px; height: 90px; object-fit: cover; cursor: pointer;"
+                                                             onerror="this.src='https://img.youtube.com/vi/<%= video.video_id %>/hqdefault.jpg';"
+                                                             onclick="window.open('<%= video.video_url %>', '_blank')">
+                                                    <% } else { %>
+                                                        <span class="text-muted">Sem miniatura</span>
+                                                    <% } %>
+                                                </td>
+                                                <td>
+                                                    <strong><%= video.title %></strong>
+                                                    <% if (video.description) { %>
+                                                        <br><small class="text-muted"><%= video.description.substring(0, 100) %><% if (video.description.length > 100) { %>...<% } %></small>
+                                                    <% } %>
+                                                </td>
                                                 <td>
                                                     <%= new Date(video.published_at).toLocaleString('pt-BR') %>
                                                 </td>
                                                 <td>
                                                     <a href="<%= video.video_url %>" 
                                                        target="_blank" class="btn btn-sm btn-success">
-                                                        Ver no YouTube
+                                                        ▶ Ver no YouTube
                                                     </a>
                                                 </td>
                                             </tr>
