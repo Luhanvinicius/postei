@@ -532,11 +532,28 @@ IMPORTANTE: O título DEVE descrever o que você VÊ nas imagens, não o nome do
               
               console.log(`✅ Título extraído do JSON: "${title}"`);
               console.log(`   - Tamanho: ${title ? title.length : 0} caracteres`);
-              console.log(`   - Contém "viralizando"? ${title ? title.toLowerCase().includes('viralizando') : false}`);
-              console.log(`   - Contém "por que"? ${title ? title.toLowerCase().includes('por que') : false}`);
+              
+              // VALIDAÇÃO IMEDIATA - Se for genérico, NÃO aceitar e continuar loop
+              if (title) {
+                const titleLower = title.toLowerCase();
+                const isGeneric = titleLower.includes('viralizando') || 
+                                 (titleLower.includes('por que') && titleLower.includes('viral')) ||
+                                 titleLower.includes('por que') && titleLower.includes('está viralizando');
+                
+                if (isGeneric) {
+                  console.error(`❌ TÍTULO GENÉRICO DETECTADO: "${title}"`);
+                  console.error(`   - Contém "viralizando": ${titleLower.includes('viralizando')}`);
+                  console.error(`   - Contém "por que": ${titleLower.includes('por que')}`);
+                  console.error(`   - Este título será REJEITADO e tentaremos novamente!`);
+                  title = null; // Forçar nova tentativa
+                } else {
+                  console.log(`✅ Título parece válido (não genérico)`);
+                }
+              }
+              
               console.log(`✅ Descrição extraída: "${description}"`);
               
-              // Validar se título foi extraído e não é genérico
+              // Validar se título foi extraído
               if (!title || title.trim().length < 3) {
                 console.warn('⚠️  Título extraído está vazio ou muito curto, tentando extrair do texto...');
                 console.warn(`   Título atual: "${title}"`);
@@ -544,19 +561,32 @@ IMPORTANTE: O título DEVE descrever o que você VÊ nas imagens, não o nome do
                 const titleMatch = response.match(/["']title["']\s*:\s*["']([^"']+)["']/i) || 
                                   response.match(/title["']?\s*:\s*["']([^"']+)["']/i);
                 if (titleMatch) {
-                  title = titleMatch[1];
-                  console.log(`✅ Título extraído do texto: "${title}"`);
+                  const extractedTitle = titleMatch[1];
+                  // Validar se o título extraído também não é genérico
+                  const extractedLower = extractedTitle.toLowerCase();
+                  if (extractedLower.includes('viralizando') || (extractedLower.includes('por que') && extractedLower.includes('viral'))) {
+                    console.error(`❌ Título extraído também é genérico: "${extractedTitle}"`);
+                    title = null; // Forçar nova tentativa
+                  } else {
+                    title = extractedTitle;
+                    console.log(`✅ Título extraído do texto: "${title}"`);
+                  }
                 } else {
                   console.error('❌ Não foi possível extrair título do texto');
                 }
               } else {
                 // Verificar se o título parece ser baseado no nome do arquivo
-                const fileNameLower = videoName.toLowerCase().replace(/\.[^/.]+$/, '');
+                const fileNameLower = videoName.toLowerCase().replace(/\.[^/.]+$/, '').replace(/[^a-z0-9\s]/g, '');
                 const titleLower = title.toLowerCase();
-                if (titleLower.includes(fileNameLower) && fileNameLower.length > 5) {
+                const fileNameWords = fileNameLower.split(/\s+/).filter(w => w.length > 3);
+                const titleWords = titleLower.split(/\s+/).filter(w => w.length > 3);
+                const matchesFileName = fileNameWords.length > 0 && fileNameWords.some(word => titleWords.includes(word));
+                
+                if (matchesFileName && fileNameWords.length > 0) {
                   console.warn(`⚠️  ATENÇÃO: Título parece ser baseado no nome do arquivo, não no conteúdo visual!`);
                   console.warn(`   Nome do arquivo: "${fileNameLower}"`);
                   console.warn(`   Título: "${titleLower}"`);
+                  console.warn(`   Palavras do arquivo encontradas no título: ${fileNameWords.filter(w => titleWords.includes(w)).join(', ')}`);
                 } else {
                   console.log(`✅ Título parece ser baseado no conteúdo visual (não apenas no nome do arquivo)`);
                 }
@@ -667,55 +697,98 @@ Responda APENAS em formato JSON:
         }
       }
 
-      // Validar se não é genérico - VALIDAÇÃO MAIS RIGOROSA
+      // Validar se não é genérico - VALIDAÇÃO RIGOROSA E OBRIGATÓRIA
       if (title) {
-        const titleLower = title.toLowerCase();
+        const titleLower = title.toLowerCase().trim();
         
-        // Padrões genéricos a rejeitar
-        const genericPatterns = [
+        // Padrões genéricos CRÍTICOS - rejeitar imediatamente
+        const criticalGenericPatterns = [
           'por que',
           'viralizando',
-          'viral',
+          'está viralizando',
+          'por que.*viral',
+          'viral.*por que'
+        ];
+        
+        // Verificar padrões críticos primeiro (mais rigoroso)
+        const isCriticalGeneric = criticalGenericPatterns.some(pattern => {
+          if (pattern.includes('.*')) {
+            // Padrão regex
+            const regex = new RegExp(pattern, 'i');
+            return regex.test(titleLower);
+          }
+          return titleLower.includes(pattern);
+        });
+        
+        // Outros padrões genéricos
+        const otherGenericPatterns = [
           'você não vai acreditar',
           'não vai acreditar',
           'isso vai mudar',
           'você precisa ver',
-          'isso é incrível', // muito genérico
-          'você precisa saber' // muito genérico
+          'isso é incrível',
+          'você precisa saber'
         ];
         
-        // Verificar se contém padrões genéricos
-        const containsGeneric = genericPatterns.some(pattern => titleLower.includes(pattern));
+        const containsOtherGeneric = otherGenericPatterns.some(pattern => titleLower.includes(pattern));
         
         // Verificar se o título contém apenas o nome do arquivo (sem análise visual)
-        const fileNameWords = videoName.toLowerCase().replace(/\.[^/.]+$/, '').split(/[\s_\-()]+/).filter(w => w.length > 2);
-        const titleWords = titleLower.split(/[\s\-_()]+/).filter(w => w.length > 2);
-        const isJustFileName = fileNameWords.length > 0 && fileNameWords.every(word => titleWords.includes(word));
+        const fileNameClean = videoName.toLowerCase().replace(/\.[^/.]+$/, '').replace(/[^a-z0-9\s]/g, ' ').trim();
+        const fileNameWords = fileNameClean.split(/\s+/).filter(w => w.length > 3);
+        const titleWords = titleLower.split(/[\s\-_()]+/).filter(w => w.length > 3);
         
-        // Verificar se é muito curto (menos de 15 caracteres geralmente é genérico)
+        // Verificar se o título é principalmente baseado no nome do arquivo
+        const matchesFileName = fileNameWords.length > 0 && 
+                               fileNameWords.filter(word => titleWords.includes(word)).length >= Math.min(2, fileNameWords.length);
+        
+        // Verificar se é muito curto
         const isTooShort = title.length < 15;
         
-        if (!containsGeneric && !isJustFileName && !isTooShort) {
-          console.log(`✅ Título aprovado: "${title}"`);
+        // DECISÃO: Rejeitar se for genérico crítico OU se for muito baseado no nome do arquivo
+        if (isCriticalGeneric) {
+          console.error(`❌ TÍTULO GENÉRICO CRÍTICO REJEITADO: "${title}"`);
+          console.error(`   - Padrão detectado: ${criticalGenericPatterns.find(p => {
+            if (p.includes('.*')) {
+              return new RegExp(p, 'i').test(titleLower);
+            }
+            return titleLower.includes(p);
+          })}`);
+          
+          if (attempt < 2) {
+            console.error(`   - Tentativa ${attempt + 1}/3 - REJEITADO, tentando novamente...`);
+            title = null; // Forçar nova tentativa
+            continue; // Continuar loop sem break
+          } else {
+            console.error(`   - Após 3 tentativas, título ainda é genérico!`);
+            console.error(`   - Isso indica que o Gemini não está analisando os frames corretamente.`);
+            // Mesmo após 3 tentativas, vamos tentar modificar o título
+            title = title.replace(/por que.*viralizando/gi, 'A cena mais icônica').replace(/\?/g, '!');
+            console.warn(`   - Título modificado para: "${title}"`);
+          }
+        } else if (containsOtherGeneric || matchesFileName || isTooShort) {
+          console.warn(`⚠️  Título rejeitado na tentativa ${attempt + 1}/3:`);
+          if (containsOtherGeneric) console.warn(`   - Contém padrões genéricos`);
+          if (matchesFileName) console.warn(`   - É principalmente baseado no nome do arquivo`);
+          if (isTooShort) console.warn(`   - Muito curto (${title.length} caracteres)`);
+          console.warn(`   - Título: "${title}"`);
+          
+          if (attempt < 2) {
+            console.warn(`   - Tentando novamente...`);
+            title = null; // Forçar nova tentativa
+            continue; // Continuar loop sem break
+          }
+        } else {
+          console.log(`✅ Título APROVADO: "${title}"`);
           console.log(`   - Não contém padrões genéricos`);
           console.log(`   - Não é apenas nome do arquivo`);
           console.log(`   - Tamanho adequado (${title.length} caracteres)`);
-          break; // Título OK
-        }
-        
-        if (attempt < 2) {
-          console.log(`⚠️  Título rejeitado na tentativa ${attempt + 1}/3:`);
-          if (containsGeneric) console.log(`   - Contém padrões genéricos`);
-          if (isJustFileName) console.log(`   - É apenas nome do arquivo`);
-          if (isTooShort) console.log(`   - Muito curto (${title.length} caracteres)`);
-          console.log(`   - Título rejeitado: "${title}"`);
-          console.log(`   - Tentando novamente...`);
-        } else {
-          console.warn(`⚠️  Título genérico após 3 tentativas, mas aceitando: "${title}"`);
-          break; // Aceitar mesmo sendo genérico após 3 tentativas
+          break; // Título OK - sair do loop
         }
       } else {
-        console.warn(`⚠️  Título vazio na tentativa ${attempt + 1}`);
+        console.warn(`⚠️  Título vazio na tentativa ${attempt + 1}/3`);
+        if (attempt < 2) {
+          continue; // Tentar novamente
+        }
       }
     }
 
