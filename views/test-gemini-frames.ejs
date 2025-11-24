@@ -62,9 +62,9 @@
         <p class="text-muted">Esta página testa a geração de títulos baseados nos frames do vídeo</p>
         
         <div class="mb-4">
-            <label for="videoPath" class="form-label">Caminho do Vídeo:</label>
-            <input type="text" class="form-control" id="videoPath" placeholder="Ex: F:\isauro\videos\Filmes e Séries (13).mp4">
-            <small class="text-muted">Digite o caminho absoluto do vídeo no servidor</small>
+            <label for="videoFile" class="form-label">Selecione o Vídeo:</label>
+            <input type="file" class="form-control" id="videoFile" accept="video/*">
+            <small class="text-muted">Selecione um arquivo de vídeo do seu computador</small>
         </div>
         
         <button class="btn btn-primary btn-lg" onclick="testGeneration()">🚀 Testar Geração</button>
@@ -111,37 +111,62 @@
         }
         
         async function testGeneration() {
-            const videoPath = document.getElementById('videoPath').value.trim();
+            const videoFile = document.getElementById('videoFile').files[0];
             
-            if (!videoPath) {
-                addLog('❌ Por favor, digite o caminho do vídeo', 'error');
+            if (!videoFile) {
+                addLog('❌ Por favor, selecione um arquivo de vídeo', 'error');
                 return;
             }
             
             clearLogs();
             addLog('🧪 ===== INICIANDO TESTE =====', 'info');
-            addLog(`📹 Vídeo: ${videoPath}`, 'info');
-            addLog('📤 Enviando requisição para o servidor...', 'info');
+            addLog(`📹 Vídeo selecionado: ${videoFile.name}`, 'info');
+            addLog(`📊 Tamanho: ${(videoFile.size / (1024 * 1024)).toFixed(2)} MB`, 'info');
             
             const startTime = Date.now();
             
             try {
-                const response = await fetch('/test/gemini-frames/generate', {
+                // Primeiro, fazer upload do vídeo
+                addLog('📤 Fazendo upload do vídeo para o servidor...', 'info');
+                
+                const formData = new FormData();
+                formData.append('video', videoFile);
+                
+                const uploadResponse = await fetch('/test/gemini-frames/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const uploadData = await uploadResponse.json();
+                
+                if (!uploadData.success) {
+                    addLog(`❌ Erro no upload: ${uploadData.error}`, 'error');
+                    return;
+                }
+                
+                const videoPath = uploadData.videoPath;
+                addLog(`✅ Vídeo enviado com sucesso!`, 'success');
+                addLog(`📁 Caminho no servidor: ${videoPath}`, 'info');
+                
+                // Agora gerar conteúdo
+                addLog('🤖 Gerando conteúdo com Gemini...', 'info');
+                
+                const generateResponse = await fetch('/test/gemini-frames/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ videoPath })
                 });
                 
                 const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-                addLog(`⏱️  Tempo de processamento: ${duration} segundos`, 'info');
+                addLog(`⏱️  Tempo total de processamento: ${duration} segundos`, 'info');
                 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    addLog(`❌ Erro HTTP ${response.status}: ${errorText}`, 'error');
+                if (!generateResponse.ok) {
+                    const errorText = await generateResponse.text();
+                    addLog(`❌ Erro HTTP ${generateResponse.status}: ${errorText}`, 'error');
                     return;
                 }
                 
-                const data = await response.json();
+                const data = await generateResponse.json();
                 
                 if (data.success) {
                     addLog('✅ ===== RESULTADO RECEBIDO =====', 'success');
