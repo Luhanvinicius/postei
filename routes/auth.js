@@ -5,11 +5,48 @@ const { users } = require('../database');
 
 // Login
 router.get('/login', (req, res) => {
-  // Se já está autenticado, redirecionar
+  // Se já está autenticado, verificar status de pagamento
   if (req.session && req.session.user) {
-    const redirectUrl = req.session.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
-    return res.redirect(redirectUrl);
+    const user = req.session.user;
+    
+    // Admin sempre vai para dashboard
+    if (user.role === 'admin') {
+      return res.redirect('/admin/dashboard');
+    }
+    
+    // Usuário com pagamento confirmado vai para dashboard
+    if (user.payment_status === 'paid') {
+      return res.redirect('/user/dashboard');
+    }
+    
+    // Usuário com pagamento pendente - verificar se tem fatura
+    if (user.payment_status === 'pending') {
+      const { invoices } = require('../database');
+      let pendingInvoice = null;
+      
+      try {
+        let userInvoices;
+        if (invoices.findByUserId.constructor.name === 'AsyncFunction') {
+          userInvoices = await invoices.findByUserId(user.id);
+        } else {
+          userInvoices = invoices.findByUserId(user.id);
+        }
+        
+        pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+      } catch (err) {
+        console.error('Erro ao buscar faturas no login:', err);
+      }
+      
+      if (pendingInvoice) {
+        return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
+      } else {
+        // Se não tem fatura, pode ver a home para escolher plano
+        return res.redirect('/#planos');
+      }
+    }
   }
+  
+  // Se não está autenticado, mostrar página de login
   res.render('auth/login', { error: null });
 });
 
