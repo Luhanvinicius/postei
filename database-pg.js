@@ -210,8 +210,8 @@ async function initDatabase() {
       const bcrypt = require('bcryptjs');
       const hashedPassword = bcrypt.hashSync('admin123', 10);
       await client.query(
-        'INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4)',
-        ['admin', 'admin@example.com', hashedPassword, 'admin']
+        'INSERT INTO users (username, email, password, role, payment_status) VALUES ($1, $2, $3, $4, $5)',
+        ['admin', 'admin@example.com', hashedPassword, 'admin', 'paid']
       );
       console.log('✅ Usuário admin criado: admin / admin123');
     }
