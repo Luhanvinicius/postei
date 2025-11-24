@@ -448,22 +448,83 @@ Responda APENAS em formato JSON (sem markdown, sem código):
           console.log('📝 Resposta completa:', response);
           console.log('📝 Primeiros 200 caracteres:', response.substring(0, 200));
           
-          // Parse JSON
-          const jsonMatch = response.match(/\{[\s\S]*\}/);
+          // Parse JSON - tentar múltiplas formas
+          console.log('🔍 Tentando fazer parse da resposta do Gemini...');
+          
+          // Tentar 1: Procurar JSON completo
+          let jsonMatch = response.match(/\{[\s\S]*\}/);
+          
+          // Tentar 2: Se não encontrou, procurar por markdown code block
+          if (!jsonMatch) {
+            jsonMatch = response.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+            if (jsonMatch) {
+              jsonMatch = [jsonMatch[1], jsonMatch[1]];
+            }
+          }
+          
+          // Tentar 3: Procurar apenas o conteúdo entre chaves
+          if (!jsonMatch) {
+            jsonMatch = response.match(/\{[\s\S]*?\}/);
+          }
+          
           if (jsonMatch) {
             try {
-              const content = JSON.parse(jsonMatch[0]);
-              title = content.title;
-              description = content.description || '#shorts';
-              console.log(`✅ Título gerado pelo Gemini: ${title}`);
-              console.log(`✅ Descrição gerada: ${description.substring(0, 50)}...`);
+              const jsonStr = jsonMatch[0].trim();
+              console.log('📝 JSON encontrado:', jsonStr.substring(0, 200));
+              
+              const content = JSON.parse(jsonStr);
+              title = content.title || content.title || null;
+              description = content.description || content.desc || '#shorts';
+              
+              console.log(`✅ Título extraído: ${title}`);
+              console.log(`✅ Descrição extraída: ${description.substring(0, 50)}...`);
+              
+              // Validar se título foi extraído
+              if (!title || title.length < 3) {
+                console.warn('⚠️  Título extraído está vazio ou muito curto, tentando extrair do texto...');
+                // Tentar extrair título do texto da resposta
+                const titleMatch = response.match(/["']title["']\s*:\s*["']([^"']+)["']/i) || 
+                                  response.match(/title["']?\s*:\s*["']([^"']+)["']/i);
+                if (titleMatch) {
+                  title = titleMatch[1];
+                  console.log(`✅ Título extraído do texto: ${title}`);
+                }
+              }
             } catch (parseError) {
               console.error('❌ Erro ao fazer parse do JSON:', parseError);
-              console.error('Resposta completa:', response);
+              console.error('JSON encontrado:', jsonMatch[0].substring(0, 200));
+              console.error('Resposta completa:', response.substring(0, 500));
+              
+              // Tentar extrair título manualmente do texto
+              console.log('🔍 Tentando extrair título manualmente...');
+              const titleMatch = response.match(/["']title["']\s*:\s*["']([^"']+)["']/i) || 
+                                response.match(/title["']?\s*:\s*["']([^"']+)["']/i) ||
+                                response.match(/título["']?\s*:\s*["']([^"']+)["']/i);
+              if (titleMatch) {
+                title = titleMatch[1];
+                console.log(`✅ Título extraído manualmente: ${title}`);
+              }
             }
           } else {
             console.error('❌ Nenhum JSON encontrado na resposta do Gemini');
             console.error('Resposta completa:', response);
+            
+            // Última tentativa: procurar título no texto livre
+            console.log('🔍 Tentando extrair título do texto livre...');
+            const titlePatterns = [
+              /título[:\s]+["']?([^"'\n]+)["']?/i,
+              /title[:\s]+["']?([^"'\n]+)["']?/i,
+              /"title"\s*:\s*"([^"]+)"/i
+            ];
+            
+            for (const pattern of titlePatterns) {
+              const match = response.match(pattern);
+              if (match && match[1] && match[1].trim().length > 5) {
+                title = match[1].trim();
+                console.log(`✅ Título extraído do texto livre: ${title}`);
+                break;
+              }
+            }
           }
         } catch (geminiError) {
           console.error('❌ ERRO ao chamar Gemini API:', geminiError);
