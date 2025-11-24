@@ -142,7 +142,13 @@ app.use(attachUser);
 app.get('/', (req, res) => {
   // req.user está disponível via attachUser middleware
   if (req.user) {
-    return res.redirect(req.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard');
+    const redirectUrl = req.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
+    // Manter token na URL ao redirecionar
+    const token = req.query.token;
+    if (token) {
+      return res.redirect(`${redirectUrl}?token=${encodeURIComponent(token)}`);
+    }
+    return res.redirect(redirectUrl);
   }
   res.render('index');
 });
