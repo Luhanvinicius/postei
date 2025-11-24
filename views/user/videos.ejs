@@ -626,10 +626,11 @@
                     }
                     
                     const data = await response.json();
-                btn.disabled = false;
-                btn.textContent = '🤖 Gerar com IA';
+                    
+                    btn.disabled = false;
+                    btn.textContent = '🤖 Gerar com IA';
 
-                if (data.success) {
+                    if (data.success) {
                     console.log('✅ Conteúdo gerado:', data);
                     
                     // Guardar conteúdo gerado no vídeo (mesmo formato do bot antigo)
