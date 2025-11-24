@@ -38,15 +38,19 @@ const requireAuth = async (req, res, next) => {
     
     // PRIMEIRO: Sempre permitir acesso a rotas de pagamento
     // Verificar de múltiplas formas para garantir que funciona
+    // Quando a rota é registrada como /payment, o req.path pode ser /checkout/:planSlug
+    // Mas req.originalUrl ou req.baseUrl terá /payment
     const isPaymentRoute = 
       path.startsWith('/payment/') || 
       originalUrl.startsWith('/payment/') || 
       req.baseUrl === '/payment' ||
+      req.baseUrl?.includes('payment') ||
       (req.route && req.route.path && req.route.path.includes('payment')) ||
       path.startsWith('/auth/logout');
     
     if (isPaymentRoute) {
-      console.log('✅ PERMITINDO acesso à rota de pagamento:', path, '| OriginalUrl:', originalUrl);
+      console.log('✅ PERMITINDO acesso à rota de pagamento');
+      console.log('   Path:', path, '| OriginalUrl:', originalUrl, '| BaseUrl:', req.baseUrl);
       return next();
     }
     
