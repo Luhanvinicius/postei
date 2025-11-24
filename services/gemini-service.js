@@ -467,12 +467,20 @@ Responda APENAS em formato JSON (sem markdown, sem código):
             throw new Error('Nenhum frame válido para enviar ao Gemini');
           }
           console.log(`📤 Enviando ${validFrameData.length} frames + prompt para Gemini...`);
+          console.log(`📸 Frames sendo enviados:`);
+          validFrameData.forEach((frame, idx) => {
+            console.log(`   Frame ${idx + 1}: ${frame.inlineData ? 'Dados base64 presentes (' + (frame.inlineData.data.length) + ' chars)' : 'SEM DADOS'}`);
+          });
+          console.log(`📝 Prompt sendo enviado (${prompt.length} caracteres):`);
+          console.log(prompt.substring(0, 300) + '...');
+          
           const result = await model.generateContent([...validFrameData, prompt]);
           const response = result.response.text();
           
           console.log('✅ Resposta recebida do Gemini!');
           console.log('📝 Resposta completa:', response);
           console.log('📝 Primeiros 200 caracteres:', response.substring(0, 200));
+          console.log('📝 Últimos 200 caracteres:', response.substring(Math.max(0, response.length - 200)));
           
           // Parse JSON - tentar múltiplas formas
           console.log('🔍 Tentando fazer parse da resposta do Gemini...');
