@@ -36,15 +36,16 @@ if (!connectionString.startsWith('postgres://') && !connectionString.startsWith(
 }
 
 console.log('✅ DATABASE_URL encontrada e válida');
+console.log('📍 URL do banco:', connectionString.replace(/:[^:@]+@/, ':****@')); // Ocultar senha nos logs
 
 // Detectar se é local ou produção
-const isLocal = !process.env.VERCEL && !process.env.VERCEL_ENV && process.env.NODE_ENV !== 'production';
+const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
 const isLocalhost = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
 
 const pool = new Pool({
   connectionString: connectionString,
-  // SSL apenas em produção (Vercel) ou se não for localhost
-  ssl: (!isLocal && !isLocalhost) ? { rejectUnauthorized: false } : false,
+  // SSL apenas se NÃO for localhost (para funcionar com Vercel/Neon/Supabase)
+  ssl: !isLocalhost ? { rejectUnauthorized: false } : false,
   max: 20, // Máximo de conexões no pool
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000, // Aumentado para 10 segundos

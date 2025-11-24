@@ -4,7 +4,17 @@ const hasPostgresUrl = !!(process.env.DATABASE_URL || process.env.POSTGRES_URL |
 
 // Usar PostgreSQL se estiver no Vercel ou se DATABASE_URL estiver configurada
 if (isVercel || hasPostgresUrl) {
-  console.log('📊 Usando PostgreSQL (Vercel/Produção)');
+  const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.PRISMA_DATABASE_URL;
+  const isLocalhost = dbUrl && (dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1'));
+  
+  if (isVercel) {
+    console.log('📊 Usando PostgreSQL (Vercel/Produção)');
+  } else if (isLocalhost) {
+    console.log('📊 Usando PostgreSQL (Local)');
+  } else {
+    console.log('📊 Usando PostgreSQL (URL configurada)');
+  }
+  
   const pgDb = require('./database-pg');
   
   // Inicializar banco
