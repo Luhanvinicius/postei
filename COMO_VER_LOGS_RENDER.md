@@ -8,8 +8,23 @@
 
 ## Como Ver Logs em Tempo Real
 
-1. Na página de Logs, ative o toggle **"Live tail"** (canto superior direito)
-2. Os logs aparecerão em tempo real conforme o servidor processa requisições
+### Opção 1: Live Tail (se disponível)
+
+1. Na página de Logs, procure por **"Cauda viva"** ou **"Live tail"** no canto superior direito
+2. Pode estar em um dropdown ou toggle
+3. Se não encontrar, os logs aparecem automaticamente (atualize a página)
+
+### Opção 2: Atualizar Manualmente
+
+1. Clique em **F5** ou atualize a página
+2. Os logs mais recentes aparecerão no topo
+3. Role para cima para ver os logs mais recentes
+
+### Opção 3: Usar o Shell do Render
+
+1. No menu lateral, clique em **"Concha"** (Shell)
+2. Execute: `tail -f /proc/1/fd/1` (se disponível)
+3. Ou apenas observe os logs na página principal
 
 ## O que Procurar nos Logs
 
@@ -69,10 +84,11 @@ Use a barra de pesquisa (Q Search) para filtrar:
 
 ## Se Não Estiver Vendo Logs
 
-1. **Verifique se o "Live tail" está ativado**
-2. **Atualize a página** (F5)
-3. **Verifique se o serviço está rodando** (status deve ser "Live")
-4. **Tente gerar conteúdo novamente** e observe os logs em tempo real
+1. **Atualize a página** (F5) - os logs aparecem automaticamente
+2. **Verifique se o serviço está rodando** (status deve ser "Live" ou "Ativo")
+3. **Role para cima** na página de logs para ver os mais recentes
+4. **Tente gerar conteúdo novamente** e observe os logs (atualize a página após alguns segundos)
+5. **Use a busca** (Q Procurar) para filtrar por palavras-chave como "Gerando", "Gemini", "Frame"
 
 ## Logs Importantes para Debug
 
@@ -87,7 +103,17 @@ Se algo não estiver funcionando, procure por:
 ## Dica
 
 Os logs no Render podem ter um pequeno delay. Se você não ver os logs imediatamente:
-1. Aguarde 5-10 segundos
-2. Atualize a página
-3. Verifique se o "Live tail" está ativado
+1. **Aguarde 5-10 segundos** após clicar em "Gerar com IA"
+2. **Atualize a página** (F5)
+3. **Role para cima** para ver os logs mais recentes
+4. **Use a busca** para filtrar: digite "Gerando" ou "Gemini" na barra de busca
+
+## Como Testar Agora
+
+1. **Mantenha a página de Logs aberta**
+2. **Em outra aba**, acesse sua aplicação (https://www.postei.pro)
+3. **Faça login** e vá em "Gerenciar Vídeos"
+4. **Clique em "Gerar com IA"** em um vídeo
+5. **Volte para a aba de Logs** e **atualize a página** (F5)
+6. **Procure pelas mensagens** listadas acima
 
