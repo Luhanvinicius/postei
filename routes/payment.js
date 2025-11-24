@@ -4,6 +4,54 @@ const { requireAuth } = require('../middleware/auth');
 const { plans, subscriptions, invoices } = require('../database');
 const asaasService = require('../services/asaas-service');
 
+// Página de seleção de plano (para usuários com pagamento pendente)
+router.get('/select-plan', requireAuth, (req, res) => {
+  res.redirect('/#planos');
+});
+
+// Página de pagamento pendente
+router.get('/pending', requireAuth, async (req, res) => {
+  try {
+    const { invoice } = req.query;
+    const userId = req.user.id;
+
+    let invoiceData = null;
+    if (invoice) {
+      try {
+        if (invoices.findById.constructor.name === 'AsyncFunction') {
+          invoiceData = await invoices.findById(invoice);
+        } else {
+          invoiceData = invoices.findById(invoice);
+        }
+      } catch (err) {
+        invoiceData = invoices.findById(invoice);
+      }
+    } else {
+      // Buscar última fatura pendente do usuário
+      let userInvoices;
+      try {
+        if (invoices.findByUserId.constructor.name === 'AsyncFunction') {
+          userInvoices = await invoices.findByUserId(userId);
+        } else {
+          userInvoices = invoices.findByUserId(userId);
+        }
+      } catch (err) {
+        userInvoices = invoices.findByUserId(userId);
+      }
+      
+      invoiceData = userInvoices.find(inv => inv.status === 'pending');
+    }
+
+    res.render('payment/pending', {
+      user: req.user,
+      invoice: invoiceData
+    });
+  } catch (error) {
+    console.error('Erro ao carregar página de pagamento pendente:', error);
+    res.redirect('/#planos');
+  }
+});
+
 // Página de checkout
 router.get('/checkout/:planSlug', requireAuth, async (req, res) => {
   try {
@@ -243,16 +291,35 @@ router.post('/webhook/asaas', express.json(), async (req, res) => {
       invoices.updateStatus(invoice.id, status, paidAt);
     }
 
-    // Se pagamento foi confirmado, ativar assinatura
-    if (status === 'paid' && invoice.subscription_id) {
+    // Se pagamento foi confirmado, ativar assinatura e atualizar payment_status do usuário
+    if (status === 'paid') {
+      const { users } = require('../database');
+      
+      // Atualizar payment_status do usuário para 'paid'
       try {
-        if (subscriptions.updateStatus.constructor.name === 'AsyncFunction') {
-          await subscriptions.updateStatus(invoice.subscription_id, 'active');
+        if (users.updatePaymentStatus.constructor.name === 'AsyncFunction') {
+          await users.updatePaymentStatus(invoice.user_id, 'paid');
         } else {
-          subscriptions.updateStatus(invoice.subscription_id, 'active');
+          users.updatePaymentStatus(invoice.user_id, 'paid');
         }
       } catch (err) {
-        subscriptions.updateStatus(invoice.subscription_id, 'active');
+        users.updatePaymentStatus(invoice.user_id, 'paid');
+      }
+      
+      // Atualizar sessão se o usuário estiver logado (atualizar payment_status na sessão)
+      // Isso será feito no próximo login ou refresh
+      
+      // Ativar assinatura se existir
+      if (invoice.subscription_id) {
+        try {
+          if (subscriptions.updateStatus.constructor.name === 'AsyncFunction') {
+            await subscriptions.updateStatus(invoice.subscription_id, 'active');
+          } else {
+            subscriptions.updateStatus(invoice.subscription_id, 'active');
+          }
+        } catch (err) {
+          subscriptions.updateStatus(invoice.subscription_id, 'active');
+        }
       }
     }
 
@@ -301,4 +368,3 @@ router.get('/invoice/:invoiceId', requireAuth, async (req, res) => {
 });
 
 module.exports = router;
-

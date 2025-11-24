@@ -25,7 +25,22 @@
                             <div class="alert alert-danger"><%= error %></div>
                         <% } %>
 
+                        <% if (plan) { %>
+                            <div class="alert alert-info">
+                                <strong>Plano Selecionado:</strong> 
+                                <%= plan === 'basico' ? 'Básico (R$ 29/mês)' : plan === 'profissional' ? 'Profissional (R$ 79/mês)' : 'Enterprise (R$ 199/mês)' %>
+                            </div>
+                        <% } else { %>
+                            <div class="alert alert-warning">
+                                <strong>Atenção:</strong> Você precisa selecionar um plano primeiro.
+                                <a href="/#planos">Ver Planos</a>
+                            </div>
+                        <% } %>
+
                         <form action="/auth/register" method="POST">
+                            <% if (plan) { %>
+                                <input type="hidden" name="plan" value="<%= plan %>">
+                            <% } %>
                             <div class="mb-3">
                                 <label for="username" class="form-label">Usuário</label>
                                 <input type="text" class="form-control" id="username" name="username" required>
@@ -42,7 +57,7 @@
                                 <label for="confirmPassword" class="form-label">Confirmar Senha</label>
                                 <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
                             </div>
-                            <button type="submit" class="btn btn-primary w-100">Criar Conta</button>
+                            <button type="submit" class="btn btn-primary w-100" <%= !plan ? 'disabled' : '' %>>Criar Conta e Continuar para Pagamento</button>
                         </form>
 
                         <div class="text-center mt-3">

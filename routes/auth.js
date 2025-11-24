@@ -43,12 +43,16 @@ router.post('/login', async (req, res) => {
 
     console.log('✅ Login bem-sucedido para:', username);
     
+    // Buscar payment_status do usuário
+    const paymentStatus = user.payment_status || 'pending';
+    
     // Criar sessão
     req.session.user = {
       id: user.id,
       username: user.username,
       email: user.email,
-      role: user.role
+      role: user.role,
+      payment_status: paymentStatus
     };
     
     // Salvar sessão explicitamente
@@ -74,14 +78,19 @@ router.post('/login', async (req, res) => {
 
 // Registro (apenas para criar usuários normais)
 router.get('/register', (req, res) => {
-  res.render('auth/register', { error: null });
+  const { plan } = req.query; // Plano selecionado na home
+  res.render('auth/register', { error: null, plan: plan || null });
 });
 
 router.post('/register', async (req, res) => {
-  const { username, email, password, confirmPassword } = req.body;
+  const { username, email, password, confirmPassword, plan } = req.body;
 
   if (password !== confirmPassword) {
-    return res.render('auth/register', { error: 'Senhas não coincidem' });
+    return res.render('auth/register', { error: 'Senhas não coincidem', plan: plan || null });
+  }
+
+  if (!plan) {
+    return res.render('auth/register', { error: 'Por favor, selecione um plano primeiro', plan: null });
   }
 
   try {
@@ -98,7 +107,7 @@ router.post('/register', async (req, res) => {
     }
     
     if (existingUser) {
-      return res.render('auth/register', { error: 'Usuário já existe' });
+      return res.render('auth/register', { error: 'Usuário já existe', plan: plan || null });
     }
 
     // Verificar se email já existe
@@ -114,11 +123,12 @@ router.post('/register', async (req, res) => {
     }
     
     if (existingByEmail) {
-      return res.render('auth/register', { error: 'Email já está em uso' });
+      return res.render('auth/register', { error: 'Email já está em uso', plan: plan || null });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     
+    // Criar usuário com payment_status = 'pending'
     let userId;
     try {
       if (users.create.constructor.name === 'AsyncFunction') {
@@ -130,6 +140,19 @@ router.post('/register', async (req, res) => {
       userId = users.create(username, email, hashedPassword, 'user');
     }
 
+    // Definir payment_status como pending
+    const { users: userDB } = require('../database');
+    try {
+      if (userDB.updatePaymentStatus.constructor.name === 'AsyncFunction') {
+        await userDB.updatePaymentStatus(userId, 'pending');
+      } else {
+        userDB.updatePaymentStatus(userId, 'pending');
+      }
+    } catch (err) {
+      userDB.updatePaymentStatus(userId, 'pending');
+    }
+
+    // Criar sessão para o usuário recém-criado
     let createdUser;
     try {
       if (users.findById.constructor.name === 'AsyncFunction') {
@@ -142,13 +165,23 @@ router.post('/register', async (req, res) => {
     }
     
     if (!createdUser) {
-      return res.render('auth/register', { error: 'Erro ao criar conta. Tente novamente.' });
+      return res.render('auth/register', { error: 'Erro ao criar conta. Tente novamente.', plan: plan || null });
     }
 
-    res.redirect('/auth/login?registered=true');
+    // Criar sessão
+    req.session.user = {
+      id: createdUser.id,
+      username: createdUser.username,
+      email: createdUser.email,
+      role: createdUser.role,
+      payment_status: 'pending'
+    };
+
+    // Redirecionar para checkout com o plano selecionado
+    res.redirect(`/payment/checkout/${plan}`);
   } catch (error) {
     console.error('Erro no registro:', error);
-    res.render('auth/register', { error: 'Erro ao criar conta: ' + error.message });
+    res.render('auth/register', { error: 'Erro ao criar conta: ' + error.message, plan: plan || null });
   }
 });
 

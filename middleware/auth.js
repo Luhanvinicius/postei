@@ -23,6 +23,50 @@ const requireAuth = (req, res, next) => {
   
   // Anexar usuário da sessão ao req.user para compatibilidade
   req.user = req.session.user;
+  
+  // Verificar se o pagamento está pendente (exceto para admins e rotas de pagamento)
+  if (req.user.role !== 'admin' && req.user.payment_status === 'pending') {
+    // Permitir acesso às rotas de pagamento
+    if (req.path.startsWith('/payment/') || req.path.startsWith('/auth/logout')) {
+      return next();
+    }
+    
+    // Verificar se há fatura pendente
+    const { invoices } = require('../database');
+    let pendingInvoice;
+    try {
+      if (invoices.findByUserId.constructor.name === 'AsyncFunction') {
+        invoices.findByUserId(req.user.id).then(userInvoices => {
+          pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+          if (pendingInvoice) {
+            return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
+          } else {
+            return res.redirect('/#planos');
+          }
+        }).catch(() => {
+          return res.redirect('/#planos');
+        });
+        return; // Retornar aqui para não continuar
+      } else {
+        const userInvoices = invoices.findByUserId(req.user.id);
+        pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+        if (pendingInvoice) {
+          return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
+        } else {
+          return res.redirect('/#planos');
+        }
+      }
+    } catch (err) {
+      const userInvoices = invoices.findByUserId(req.user.id);
+      pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+      if (pendingInvoice) {
+        return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
+      } else {
+        return res.redirect('/#planos');
+      }
+    }
+  }
+  
   next();
 };
 

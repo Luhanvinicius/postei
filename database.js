@@ -60,9 +60,17 @@ function initDatabase() {
       email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'user',
+      payment_status TEXT DEFAULT 'pending',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  
+  // Adicionar coluna payment_status se não existir (migração)
+  try {
+    db.exec('ALTER TABLE users ADD COLUMN payment_status TEXT DEFAULT \'pending\'');
+  } catch (e) {
+    // Coluna já existe, ignorar erro
+  }
 
   // Tabela de configurações do YouTube por usuário
   db.exec(`
@@ -393,6 +401,10 @@ module.exports = {
     },
     updatePassword: (id, hashedPassword) => {
       const result = userQueries.updatePassword.run(hashedPassword, id);
+      return result.changes > 0;
+    },
+    updatePaymentStatus: (id, status) => {
+      const result = userQueries.updatePaymentStatus.run(status, id);
       return result.changes > 0;
     }
   },

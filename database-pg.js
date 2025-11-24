@@ -75,9 +75,17 @@ async function initDatabase() {
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
         role VARCHAR(50) DEFAULT 'user',
+        payment_status VARCHAR(50) DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
+    // Adicionar coluna payment_status se não existir (migração)
+    try {
+      await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT \'pending\'');
+    } catch (e) {
+      // Coluna já existe, ignorar erro
+    }
 
     // Tabela de configurações do YouTube
     await client.query(`
@@ -227,7 +235,7 @@ async function initDatabase() {
 const userQueries = {
   findByUsername: async (username) => {
     const result = await pool.query(
-      'SELECT * FROM users WHERE username = $1 OR email = $1',
+      'SELECT *, COALESCE(payment_status, \'pending\') as payment_status FROM users WHERE username = $1 OR email = $1',
       [username]
     );
     return result.rows[0] || null;
@@ -244,7 +252,7 @@ const userQueries = {
   },
   
   findById: async (id) => {
-    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    const result = await pool.query('SELECT *, COALESCE(payment_status, \'pending\') as payment_status FROM users WHERE id = $1', [id]);
     return result.rows[0] || null;
   },
   
@@ -277,6 +285,11 @@ const userQueries = {
   
   updatePassword: async (id, hashedPassword) => {
     const result = await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, id]);
+    return result.rowCount > 0;
+  },
+  
+  updatePaymentStatus: async (id, status) => {
+    const result = await pool.query('UPDATE users SET payment_status = $1 WHERE id = $2', [status, id]);
     return result.rowCount > 0;
   }
 };
