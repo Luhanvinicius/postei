@@ -4,7 +4,7 @@ const router = express.Router();
 const { users } = require('../database');
 
 // Login
-router.get('/login', (req, res) => {
+router.get('/login', async (req, res) => {
   // Se já está autenticado, verificar status de pagamento
   if (req.session && req.session.user) {
     const user = req.session.user;
