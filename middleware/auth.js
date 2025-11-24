@@ -65,28 +65,35 @@ const attachUser = (req, res, next) => {
   
   // 1. PRIMEIRO: Tentar pegar da query string (para navegação normal - mais comum)
   if (req.query && req.query.token) {
-    console.log('🔍 Tentando verificar token da query string...');
-    user = verifyToken(req.query.token);
+    const tokenValue = req.query.token;
+    console.log('🔍 Tentando verificar token da query string...', tokenValue ? 'Token presente' : 'Token ausente');
+    user = verifyToken(tokenValue);
     if (user) {
       console.log('✅ Usuário autenticado via query token:', user.username, 'URL:', req.url);
     } else {
-      console.log('❌ Token da query string inválido ou expirado');
+      console.log('❌ Token da query string inválido ou expirado. Token recebido:', tokenValue ? tokenValue.substring(0, 20) + '...' : 'null');
     }
   }
   
   // 2. SEGUNDO: Tentar pegar token do header Authorization (para AJAX/fetch)
   if (!user && req.headers.authorization) {
+    console.log('🔍 Tentando verificar token do header Authorization...');
     user = verifyToken(req.headers.authorization);
     if (user) {
       console.log('✅ Usuário autenticado via header Authorization:', user.username);
+    } else {
+      console.log('❌ Token do header Authorization inválido ou expirado');
     }
   }
   
   // 3. TERCEIRO: Tentar pegar do body (para formulários POST)
   if (!user && req.body && req.body.token) {
+    console.log('🔍 Tentando verificar token do body...');
     user = verifyToken(req.body.token);
     if (user) {
       console.log('✅ Usuário autenticado via body token:', user.username);
+    } else {
+      console.log('❌ Token do body inválido ou expirado');
     }
   }
   
