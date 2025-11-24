@@ -46,8 +46,8 @@
                         <% } %>
                         <div class="mb-3">
                             <label for="folderInput" class="form-label">Escolha a pasta que contém os vídeos:</label>
-                            <input type="file" class="form-control" id="folderInput" webkitdirectory directory multiple>
-                            <small class="text-muted">Selecione a pasta diretamente usando o botão acima</small>
+                            <input type="file" class="form-control" id="folderInput" webkitdirectory directory multiple accept="video/*">
+                            <small class="text-muted">⚠️ O navegador pode mostrar um aviso sobre muitos arquivos, mas apenas vídeos serão processados.</small>
                         </div>
                         <div class="mb-3" id="manualPathSection" style="<%= defaultFolder ? 'display: block;' : 'display: none;' %>">
                             <label class="form-label">Ou digite o caminho manualmente:</label>
@@ -246,11 +246,32 @@
                 }
             }
             
-            // Filtrar apenas vídeos
+            // Filtrar APENAS vídeos (ignorar screenshots, imagens, etc)
             const videos = files
                 .filter(file => {
-                    const ext = '.' + file.name.split('.').pop().toLowerCase();
-                    return videoExtensions.includes(ext);
+                    const fileName = file.name.toLowerCase();
+                    const ext = '.' + fileName.split('.').pop();
+                    
+                    // Verificar extensão de vídeo
+                    const isVideo = videoExtensions.includes(ext);
+                    
+                    // Rejeitar explicitamente imagens/screenshots
+                    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico'];
+                    const isImage = imageExtensions.includes(ext);
+                    
+                    // Rejeitar arquivos que parecem ser screenshots
+                    const isScreenshot = fileName.includes('screenshot') || 
+                                        fileName.includes('captura') || 
+                                        fileName.includes('screen') ||
+                                        fileName.startsWith('img_') ||
+                                        fileName.startsWith('photo_');
+                    
+                    if (isImage || isScreenshot) {
+                        console.log(`   ⏭️  Ignorando arquivo (não é vídeo): ${file.name}`);
+                        return false;
+                    }
+                    
+                    return isVideo;
                 })
                 .map(file => {
                     const videoName = file.name;
@@ -263,14 +284,19 @@
                     };
                 });
 
-            console.log('📹 Vídeos encontrados:', videos.length);
-            videos.forEach((video, idx) => {
-                console.log(`   ${idx + 1}. ${video.name} (${video.sizeMB} MB)`);
-            });
+            console.log('📹 Vídeos encontrados:', videos.length, 'de', files.length, 'arquivos totais');
+            if (videos.length > 0) {
+                videos.forEach((video, idx) => {
+                    console.log(`   ${idx + 1}. ${video.name} (${video.sizeMB} MB)`);
+                });
+            } else {
+                console.warn('⚠️  Nenhum vídeo encontrado nesta pasta');
+                console.warn('   Total de arquivos na pasta:', files.length);
+                console.warn('   Extensões encontradas:', [...new Set(files.map(f => '.' + f.name.split('.').pop().toLowerCase()))].join(', '));
+            }
 
             if (videos.length === 0) {
-                console.warn('⚠️  Nenhum vídeo encontrado nesta pasta');
-                alert('Nenhum vídeo encontrado nesta pasta.');
+                alert(`Nenhum vídeo encontrado nesta pasta.\n\nTotal de arquivos: ${files.length}\n\nCertifique-se de que a pasta contém arquivos de vídeo (.mp4, .avi, .mov, etc).`);
                 return;
             }
 
