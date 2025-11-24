@@ -27,7 +27,7 @@ const requireAuth = async (req, res, next) => {
   // Verificar se o pagamento está pendente (exceto para admins e rotas de pagamento)
   if (req.user.role !== 'admin' && req.user.payment_status === 'pending') {
     // SEMPRE permitir acesso às rotas de pagamento (checkout, pending, webhook)
-    // Isso permite que o usuário complete o pagamento
+    // Isso permite que o usuário complete o pagamento ou crie nova fatura
     if (req.path.startsWith('/payment/') || req.path.startsWith('/auth/logout')) {
       return next();
     }
@@ -60,6 +60,7 @@ const requireAuth = async (req, res, next) => {
       return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
     } else {
       // Se não tem fatura pendente, redirecionar para home para escolher plano
+      // Mas NÃO bloquear se estiver tentando acessar checkout (já permitido acima)
       return res.redirect('/#planos');
     }
   }

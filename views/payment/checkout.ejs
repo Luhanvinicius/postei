@@ -149,6 +149,13 @@
                         document.getElementById('pixCopyPaste').value = data.pixCopyPaste;
                         document.getElementById('pixSection').style.display = 'block';
                         submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>PIX Gerado!';
+                        
+                        // Redirecionar para página de pagamento pendente após 2 segundos
+                        if (data.invoiceId) {
+                            setTimeout(() => {
+                                window.location.href = `/payment/pending?invoice=${data.invoiceId}`;
+                            }, 2000);
+                        }
                     }
                 } else {
                     alert('Erro: ' + data.error);

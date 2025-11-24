@@ -244,7 +244,8 @@ router.post('/checkout/:planSlug', requireAuth, async (req, res) => {
       invoiceId: invoiceId,
       pixQrCode: pixQrCode,
       pixCopyPaste: pixCopyPaste,
-      dueDate: dueDateStr
+      dueDate: dueDateStr,
+      message: 'Fatura gerada com sucesso! Redirecionando...'
     });
   } catch (error) {
     console.error('Erro ao processar checkout:', error);
