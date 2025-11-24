@@ -396,12 +396,16 @@ async function generateContentWithGemini(videoPath, videoName) {
         console.log(`📸 Frames válidos para análise: ${validFrameData.length}/${frames.length}`);
         
         if (validFrameData.length === 0) {
-          console.warn('⚠️  Nenhum frame válido para análise');
-          frames = [];
-        }
-
-        // Prompt melhorado baseado no bot antigo
-        prompt = `Você está vendo frames reais de um vídeo do YouTube Shorts.
+          console.error('❌ NENHUM FRAME VÁLIDO PARA ANÁLISE! Caindo para modo texto...');
+          // Não limpar frames aqui, apenas marcar que não temos dados válidos
+          // Isso vai fazer cair no else abaixo
+        } else {
+          console.log(`✅ ${validFrameData.length} frames prontos para enviar ao Gemini!`);
+          
+          // Continuar apenas se tiver frames válidos
+          if (validFrameData.length > 0) {
+            // Prompt melhorado baseado no bot antigo
+            prompt = `Você está vendo frames reais de um vídeo do YouTube Shorts.
 
 SUA TAREFA:
 Analise ATENTAMENTE o que você VÊ nas imagens acima e crie um título e descrição COMPLETAMENTE ÚNICOS baseados APENAS no conteúdo visual que você observa.
@@ -543,9 +547,19 @@ Responda APENAS em formato JSON (sem markdown, sem código):
           console.error('❌ ERRO ao chamar Gemini API:', geminiError);
           console.error('   Detalhes:', geminiError.message);
           console.error('   Stack:', geminiError.stack);
+          // Se deu erro, tentar modo texto na próxima tentativa
+          frames = [];
         }
-      } else {
-        console.log(`⚠️  Nenhum frame extraído para ${videoName}, usando modo texto`);
+          } else {
+            console.error('❌ Nenhum frame válido disponível, pulando modo visual');
+            frames = [];
+          }
+        }
+      }
+      
+      // Se não tem frames válidos, usar modo texto
+      if (frames.length === 0 || validFrameData.length === 0) {
+        console.log(`⚠️  Nenhum frame disponível para ${videoName}, usando modo texto`);
         // Modo texto - mas ainda usa Gemini
         prompt = `Crie um título ÚNICO e ESPECÍFICO para este vídeo do YouTube Shorts.
 
