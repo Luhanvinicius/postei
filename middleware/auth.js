@@ -77,13 +77,18 @@ const requireAuth = async (req, res, next) => {
     
     try {
       let userInvoices;
-      if (invoices.findByUserId.constructor.name === 'AsyncFunction') {
-        userInvoices = await invoices.findByUserId(req.user.id);
-      } else {
-        userInvoices = invoices.findByUserId(req.user.id);
+      if (invoices && invoices.findByUserId) {
+        const isAsync = invoices.findByUserId.constructor && invoices.findByUserId.constructor.name === 'AsyncFunction';
+        if (isAsync) {
+          userInvoices = await invoices.findByUserId(req.user.id);
+        } else {
+          userInvoices = invoices.findByUserId(req.user.id);
+        }
       }
       
-      pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+      if (userInvoices && Array.isArray(userInvoices)) {
+        pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+      }
     } catch (err) {
       console.error('Erro ao buscar faturas:', err);
     }
