@@ -1,985 +1,989 @@
-<%- include('../layouts/main', { title: 'Gerenciar Vídeos', user: user, body: `
-<div class="row">
-    <div class="col-12">
-        <h1 class="mb-4">🎬 Gerenciar Vídeos</h1>
-    </div>
-</div>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Vídeos - YouTube Automation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">📹 YouTube Automation</a>
+            <div class="navbar-nav ms-auto d-flex align-items-center">
+                <a class="nav-link" href="/user/dashboard">Dashboard</a>
+                <a class="nav-link" href="/user/accounts">Vincular Contas</a>
+                <a class="nav-link active" href="/user/videos">Vídeos</a>
+                <a class="nav-link" href="/user/scheduled">Agendados</a>
+                <a class="nav-link" href="/user/published">Publicados</a>
+                <%- include('../partials/profile-menu') %>
+            </div>
+        </div>
+    </nav>
 
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">📁 Selecionar Pasta</h5>
-                <% if (defaultFolder) { %>
-                    <div class="alert alert-info d-flex align-items-center justify-content-between">
-                        <div>
-                            <strong>Pasta padrão:</strong> <%= defaultFolder %>
+    <main class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4">🎬 Gerenciar Vídeos</h1>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">📁 Selecionar Pasta</h5>
+                        <% if (defaultFolder) { %>
+                            <div class="alert alert-info">
+                                <strong>Pasta padrão:</strong> <%= defaultFolder %>
+                                <button class="btn btn-sm btn-primary ms-2" onclick="loadDefaultFolder()">📂 Carregar Vídeos</button>
+                                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="clearDefaultFolder()">Alterar</button>
+                            </div>
+                        <% } %>
+                        <div class="mb-3">
+                            <label for="folderInput" class="form-label">Escolha a pasta que contém os vídeos:</label>
+                            <input type="file" class="form-control" id="folderInput" webkitdirectory directory multiple accept="video/*">
+                            <small class="text-muted">⚠️ O navegador pode mostrar um aviso sobre muitos arquivos, mas apenas vídeos serão processados.</small>
                         </div>
-                        <div>
-                            <button class="btn btn-sm btn-primary ms-2" onclick="loadDefaultFolder()">📂 Carregar Vídeos</button>
-                            <button class="btn btn-sm btn-outline-secondary ms-2" onclick="clearDefaultFolder()">Alterar</button>
+                        <div class="mb-3" id="manualPathSection" style="<%= defaultFolder ? 'display: block;' : 'display: none;' %>">
+                            <label class="form-label">Ou digite o caminho manualmente:</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="folderPath" placeholder="Caminho da pasta (ex: F:\isauro\videos)" value="<%= defaultFolder ? defaultFolder.replace(/\\/g, '\\\\') : '' %>">
+                                <button class="btn btn-secondary" onclick="scanFolder()">Escanear Pasta</button>
+                            </div>
                         </div>
+                        <button type="button" class="btn btn-link p-0" onclick="toggleManualPath()">
+                            <small>Ou digite o caminho manualmente</small>
+                        </button>
                     </div>
-                <% } %>
-                <div class="mb-3" id="manualPathSection" style="<%= defaultFolder ? 'display: none;' : 'display: block;' %>">
-                    <label for="folderPath" class="form-label">Digite o caminho da pasta que contém os vídeos:</label>
-                    <div class="input-group">
-                        <input type="text" class="form-control" id="folderPath" placeholder="Caminho da pasta (ex: F:\isauro\videos)" value="<%= defaultFolder ? defaultFolder.replace(/\\/g, '\\\\') : '' %>">
-                        <button class="btn btn-secondary" onclick="scanFolder()">Escanear Pasta</button>
-                    </div>
-                    <small class="text-muted">Ex: C:\Users\SeuUsuario\Videos\MeusShorts</small>
                 </div>
-                <% if (!defaultFolder) { %>
-                    <button type="button" class="btn btn-link p-0" onclick="toggleManualPath()">
-                        <small>Ou selecione a pasta via explorador de arquivos</small>
+            </div>
+        </div>
+
+        <div id="videosList" class="row" style="display: none;">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">📹 Vídeos Encontrados</h5>
+                        <div id="videosContainer"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="loading" class="text-center" style="display: none;">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal para Resultado da IA -->
+    <div class="modal fade" id="aiResultModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">🤖 Conteúdo Gerado com IA</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3" id="thumbnailSection" style="display: none;">
+                        <label class="form-label fw-bold">📸 Thumbnail Gerado:</label>
+                        <div class="text-center mb-2 p-3 bg-light rounded" style="border: 2px solid #dee2e6;">
+                            <img id="aiResultThumbnail" src="" alt="Thumbnail" 
+                                 class="img-fluid rounded" 
+                                 style="max-width: 100%; max-height: 300px; border: 3px solid #ddd; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"
+                                 onclick="showThumbnailFullscreen(this.src)"
+                                 onerror="this.style.display='none'; document.getElementById('thumbnailError').style.display='block';">
+                            <p id="thumbnailError" style="display: none; color: #e74c3c; padding: 15px; background: #fee; border-radius: 5px; margin-top: 10px;">
+                                ⚠️ Erro ao carregar thumbnail. O YouTube usará thumbnail automático.
+                            </p>
+                        </div>
+                        <div class="text-center mt-3">
+                            <div class="form-check d-inline-flex align-items-center p-2 bg-success bg-opacity-10 rounded border border-success">
+                                <input class="form-check-input me-2" type="checkbox" id="useThumbnail" checked style="width: 20px; height: 20px;">
+                                <label class="form-check-label fw-bold text-success" for="useThumbnail" style="cursor: pointer;">
+                                    ✅ Usar este thumbnail ao publicar
+                                </label>
+                            </div>
+                        </div>
+                        <small class="text-muted d-block text-center mt-2">
+                            💡 Clique na imagem para ver em tamanho real
+                        </small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Título:</label>
+                        <input type="text" class="form-control" id="aiResultTitle" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descrição:</label>
+                        <textarea class="form-control" id="aiResultDescription" rows="4" readonly></textarea>
+                    </div>
+                    <div class="alert alert-info">
+                        <small>Este conteúdo foi gerado automaticamente. Você pode editá-lo antes de agendar ou publicar.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-success" onclick="useAIContentAndPublish()">Usar e Publicar</button>
+                    <button type="button" class="btn btn-primary" onclick="useAIContent()">Usar e Agendar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para ver thumbnail em tamanho real -->
+    <div class="modal fade" id="thumbnailFullscreenModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Thumbnail</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="fullscreenThumbnail" src="" alt="Thumbnail" class="img-fluid">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Agendar -->
+    <div class="modal fade" id="scheduleModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">📅 Agendar Vídeo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="scheduleVideoPath">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Data e Hora de Publicação</label>
+                        <input type="datetime-local" class="form-control" id="scheduleDateTime" required>
+                        <small class="text-muted">Selecione quando o vídeo deve ser publicado</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Título do Vídeo</label>
+                        <input type="text" class="form-control" id="scheduleTitle" required maxlength="100">
+                        <small class="text-muted">Máximo 100 caracteres</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descrição</label>
+                        <textarea class="form-control" id="scheduleDescription" rows="5" maxlength="5000">#shorts</textarea>
+                        <small class="text-muted">Máximo 5000 caracteres</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmSchedule()">
+                        <span id="scheduleBtnText">📅 Agendar</span>
                     </button>
-                    <div class="mb-3 mt-2" id="fileInputSection" style="display: none;">
-                        <label for="folderInput" class="form-label">Escolha a pasta que contém os vídeos:</label>
-                        <input type="file" class="form-control" id="folderInput" webkitdirectory directory multiple>
-                        <small class="text-muted">O navegador pode mostrar um aviso sobre muitos arquivos, mas apenas vídeos serão processados.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Publicar -->
+    <div class="modal fade" id="publishModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">🚀 Publicar Vídeo Agora</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="publishVideoPath">
+                    <div class="alert alert-warning">
+                        <strong>⚠️ Atenção:</strong> O vídeo será publicado imediatamente no YouTube após confirmar.
                     </div>
-                <% } %>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div id="videosList" class="row" style="display: none;">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">📹 Vídeos Encontrados</h5>
-                <div id="videosContainer"></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div id="loading" class="text-center" style="display: none;">
-    <div class="spinner-border" role="status">
-        <span class="visually-hidden">Carregando...</span>
-    </div>
-</div>
-
-<!-- Modal para Resultado da IA -->
-<div class="modal fade" id="aiResultModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-info text-white">
-                <h5 class="modal-title">🤖 Conteúdo Gerado com IA</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3" id="thumbnailSection" style="display: none;">
-                    <label class="form-label fw-bold">📸 Thumbnail Gerado:</label>
-                    <div class="text-center mb-2 p-3 bg-light rounded" style="border: 2px solid #dee2e6;">
-                        <img id="aiResultThumbnail" src="" alt="Thumbnail" 
-                             class="img-fluid rounded" 
-                             style="max-width: 100%; max-height: 300px; border: 3px solid #ddd; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"
-                             onclick="showThumbnailFullscreen(this.src)">
-                        <p id="thumbnailError" class="text-danger mt-2" style="display: none;">⚠️ Thumbnail não foi gerado ou não pôde ser carregado</p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Título do Vídeo</label>
+                        <input type="text" class="form-control" id="publishTitle" required maxlength="100">
+                        <small class="text-muted">Máximo 100 caracteres</small>
                     </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="useThumbnail" checked>
-                        <label class="form-check-label" for="useThumbnail">
-                            Usar este thumbnail ao publicar
-                        </label>
-                    </div>
-                    <small class="text-muted">Clique na imagem para ver em tamanho real</small>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Título:</label>
-                    <input type="text" class="form-control" id="aiResultTitle" maxlength="100">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Descrição:</label>
-                    <textarea class="form-control" id="aiResultDescription" rows="5" maxlength="5000"></textarea>
-                </div>
-                <div class="alert alert-info mt-3">
-                    Este conteúdo foi gerado automaticamente. Você pode editá-lo antes de agendar ou publicar.
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                <button type="button" class="btn btn-success" onclick="useAIContentAndPublish()">Usar e Publicar</button>
-                <button type="button" class="btn btn-primary" onclick="useAIContentAndSchedule()">Usar e Agendar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal para Agendar Vídeo -->
-<div class="modal fade" id="scheduleModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">📅 Agendar Vídeo</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="scheduleVideoPath">
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Título do Vídeo</label>
-                    <input type="text" class="form-control" id="scheduleTitle" required maxlength="100">
-                    <small class="text-muted">Máximo 100 caracteres</small>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Descrição</label>
-                    <textarea class="form-control" id="scheduleDescription" rows="5" maxlength="5000">#shorts</textarea>
-                    <small class="text-muted">Máximo 5000 caracteres</small>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Data e Hora de Agendamento</label>
-                    <input type="datetime-local" class="form-control" id="scheduleDateTime" required>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="scheduleVideo()">Agendar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal para Publicar Vídeo -->
-<div class="modal fade" id="publishModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title">🚀 Publicar Vídeo</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="publishVideoPath">
-                <div class="alert alert-warning">
-                    <strong>⚠️ Atenção:</strong> O vídeo será publicado imediatamente no YouTube após confirmar.
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Título do Vídeo</label>
-                    <input type="text" class="form-control" id="publishTitle" required maxlength="100">
-                    <small class="text-muted">Máximo 100 caracteres</small>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Descrição</label>
-                    <textarea class="form-control" id="publishDescription" rows="5" maxlength="5000">#shorts</textarea>
-                    <small class="text-muted">Máximo 5000 caracteres</small>
-                </div>
-                <div class="mb-3" id="publishThumbnailPreviewSection" style="display: none;">
-                    <label class="form-label fw-bold">📸 Thumbnail a ser usado:</label>
-                    <div class="text-center mb-2 p-3 bg-light rounded" style="border: 2px solid #dee2e6;">
-                        <img id="publishThumbnailPreview" src="" alt="Thumbnail" 
-                             class="img-fluid rounded" 
-                             style="max-width: 100%; max-height: 200px; border: 3px solid #ddd; border-radius: 8px; cursor: pointer;"
-                             onclick="showThumbnailFullscreen(this.src)">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descrição</label>
+                        <textarea class="form-control" id="publishDescription" rows="5" maxlength="5000">#shorts</textarea>
+                        <small class="text-muted">Máximo 5000 caracteres</small>
                     </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="publishVideo()">
-                    <span id="publishBtnText">🚀 Publicar Agora</span>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal para Fullscreen Thumbnail -->
-<div class="modal fade" id="thumbnailFullscreenModal" tabindex="-1">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
-        <div class="modal-content bg-transparent border-0">
-            <div class="modal-body p-0 text-center">
-                <img id="fullscreenThumbnail" src="" class="img-fluid" alt="Thumbnail em tela cheia" style="max-height: 90vh;">
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" onclick="confirmPublish()">
+                        <span id="publishBtnText">🚀 Publicar Agora</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-    let currentVideos = [];
-    const videoExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv'];
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentVideos = [];
 
-    // Função para alternar entre input manual e seleção de arquivo
-    function toggleManualPath() {
-        const manualSection = document.getElementById('manualPathSection');
-        const fileInputSection = document.getElementById('fileInputSection');
-        const toggleButton = document.querySelector('button[onclick="toggleManualPath()"] small');
-
-        if (manualSection.style.display === 'none') {
-            manualSection.style.display = 'block';
-            fileInputSection.style.display = 'none';
-            toggleButton.textContent = 'Ou selecione a pasta via explorador de arquivos';
-        } else {
-            manualSection.style.display = 'none';
-            fileInputSection.style.display = 'block';
-            toggleButton.textContent = 'Ou digite o caminho manualmente';
-        }
-    }
-
-    // Quando selecionar pasta via input
-    document.getElementById('folderInput')?.addEventListener('change', function(e) {
-        console.log('📂 ===== PASTA SELECIONADA VIA INPUT =====');
-        const files = Array.from(e.target.files);
-        console.log('📁 Total de arquivos selecionados pelo navegador:', files.length);
-        
-        const filteredVideos = files
-            .filter(file => {
-                const ext = '.' + file.name.split('.').pop().toLowerCase();
-                const isVideo = videoExtensions.includes(ext);
-                const isImage = imageExtensions.includes(ext);
-                
-                if (isImage || file.name.toLowerCase().includes('screenshot') || file.name.toLowerCase().includes('captura de tela')) {
-                    console.log(`   Ignorando arquivo (não é vídeo ou é screenshot): ${file.name}`);
-                    return false;
+        // Quando selecionar pasta via input
+        document.getElementById('folderInput').addEventListener('change', function(e) {
+            console.log('📂 ===== PASTA SELECIONADA VIA INPUT =====');
+            const files = Array.from(e.target.files);
+            console.log('📁 Total de arquivos selecionados:', files.length);
+            
+            const videoExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv'];
+            
+            // Extrair pasta base do primeiro arquivo (webkitRelativePath contém o caminho relativo)
+            let baseFolder = null;
+            if (files.length > 0 && files[0].webkitRelativePath) {
+                // webkitRelativePath é algo como "videos/Filmes e Séries (13).mp4"
+                // Extrair a pasta base (tudo antes do último "/")
+                const relativePath = files[0].webkitRelativePath;
+                const lastSlash = relativePath.lastIndexOf('/');
+                if (lastSlash > 0) {
+                    baseFolder = relativePath.substring(0, lastSlash);
+                    console.log('📁 Pasta base detectada:', baseFolder);
                 }
-                return isVideo;
-            })
-            .map(file => {
-                const videoName = file.name;
-                return {
-                    name: videoName,
-                    path: videoName,
-                    size: file.size,
-                    sizeMB: (file.size / (1024 * 1024)).toFixed(2),
-                    file: file
-                };
-            });
+            }
+            
+            // Filtrar APENAS vídeos (ignorar screenshots, imagens, etc)
+            const videos = files
+                .filter(file => {
+                    const fileName = file.name.toLowerCase();
+                    const ext = '.' + fileName.split('.').pop();
+                    
+                    // Verificar extensão de vídeo
+                    const isVideo = videoExtensions.includes(ext);
+                    
+                    // Rejeitar explicitamente imagens/screenshots
+                    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico'];
+                    const isImage = imageExtensions.includes(ext);
+                    
+                    // Rejeitar arquivos que parecem ser screenshots
+                    const isScreenshot = fileName.includes('screenshot') || 
+                                        fileName.includes('captura') || 
+                                        fileName.includes('screen') ||
+                                        fileName.startsWith('img_') ||
+                                        fileName.startsWith('photo_');
+                    
+                    if (isImage || isScreenshot) {
+                        console.log(`   ⏭️  Ignorando arquivo (não é vídeo): ${file.name}`);
+                        return false;
+                    }
+                    
+                    return isVideo;
+                })
+                .map(file => {
+                    const videoName = file.name;
+                    return {
+                        name: videoName,
+                        path: videoName,
+                        size: file.size,
+                        sizeMB: (file.size / (1024 * 1024)).toFixed(2),
+                        file: file // Guardar o arquivo para uso posterior
+                    };
+                });
 
-        console.log('📹 Vídeos válidos encontrados após filtro:', filteredVideos.length);
-        filteredVideos.forEach((video, idx) => {
-            console.log(`   ${idx + 1}. ${video.name} (${video.sizeMB} MB)`);
+            console.log('📹 Vídeos encontrados:', videos.length, 'de', files.length, 'arquivos totais');
+            if (videos.length > 0) {
+                videos.forEach((video, idx) => {
+                    console.log(`   ${idx + 1}. ${video.name} (${video.sizeMB} MB)`);
+                });
+            } else {
+                console.warn('⚠️  Nenhum vídeo encontrado nesta pasta');
+                console.warn('   Total de arquivos na pasta:', files.length);
+                console.warn('   Extensões encontradas:', [...new Set(files.map(f => '.' + f.name.split('.').pop().toLowerCase()))].join(', '));
+            }
+
+            if (videos.length === 0) {
+                alert(`Nenhum vídeo encontrado nesta pasta.\n\nTotal de arquivos: ${files.length}\n\nCertifique-se de que a pasta contém arquivos de vídeo (.mp4, .avi, .mov, etc).`);
+                return;
+            }
+
+            currentVideos = videos;
+            displayVideos(videos);
+            console.log('✅ ===== VÍDEOS LISTADOS COM SUCESSO =====');
         });
 
-        if (filteredVideos.length === 0) {
-            console.warn('⚠️  Nenhum vídeo válido encontrado nesta pasta após o filtro.');
-            alert('Nenhum vídeo válido encontrado nesta pasta. Certifique-se de que a pasta contém arquivos de vídeo (mp4, mov, etc.) e não apenas imagens ou screenshots.');
-            currentVideos = [];
+        // Função para carregar pasta padrão
+        async function loadDefaultFolder() {
+            // Pegar o valor do campo manual (que já está preenchido com a pasta padrão)
+            const defaultFolder = document.getElementById('folderPath').value.trim();
+            
+            if (!defaultFolder) {
+                alert('Nenhuma pasta padrão configurada');
+                return;
+            }
+
+            // Escanear pasta
+            document.getElementById('loading').style.display = 'block';
             document.getElementById('videosList').style.display = 'none';
-            return;
-        }
 
-        currentVideos = filteredVideos;
-        displayVideos(filteredVideos);
-        console.log('✅ ===== VÍDEOS LISTADOS COM SUCESSO =====');
-    });
-
-    // Função para carregar pasta padrão
-    async function loadDefaultFolder() {
-        console.log('🔄 ===== CARREGANDO PASTA PADRÃO =====');
-        const defaultFolder = document.getElementById('folderPath').value.trim();
-        
-        if (!defaultFolder) {
-            alert('Nenhuma pasta padrão configurada');
-            return;
-        }
-
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('videosList').style.display = 'none';
-
-        try {
-            console.log('📤 Enviando requisição para escanear pasta:', defaultFolder);
-            const response = await fetch('/user/videos/scan', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ folderPath: defaultFolder })
-            });
-
-            const data = await response.json();
-            document.getElementById('loading').style.display = 'none';
-
-            if (data.success) {
-                console.log('✅ Pasta escaneada com sucesso!');
-                console.log('📹 Vídeos encontrados:', data.videos.length);
-                
-                // Filtrar vídeos já publicados
-                const publishedVideos = await getPublishedVideos();
-                const filteredVideos = data.videos.filter(video => {
-                    const isPublished = publishedVideos.some(pubVideo => pubVideo.video_path === video.path);
-                    if (isPublished) {
-                        console.log(`   Ignorando vídeo já publicado: ${video.name}`);
-                    }
-                    return !isPublished;
+            try {
+                const response = await fetch('/user/videos/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ folderPath: defaultFolder })
                 });
 
-                if (filteredVideos.length === 0) {
-                    alert('Nenhum vídeo novo encontrado nesta pasta (todos já foram publicados ou não são vídeos válidos).');
-                    currentVideos = [];
-                    document.getElementById('videosList').style.display = 'none';
-                    return;
+                const data = await response.json();
+                document.getElementById('loading').style.display = 'none';
+
+                if (data.success) {
+                    currentVideos = data.videos;
+                    displayVideos(data.videos);
+                } else {
+                    alert('Erro: ' + data.error);
                 }
-
-                currentVideos = filteredVideos;
-                displayVideos(filteredVideos);
-            } else {
-                console.error('❌ Erro ao escanear pasta:', data.error);
-                alert('Erro: ' + data.error);
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                alert('Erro ao carregar pasta: ' + error.message);
             }
-        } catch (error) {
-            document.getElementById('loading').style.display = 'none';
-            console.error('❌ Erro de rede ao escanear pasta:', error);
-            alert('Erro ao escanear pasta: ' + error.message);
-        }
-    }
-
-    // Função para remover pasta padrão
-    async function clearDefaultFolder() {
-        if (!confirm('Tem certeza que deseja remover a pasta padrão?')) {
-            return;
-        }
-        try {
-            const response = await fetch('/user/videos/save-folder', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ folderPath: '' })
-            });
-            const data = await response.json();
-            if (data.success) {
-                alert('Pasta padrão removida com sucesso!');
-                window.location.reload();
-            } else {
-                alert('Erro ao remover pasta padrão: ' + data.error);
-            }
-        } catch (error) {
-            alert('Erro ao remover pasta padrão: ' + error.message);
-        }
-    }
-
-    // Função para escanear pasta manualmente
-    async function scanFolder() {
-        console.log('🔄 ===== ESCANEANDO PASTA MANUALMENTE =====');
-        const folderPath = document.getElementById('folderPath').value.trim();
-        if (!folderPath) {
-            alert('Digite o caminho da pasta');
-            return;
         }
 
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('videosList').style.display = 'none';
+        // Carregar pasta padrão ao carregar a página (opcional - comentado)
+        // <% if (defaultFolder) { %>
+        //     window.addEventListener('DOMContentLoaded', function() {
+        //         // Preencher campo manual com a pasta padrão
+        //         document.getElementById('folderPath').value = '<%= defaultFolder %>';
+        //     });
+        // <% } %>
 
-        try {
-            console.log('📤 Enviando requisição para escanear pasta:', folderPath);
-            const response = await fetch('/user/videos/scan', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ folderPath })
-            });
-
-            const data = await response.json();
-            document.getElementById('loading').style.display = 'none';
-
-            if (data.success) {
-                console.log('✅ Pasta escaneada com sucesso!');
-                console.log('📹 Vídeos encontrados:', data.videos.length);
-                
-                // Filtrar vídeos já publicados
-                const publishedVideos = await getPublishedVideos();
-                const filteredVideos = data.videos.filter(video => {
-                    const isPublished = publishedVideos.some(pubVideo => pubVideo.video_path === video.path);
-                    if (isPublished) {
-                        console.log(`   Ignorando vídeo já publicado: ${video.name}`);
-                    }
-                    return !isPublished;
-                });
-
-                if (filteredVideos.length === 0) {
-                    alert('Nenhum vídeo novo encontrado nesta pasta (todos já foram publicados ou não são vídeos válidos).');
-                    currentVideos = [];
-                    document.getElementById('videosList').style.display = 'none';
-                    return;
-                }
-
-                currentVideos = filteredVideos;
-                displayVideos(filteredVideos);
-                
-                // Salvar pasta como padrão
+        async function clearDefaultFolder() {
+            if (confirm('Deseja remover a pasta padrão? Você precisará selecionar uma nova pasta.')) {
                 try {
-                    const saveResponse = await fetch('/user/videos/save-folder', {
+                    await fetch('/user/videos/save-folder', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ folderPath })
+                        body: JSON.stringify({ folderPath: '' })
                     });
-                    
-                    const saveData = await saveResponse.json();
-                    if (saveData.success) {
-                        console.log('✅ Pasta salva como padrão:', folderPath);
-                    } else {
-                        console.error('Erro ao salvar pasta:', saveData.error);
-                    }
+                    location.reload();
                 } catch (error) {
-                    console.error('Erro ao salvar pasta padrão:', error);
+                    alert('Erro ao remover pasta padrão: ' + error.message);
                 }
-            } else {
-                console.error('❌ Erro ao escanear pasta:', data.error);
-                alert('Erro: ' + data.error);
             }
-        } catch (error) {
-            document.getElementById('loading').style.display = 'none';
-            console.error('❌ Erro de rede ao escanear pasta:', error);
-            alert('Erro ao escanear pasta: ' + error.message);
         }
-    }
 
-    // Função para obter vídeos publicados (para filtrar)
-    async function getPublishedVideos() {
-        try {
-            const response = await fetch('/user/published-videos-data');
-            if (!response.ok) {
-                throw new Error(\`HTTP error! status: \${response.status}\`);
+        function toggleManualPath() {
+            const section = document.getElementById('manualPathSection');
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+        }
+
+        async function scanFolder() {
+            const folderPath = document.getElementById('folderPath').value.trim();
+            if (!folderPath) {
+                alert('Digite o caminho da pasta');
+                return;
             }
-            const data = await response.json();
-            return data.videos || [];
-        } catch (error) {
-            console.error('Erro ao buscar vídeos publicados para filtro:', error);
-            return [];
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('videosList').style.display = 'none';
+
+            try {
+                const response = await fetch('/user/videos/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ folderPath })
+                });
+
+                const data = await response.json();
+                document.getElementById('loading').style.display = 'none';
+
+                if (data.success) {
+                    currentVideos = data.videos;
+                    displayVideos(data.videos);
+                    
+                    // Salvar pasta como padrão
+                    try {
+                        const saveResponse = await fetch('/user/videos/save-folder', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ folderPath })
+                        });
+                        
+                        const saveData = await saveResponse.json();
+                        if (saveData.success) {
+                            console.log('✅ Pasta salva como padrão:', folderPath);
+                        } else {
+                            console.error('Erro ao salvar pasta:', saveData.error);
+                        }
+                    } catch (error) {
+                        console.error('Erro ao salvar pasta padrão:', error);
+                    }
+                } else {
+                    alert('Erro: ' + data.error);
+                }
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                alert('Erro ao escanear pasta: ' + error.message);
+            }
         }
-    }
 
-    function displayVideos(videos) {
-        console.log('🔄 ===== EXIBINDO VÍDEOS =====');
-        const container = document.getElementById('videosContainer');
-        container.innerHTML = '';
+        function displayVideos(videos) {
+            console.log('📋 ===== EXIBINDO VÍDEOS =====');
+            console.log('📊 Total de vídeos para exibir:', videos.length);
+            
+            const container = document.getElementById('videosContainer');
+            container.innerHTML = '';
 
-        if (videos.length === 0) {
-            console.warn('⚠️  Nenhum vídeo para exibir');
-            container.innerHTML = '<p class="text-muted">Nenhum vídeo encontrado nesta pasta.</p>';
-            return;
-        }
+            if (videos.length === 0) {
+                console.warn('⚠️  Nenhum vídeo para exibir');
+                container.innerHTML = '<p class="text-muted">Nenhum vídeo encontrado nesta pasta.</p>';
+                return;
+            }
 
-        videos.forEach((video, index) => {
-            console.log(\`   Criando card para: \${video.name}\`);
-            const card = document.createElement('div');
-            card.className = 'card mb-3';
-            card.innerHTML = \`
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col-md-6">
-                            <h6 class="mb-1">\${escapeHtml(video.name)}</h6>
-                            <small class="text-muted">\${video.sizeMB} MB</small>
-                        </div>
-                        <div class="col-md-6 text-end">
-                            <button class="btn btn-sm btn-info" onclick="generateWithAI(\${index})">
-                                🤖 Gerar com IA
-                            </button>
-                            <button class="btn btn-sm btn-primary" onclick="openScheduleModal(\${index})">
-                                📅 Agendar
-                            </button>
-                            <button class="btn btn-sm btn-success" onclick="openPublishModal(\${index})">
-                                🚀 Publicar
-                            </button>
+            videos.forEach((video, index) => {
+                console.log(`   Criando card para: ${video.name}`);
+                const card = document.createElement('div');
+                card.className = 'card mb-3';
+                card.innerHTML = `
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h6 class="mb-1">${escapeHtml(video.name)}</h6>
+                                <small class="text-muted">${video.sizeMB} MB</small>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <button class="btn btn-sm btn-info" onclick="generateWithAI(${index})">
+                                    🤖 Gerar com IA
+                                </button>
+                                <button class="btn btn-sm btn-primary" onclick="openScheduleModal(${index})">
+                                    📅 Agendar
+                                </button>
+                                <button class="btn btn-sm btn-success" onclick="openPublishModal(${index})">
+                                    🚀 Publicar
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            \`;
-            container.appendChild(card);
-        });
-
-        document.getElementById('videosList').style.display = 'block';
-        console.log('✅ ===== VÍDEOS EXIBIDOS COM SUCESSO =====');
-    }
-
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    let currentAIVideoIndex = null;
-
-    function showThumbnailFullscreen(src) {
-        document.getElementById('fullscreenThumbnail').src = src;
-        new bootstrap.Modal(document.getElementById('thumbnailFullscreenModal')).show();
-    }
-
-    async function useAIContentAndSchedule() {
-        if (currentAIVideoIndex === null) return;
-        
-        const video = currentVideos[currentAIVideoIndex];
-        if (!video || !video.generatedContent) return;
-
-        // Preencher modal de agendar com o conteúdo gerado
-        document.getElementById('scheduleVideoPath').value = video.path;
-        document.getElementById('scheduleTitle').value = video.generatedContent.title;
-        document.getElementById('scheduleDescription').value = video.generatedContent.description;
-        
-        // Data/hora padrão: 1 hora a partir de agora
-        const now = new Date();
-        now.setHours(now.getHours() + 1);
-        const year = now.getFullYear();
-        const month = (now.getMonth() + 1).toString().padStart(2, '0');
-        const day = now.getDate().toString().padStart(2, '0');
-        const hours = now.getHours().toString().padStart(2, '0');
-        const minutes = now.getMinutes().toString().padStart(2, '0');
-        
-        document.getElementById('scheduleDateTime').value = \`\${year}-\${month}-\${day}T\${hours}:\${minutes}\`;
-
-        // Fechar modal de resultado
-        bootstrap.Modal.getInstance(document.getElementById('aiResultModal')).hide();
-        
-        // Abrir modal de agendar
-        new bootstrap.Modal(document.getElementById('scheduleModal')).show();
-    }
-
-    async function useAIContentAndPublish() {
-        if (currentAIVideoIndex === null) return;
-        
-        const video = currentVideos[currentAIVideoIndex];
-        if (!video || !video.generatedContent) return;
-
-        // Publicar diretamente sem abrir outro modal
-        const title = document.getElementById('aiResultTitle').value;
-        const description = document.getElementById('aiResultDescription').value;
-        const videoPath = video.path;
-        const useGeneratedThumbnail = document.getElementById('useThumbnail').checked;
-        const thumbnailPath = useGeneratedThumbnail ? (video.generatedContent?.thumbnail_path || null) : null;
-
-        if (!title) {
-            alert('Título é obrigatório');
-            return;
-        }
-
-        // Mostrar loading
-        const loadingToast = showLoadingToast('Publicando vídeo com conteúdo gerado pela IA...');
-
-        try {
-            const response = await fetch('/user/videos/publish', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    videoPath, 
-                    title, 
-                    description,
-                    thumbnail_path: thumbnailPath
-                })
+                `;
+                container.appendChild(card);
             });
 
-            const data = await response.json();
-            loadingToast.remove();
-
-            if (data.success) {
-                // Mostrar mensagem de sucesso com link
-                const toast = document.createElement('div');
-                toast.className = 'alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3';
-                toast.style.zIndex = '9999';
-                toast.style.maxWidth = '500px';
-                toast.innerHTML = \`
-                    <strong>✅ Vídeo publicado com sucesso!</strong><br>
-                    <a href="\${data.videoUrl}" target="_blank" class="alert-link">Ver no YouTube →</a>
-                \`;
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 5000);
-                
-                // Fechar modal de resultado
-                bootstrap.Modal.getInstance(document.getElementById('aiResultModal')).hide();
-                
-                // Recarregar a lista de vídeos para remover o publicado
-                loadDefaultFolder();
-            } else {
-                alert('Erro: ' + data.error);
-            }
-        } catch (error) {
-            loadingToast.remove();
-            alert('Erro: ' + error.message);
-        }
-    }
-
-    async function generateWithAI(index) {
-        console.log('🎬 ===== INICIANDO GERAÇÃO DE CONTEÚDO COM IA =====');
-        const video = currentVideos[index];
-        if (!video) {
-            console.error('❌ Vídeo não encontrado para o índice:', index);
-            return;
+            document.getElementById('videosList').style.display = 'block';
+            console.log('✅ ===== VÍDEOS EXIBIDOS COM SUCESSO =====');
         }
 
-        const btn = event.target;
-        btn.disabled = true;
-        btn.textContent = '⏳ Gerando...';
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
 
-        console.log('📹 Vídeo selecionado:', video.name);
-        console.log('📁 Caminho:', video.path);
+        let currentAIVideoIndex = null;
 
-        try {
-            let videoPath = video.path;
+        function showThumbnailFullscreen(src) {
+            document.getElementById('fullscreenThumbnail').src = src;
+            new bootstrap.Modal(document.getElementById('thumbnailFullscreenModal')).show();
+        }
+
+        function useAIContent() {
+            if (currentAIVideoIndex === null) return;
             
-            // Se o vídeo tem um objeto File (foi selecionado via input), fazer upload primeiro
-            if (video.file && video.file instanceof File) {
-                console.log('📤 Vídeo selecionado via input, fazendo upload...');
-                console.log('📊 Tamanho do arquivo:', (video.file.size / (1024 * 1024)).toFixed(2), 'MB');
-                btn.textContent = '⏳ Enviando vídeo...';
-                
-                const formData = new FormData();
-                formData.append('video', video.file);
-                
-                const uploadStartTime = Date.now();
-                const uploadResponse = await fetch('/user/videos/upload', {
+            const video = currentVideos[currentAIVideoIndex];
+            if (!video || !video.generatedContent) return;
+
+            // Verifica se deve usar o thumbnail (igual bot antigo)
+            const useThumbnailCheckbox = document.getElementById('useThumbnail');
+            const useThumbnail = useThumbnailCheckbox ? useThumbnailCheckbox.checked : false;
+            const thumbnailUrl = video.generatedContent.thumbnailUrl || '';
+            const thumbnailToUse = (useThumbnail && thumbnailUrl) ? thumbnailUrl : null;
+
+            console.log('📸 Thumbnail info:', { useThumbnail, thumbnailUrl, thumbnailToUse });
+
+            // Fechar modal de resultado
+            bootstrap.Modal.getInstance(document.getElementById('aiResultModal')).hide();
+
+            // Preencher modais de agendar e publicar com o conteúdo gerado
+            document.getElementById('scheduleTitle').value = video.generatedContent.title;
+            document.getElementById('scheduleDescription').value = video.generatedContent.description;
+            document.getElementById('publishTitle').value = video.generatedContent.title;
+            document.getElementById('publishDescription').value = video.generatedContent.description;
+
+            // Salvar thumbnail se existir (igual bot antigo)
+            if (thumbnailToUse) {
+                let thumbnailField = document.getElementById('schedule-thumbnail');
+                if (!thumbnailField) {
+                    const scheduleForm = document.querySelector('#scheduleModal form');
+                    if (scheduleForm) {
+                        thumbnailField = document.createElement('input');
+                        thumbnailField.type = 'hidden';
+                        thumbnailField.id = 'schedule-thumbnail';
+                        scheduleForm.appendChild(thumbnailField);
+                    }
+                }
+                if (thumbnailField) {
+                    thumbnailField.value = thumbnailToUse;
+                }
+            }
+
+            // Abrir modal de agendar
+            new bootstrap.Modal(document.getElementById('scheduleModal')).show();
+        }
+
+        async function useAIContentAndPublish() {
+            if (currentAIVideoIndex === null) return;
+            
+            const video = currentVideos[currentAIVideoIndex];
+            if (!video || !video.generatedContent) return;
+
+            // Verifica se deve usar o thumbnail (igual bot antigo)
+            const useThumbnailCheckbox = document.getElementById('useThumbnail');
+            const useThumbnail = useThumbnailCheckbox ? useThumbnailCheckbox.checked : false;
+            const thumbnailUrl = video.generatedContent.thumbnailUrl || '';
+            const thumbnailPath = video.generatedContent.thumbnail_path || '';
+            const thumbnailToUse = (useThumbnail && thumbnailPath) ? thumbnailPath : null;
+
+            console.log('📸 Thumbnail info (publish):', { useThumbnail, thumbnailUrl, thumbnailPath, thumbnailToUse });
+
+            // Fechar modal de resultado
+            bootstrap.Modal.getInstance(document.getElementById('aiResultModal')).hide();
+
+            // Publicar diretamente sem abrir outro modal
+            const title = video.generatedContent.title;
+            const description = video.generatedContent.description;
+            const videoPath = video.path;
+
+            if (!title) {
+                alert('Título é obrigatório');
+                return;
+            }
+
+            // Mostrar loading
+            const loadingToast = document.createElement('div');
+            loadingToast.className = 'alert alert-info position-fixed top-0 start-50 translate-middle-x mt-3';
+            loadingToast.style.zIndex = '9999';
+            loadingToast.innerHTML = '⏳ Publicando vídeo com conteúdo gerado pela IA...';
+            document.body.appendChild(loadingToast);
+
+            try {
+                const response = await fetch('/user/videos/publish', {
                     method: 'POST',
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        videoPath, 
+                        title, 
+                        description,
+                        thumbnail_path: thumbnailToUse  // Enviar caminho do thumbnail
+                    })
+                });
+
+                const data = await response.json();
+                loadingToast.remove();
+
+                if (data.success) {
+                    // Mostrar mensagem de sucesso com link
+                    const toast = document.createElement('div');
+                    toast.className = 'alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3';
+                    toast.style.zIndex = '9999';
+                    toast.style.maxWidth = '500px';
+                    toast.innerHTML = `
+                        <strong>✅ Vídeo publicado com sucesso!</strong><br>
+                        <a href="${data.videoUrl}" target="_blank" class="alert-link">Ver no YouTube →</a>
+                    `;
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 5000);
+                } else {
+                    alert('Erro: ' + data.error);
+                }
+            } catch (error) {
+                loadingToast.remove();
+                alert('Erro: ' + error.message);
+            }
+        }
+
+        async function generateWithAI(index) {
+            const video = currentVideos[index];
+            if (!video) return;
+
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = '⏳ Gerando...';
+
+            console.log('🎬 ===== INICIANDO GERAÇÃO DE CONTEÚDO COM IA =====');
+            console.log('📹 Vídeo selecionado:', video.name);
+            console.log('📁 Caminho:', video.path);
+
+            try {
+                let videoPath = video.path;
+                
+                // Se o vídeo tem um objeto File (foi selecionado via input), fazer upload primeiro
+                if (video.file && video.file instanceof File) {
+                    console.log('📤 Vídeo selecionado via input, fazendo upload...');
+                    console.log('📊 Tamanho do arquivo:', (video.file.size / (1024 * 1024)).toFixed(2), 'MB');
+                    btn.textContent = '⏳ Enviando vídeo...';
+                    
+                    const formData = new FormData();
+                    formData.append('video', video.file);
+                    
+                    const uploadStartTime = Date.now();
+                    const uploadResponse = await fetch('/user/videos/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const uploadData = await uploadResponse.json();
+                    const uploadDuration = ((Date.now() - uploadStartTime) / 1000).toFixed(2);
+                    
+                    if (!uploadData.success) {
+                        console.error('❌ Erro no upload:', uploadData.error);
+                        throw new Error(uploadData.error || 'Erro ao fazer upload do vídeo');
+                    }
+                    
+                    // Usar o caminho retornado pelo upload
+                    videoPath = uploadData.videoPath;
+                    console.log('✅ Vídeo enviado com sucesso em', uploadDuration, 'segundos');
+                    console.log('📁 Caminho no servidor:', videoPath);
+                    
+                    // Atualizar o caminho no objeto do vídeo para próximas operações
+                    currentVideos[index].path = videoPath;
+                    currentVideos[index].file = null; // Limpar referência ao arquivo
+                }
+
+                console.log('🤖 Iniciando geração de conteúdo com Gemini...');
+                console.log('📸 Extraindo frames do vídeo...');
+                btn.textContent = '⏳ Gerando conteúdo...';
+                
+                // Timeout de 10 minutos (600 segundos)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 600000);
+                
+                console.log('📤 Enviando requisição para o servidor...');
+                const generateStartTime = Date.now();
+                
+                const response = await fetch('/user/videos/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ videoPath }),
+                    signal: controller.signal
                 });
                 
-                const uploadData = await uploadResponse.json();
-                const uploadDuration = ((Date.now() - uploadStartTime) / 1000).toFixed(2);
+                clearTimeout(timeoutId);
+                const generateDuration = ((Date.now() - generateStartTime) / 1000).toFixed(2);
+                console.log('⏱️  Tempo de processamento:', generateDuration, 'segundos');
                 
-                if (!uploadData.success) {
-                    console.error('❌ Erro no upload:', uploadData.error);
-                    throw new Error(uploadData.error || 'Erro ao fazer upload do vídeo');
+                // Verificar se a resposta é JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('❌ Resposta não é JSON:', text.substring(0, 200));
+                    throw new Error(`Erro do servidor (${response.status}): ${text.substring(0, 100)}`);
                 }
                 
-                // Usar o caminho retornado pelo upload
-                videoPath = uploadData.videoPath;
-                console.log('✅ Vídeo enviado com sucesso em', uploadDuration, 'segundos');
-                console.log('📁 Caminho no servidor:', videoPath);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ Erro HTTP:', response.status);
+                    console.error('📝 Detalhes do erro:', errorText.substring(0, 200));
+                    throw new Error(`Erro ${response.status}: ${errorText.substring(0, 200)}`);
+                }
                 
-                // Atualizar o caminho no objeto do vídeo para próximas operações
-                currentVideos[index].path = videoPath;
-                currentVideos[index].file = null;
-            }
-
-            console.log('🤖 Iniciando geração de conteúdo com Gemini...');
-            console.log('📸 Extraindo frames do vídeo...');
-            btn.textContent = '⏳ Gerando conteúdo...';
-            
-            // Timeout de 10 minutos (600 segundos)
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 600000);
-            
-            console.log('📤 Enviando requisição para o servidor...');
-            const generateStartTime = Date.now();
-            
-            const response = await fetch('/user/videos/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ videoPath }),
-                signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId);
-            const generateDuration = ((Date.now() - generateStartTime) / 1000).toFixed(2);
-            console.log('⏱️  Tempo de processamento:', generateDuration, 'segundos');
-            
-            // Verificar se a resposta é JSON
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                const text = await response.text();
-                console.error('❌ Resposta não é JSON:', text.substring(0, 200));
-                throw new Error(\`Erro do servidor (\${response.status}): \${text.substring(0, 100)}\`);
-            }
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('❌ Erro HTTP:', response.status);
-                console.error('📝 Detalhes do erro:', errorText.substring(0, 200));
-                throw new Error(\`Erro \${response.status}: \${errorText.substring(0, 200)}\`);
-            }
-            
-            const data = await response.json();
-            
-            console.log('✅ Resposta recebida do servidor!');
-            console.log('📦 Dados recebidos:', {
-                success: data.success,
-                title: data.title,
-                description: data.description,
-                thumbnail_path: data.thumbnail_path
-            });
-            
-            btn.disabled = false;
-            btn.textContent = '🤖 Gerar com IA';
-
-            if (data.success) {
-                console.log('✅ ===== CONTEÚDO GERADO COM SUCESSO =====');
-                console.log('📝 Título gerado:', data.title);
-                console.log('📄 Descrição gerada:', data.description);
-                console.log('📸 Thumbnail:', data.thumbnail_path || 'N/A');
-            
-                // Guardar conteúdo gerado no vídeo
-                const generatedContent = {
+                const data = await response.json();
+                
+                console.log('✅ Resposta recebida do servidor!');
+                console.log('📦 Dados recebidos:', {
+                    success: data.success,
                     title: data.title,
                     description: data.description,
                     thumbnail_path: data.thumbnail_path
-                };
-                currentVideos[index].generatedContent = generatedContent;
-                currentAIVideoIndex = index;
+                });
                 
-                // Preencher modal de resultado
-                document.getElementById('aiResultTitle').value = data.title || '';
-                document.getElementById('aiResultDescription').value = data.description || '';
-                
-                // Processar thumbnail
-                const thumbnailSection = document.getElementById('thumbnailSection');
-                let thumbnailUrl = '';
-                
-                console.log('🔍 Verificando thumbnail_path:', data.thumbnail_path);
-                
-                if (data.thumbnail_path) {
-                    thumbnailUrl = data.thumbnail_path;
+                btn.disabled = false;
+                btn.textContent = '🤖 Gerar com IA';
+
+                if (data.success) {
+                        console.log('✅ ===== CONTEÚDO GERADO COM SUCESSO =====');
+                        console.log('📝 Título gerado:', data.title);
+                        console.log('📄 Descrição gerada:', data.description);
+                        console.log('📸 Thumbnail:', data.thumbnail_path || 'N/A');
                     
-                    console.log('📸 Thumbnail encontrado!');
-                    console.log('   Caminho:', data.thumbnail_path);
-                    console.log('   URL:', thumbnailUrl);
-                    
-                    // Mostrar thumbnail
-                    const thumbnailImg = document.getElementById('aiResultThumbnail');
-                    if (thumbnailImg) {
-                        thumbnailImg.src = '';
-                        
-                        thumbnailImg.onerror = function() {
-                            console.error('❌ Erro ao carregar thumbnail:', thumbnailUrl);
-                            this.style.display = 'none';
-                            const errorMsg = document.getElementById('thumbnailError');
-                            if (errorMsg) errorMsg.style.display = 'block';
+                        // Guardar conteúdo gerado no vídeo (mesmo formato do bot antigo)
+                        const generatedContent = {
+                            title: data.title,
+                            description: data.description,
+                            thumbnail_path: data.thumbnail_path
                         };
+                        currentVideos[index].generatedContent = generatedContent;
+                        currentAIVideoIndex = index;
                         
-                        thumbnailImg.onload = function() {
-                            console.log('✅ Thumbnail carregado com sucesso:', thumbnailUrl);
-                            this.style.display = 'block';
-                            const errorMsg = document.getElementById('thumbnailError');
-                            if (errorMsg) errorMsg.style.display = 'none';
-                        };
+                        // Preencher modal de resultado
+                        document.getElementById('aiResultTitle').value = data.title || '';
+                        document.getElementById('aiResultDescription').value = data.description || '';
                         
-                        thumbnailImg.src = thumbnailUrl + '?t=' + Date.now();
-                        thumbnailImg.style.display = 'block';
-                    }
-                    
-                    thumbnailSection.style.display = 'block';
-                    
-                    currentVideos[index].generatedContent.thumbnailUrl = thumbnailUrl;
-                    currentVideos[index].generatedContent.thumbnail_path = data.thumbnail_path;
+                        // Processar thumbnail - usar diretamente a URL retornada pelo backend
+                        const thumbnailSection = document.getElementById('thumbnailSection');
+                        let thumbnailUrl = '';
+                        
+                        console.log('🔍 Verificando thumbnail_path:', data.thumbnail_path);
+                        
+                        if (data.thumbnail_path) {
+                            // O backend já retorna a URL relativa correta (/thumbnails/nome_arquivo.jpg)
+                            // Não precisa reconstruir, usar diretamente
+                            thumbnailUrl = data.thumbnail_path;
+                            
+                            console.log('📸 Thumbnail encontrado!');
+                            console.log('   Caminho:', data.thumbnail_path);
+                            console.log('   URL:', thumbnailUrl);
+                            
+                            // Mostrar thumbnail
+                            const thumbnailImg = document.getElementById('aiResultThumbnail');
+                            if (thumbnailImg) {
+                                // Limpar src anterior para forçar recarregamento
+                                thumbnailImg.src = '';
+                                
+                                // Configurar handlers ANTES de definir o src
+                                thumbnailImg.onerror = function() {
+                                    console.error('❌ Erro ao carregar thumbnail no navegador');
+                                    console.error('   URL tentada:', this.src);
+                                    this.style.display = 'none';
+                                    const errorMsg = document.getElementById('thumbnailError');
+                                    if (errorMsg) errorMsg.style.display = 'block';
+                                };
+                                
+                                thumbnailImg.onload = function() {
+                                    console.log('✅ Thumbnail carregado com sucesso no navegador!');
+                                    console.log('   URL final:', this.src);
+                                    this.style.display = 'block';
+                                    const errorMsg = document.getElementById('thumbnailError');
+                                    if (errorMsg) errorMsg.style.display = 'none';
+                                };
+                                
+                                // Definir src com timestamp para evitar cache
+                                thumbnailImg.src = thumbnailUrl + '?t=' + Date.now();
+                                thumbnailImg.style.display = 'block';
+                            }
+                            
+                            thumbnailSection.style.display = 'block';
+                            
+                            // Guardar URL do thumbnail
+                            currentVideos[index].generatedContent.thumbnailUrl = thumbnailUrl;
+                            currentVideos[index].generatedContent.thumbnail_path = data.thumbnail_path;
+                        } else {
+                            console.warn('⚠️  Nenhum thumbnail retornado pelo servidor');
+                            console.warn('   thumbnail_path:', data.thumbnail_path);
+                            thumbnailSection.style.display = 'none';
+                        }
+                        
+                        console.log('🎉 ===== GERAÇÃO CONCLUÍDA =====');
+                        console.log('📊 Resumo:');
+                        console.log('   - Título:', data.title);
+                        console.log('   - Descrição:', data.description);
+                        console.log('   - Thumbnail:', data.thumbnail_path ? 'Sim' : 'Não');
+                        console.log('   - Tempo total:', generateDuration, 'segundos');
+                        
+                        // Mostrar modal
+                        new bootstrap.Modal(document.getElementById('aiResultModal')).show();
                 } else {
-                    console.warn('⚠️  Nenhum thumbnail retornado (thumbnail_path é null ou vazio)');
-                    thumbnailSection.style.display = 'none';
+                    // Mostrar erro em modal também
+                    const errorModal = document.createElement('div');
+                    errorModal.className = 'modal fade';
+                    errorModal.innerHTML = `
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title">❌ Erro</h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>${data.error}</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(errorModal);
+                    const bsModal = new bootstrap.Modal(errorModal);
+                    bsModal.show();
+                    errorModal.addEventListener('hidden.bs.modal', () => errorModal.remove());
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                btn.disabled = false;
+                btn.textContent = '🤖 Gerar com IA';
+                
+                console.error('❌ ===== ERRO NA GERAÇÃO DE CONTEÚDO =====');
+                console.error('❌ Tipo de erro:', error.name);
+                console.error('❌ Mensagem:', error.message);
+                console.error('❌ Stack:', error.stack);
+                
+                let errorMessage = 'Erro ao gerar conteúdo';
+                if (error.name === 'AbortError') {
+                    errorMessage = 'Tempo de espera excedido. O processamento está demorando muito. Tente novamente.';
+                    console.error('⏱️  Timeout: O processamento demorou mais de 10 minutos');
+                } else if (error.message) {
+                    errorMessage = error.message;
                 }
                 
-                // Mostrar modal
-                new bootstrap.Modal(document.getElementById('aiResultModal')).show();
-            } else {
-                // Mostrar erro em modal
-                const errorModal = document.createElement('div');
-                errorModal.className = 'modal fade';
-                errorModal.innerHTML = \`
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header bg-danger text-white">
-                                <h5 class="modal-title">❌ Erro</h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <p>\${data.error}</p>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                            </div>
-                        </div>
-                    </div>
-                \`;
-                document.body.appendChild(errorModal);
-                const bsModal = new bootstrap.Modal(errorModal);
-                bsModal.show();
-                errorModal.addEventListener('hidden.bs.modal', () => errorModal.remove());
+                console.error('❌ ===== FIM DO ERRO =====');
+                alert('Erro: ' + errorMessage);
             }
-        } catch (error) {
-            btn.disabled = false;
-            btn.textContent = '🤖 Gerar com IA';
-            console.error('❌ Erro na geração de conteúdo com IA:', error);
-            // Mostrar erro em modal
-            const errorModal = document.createElement('div');
-            errorModal.className = 'modal fade';
-            errorModal.innerHTML = \`
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header bg-danger text-white">
-                            <h5 class="modal-title">❌ Erro</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <p>\${error.message}</p>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                        </div>
-                    </div>
-                </div>
-            \`;
-            document.body.appendChild(errorModal);
-            const bsModal = new bootstrap.Modal(errorModal);
-            bsModal.show();
-            errorModal.addEventListener('hidden.bs.modal', () => errorModal.remove());
-        }
-    }
-
-    function openScheduleModal(index) {
-        const video = currentVideos[index];
-        if (!video) return;
-
-        // Se já tem conteúdo gerado, usar ele
-        const title = video.generatedContent?.title || video.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, ' ').trim();
-        const description = video.generatedContent?.description || '#shorts';
-
-        document.getElementById('scheduleVideoPath').value = video.path;
-        document.getElementById('scheduleTitle').value = title;
-        document.getElementById('scheduleDescription').value = description;
-        
-        // Data/hora padrão: 1 hora a partir de agora
-        const now = new Date();
-        now.setHours(now.getHours() + 1);
-        const year = now.getFullYear();
-        const month = (now.getMonth() + 1).toString().padStart(2, '0');
-        const day = now.getDate().toString().padStart(2, '0');
-        const hours = now.getHours().toString().padStart(2, '0');
-        const minutes = now.getMinutes().toString().padStart(2, '0');
-        
-        document.getElementById('scheduleDateTime').value = \`\${year}-\${month}-\${day}T\${hours}:\${minutes}\`;
-
-        new bootstrap.Modal(document.getElementById('scheduleModal')).show();
-    }
-
-    async function scheduleVideo() {
-        const videoPath = document.getElementById('scheduleVideoPath').value;
-        const scheduledTime = document.getElementById('scheduleDateTime').value;
-        const title = document.getElementById('scheduleTitle').value;
-        const description = document.getElementById('scheduleDescription').value;
-        
-        const videoIndex = currentVideos.findIndex(v => v.path === videoPath);
-        const video = currentVideos[videoIndex];
-        const thumbnailPath = video.generatedContent?.thumbnail_path || null;
-
-        if (!videoPath || !scheduledTime || !title) {
-            alert('Preencha todos os campos obrigatórios (Caminho do Vídeo, Data/Hora, Título)');
-            return;
         }
 
-        const loadingToast = showLoadingToast('Agendando vídeo...');
+        function openScheduleModal(index) {
+            const video = currentVideos[index];
+            if (!video) return;
 
-        try {
-            const response = await fetch('/user/videos/schedule', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ videoPath, scheduledTime, title, description, thumbnailPath })
-            });
-            const data = await response.json();
-            loadingToast.remove();
+            // Se já tem conteúdo gerado, usar ele
+            const title = video.generatedContent?.title || video.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, ' ').trim();
+            const description = video.generatedContent?.description || '#shorts';
 
-            if (data.success) {
-                const toast = document.createElement('div');
-                toast.className = 'alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3';
-                toast.style.zIndex = '9999';
-                toast.style.maxWidth = '500px';
-                toast.innerHTML = \`
-                    <strong>✅ Vídeo agendado com sucesso!</strong>
-                \`;
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 5000);
-                new bootstrap.Modal(document.getElementById('scheduleModal')).hide();
-                
-                // Recarregar a lista de vídeos
-                loadDefaultFolder();
-            } else {
-                alert('Erro: ' + data.error);
+            document.getElementById('scheduleVideoPath').value = video.path;
+            document.getElementById('scheduleTitle').value = title;
+            document.getElementById('scheduleDescription').value = description;
+            
+            // Data/hora padrão: 1 hora a partir de agora
+            const now = new Date();
+            now.setHours(now.getHours() + 1);
+            const dateStr = now.toISOString().slice(0, 16);
+            document.getElementById('scheduleDateTime').value = dateStr;
+
+            // Guardar índice do vídeo
+            document.getElementById('scheduleModal').dataset.videoIndex = index;
+
+            new bootstrap.Modal(document.getElementById('scheduleModal')).show();
+        }
+
+        function openPublishModal(index) {
+            const video = currentVideos[index];
+            if (!video) return;
+
+            // Se já tem conteúdo gerado, usar ele
+            const title = video.generatedContent?.title || video.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, ' ').trim();
+            const description = video.generatedContent?.description || '#shorts';
+
+            document.getElementById('publishVideoPath').value = video.path;
+            document.getElementById('publishTitle').value = title;
+            document.getElementById('publishDescription').value = description;
+
+            // Guardar índice do vídeo
+            document.getElementById('publishModal').dataset.videoIndex = index;
+
+            new bootstrap.Modal(document.getElementById('publishModal')).show();
+        }
+
+        async function confirmSchedule() {
+            const index = parseInt(document.getElementById('scheduleModal').dataset.videoIndex);
+            const video = currentVideos[index];
+            if (!video) return;
+
+            const scheduledTime = document.getElementById('scheduleDateTime').value;
+            const title = document.getElementById('scheduleTitle').value;
+            const description = document.getElementById('scheduleDescription').value;
+
+            if (!scheduledTime || !title) {
+                alert('Preencha todos os campos obrigatórios');
+                return;
             }
-        } catch (error) {
-            loadingToast.remove();
-            alert('Erro: ' + error.message);
-        }
-    }
 
-    function openPublishModal(index) {
-        const video = currentVideos[index];
-        if (!video) return;
+            // Usar o caminho do vídeo (já está no servidor quando vem do scan)
+            const videoPath = video.path;
 
-        // Se já tem conteúdo gerado, usar ele
-        const title = video.generatedContent?.title || video.name.replace(/\.[^/.]+$/, '').replace(/[()]/g, ' ').trim();
-        const description = video.generatedContent?.description || '#shorts';
-        const thumbnailUrl = video.generatedContent?.thumbnailUrl || null;
+            const btn = document.querySelector('#scheduleModal .btn-primary');
+            btn.disabled = true;
+            document.getElementById('scheduleBtnText').textContent = '⏳ Agendando...';
 
-        document.getElementById('publishVideoPath').value = video.path;
-        document.getElementById('publishTitle').value = title;
-        document.getElementById('publishDescription').value = description;
-        
-        const publishThumbnailImg = document.getElementById('publishThumbnailPreview');
-        const publishThumbnailPreviewSection = document.getElementById('publishThumbnailPreviewSection');
+            try {
+                const response = await fetch('/user/videos/schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ videoPath, scheduledTime, title, description })
+                });
 
-        if (thumbnailUrl) {
-            publishThumbnailImg.src = thumbnailUrl;
-            publishThumbnailPreviewSection.style.display = 'block';
-        } else {
-            publishThumbnailImg.src = '';
-            publishThumbnailPreviewSection.style.display = 'none';
-        }
+                const data = await response.json();
+                btn.disabled = false;
+                document.getElementById('scheduleBtnText').textContent = '📅 Agendar';
 
-        new bootstrap.Modal(document.getElementById('publishModal')).show();
-    }
-
-    async function publishVideo() {
-        const videoPath = document.getElementById('publishVideoPath').value;
-        const title = document.getElementById('publishTitle').value;
-        const description = document.getElementById('publishDescription').value;
-        
-        const videoIndex = currentVideos.findIndex(v => v.path === videoPath);
-        const video = currentVideos[videoIndex];
-        
-        // Pegar o thumbnail do conteúdo gerado, se houver
-        const thumbnailPath = video.generatedContent?.thumbnail_path || null;
-
-        if (!videoPath || !title) {
-            alert('Preencha todos os campos obrigatórios (Caminho do Vídeo, Título)');
-            return;
-        }
-
-        const loadingToast = showLoadingToast('Publicando vídeo...');
-
-        try {
-            const response = await fetch('/user/videos/publish', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ videoPath, title, description, thumbnail_path: thumbnailPath })
-            });
-            const data = await response.json();
-            loadingToast.remove();
-
-            if (data.success) {
-                const toast = document.createElement('div');
-                toast.className = 'alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3';
-                toast.style.zIndex = '9999';
-                toast.style.maxWidth = '500px';
-                toast.innerHTML = \`
-                    <strong>✅ Vídeo publicado com sucesso!</strong><br>
-                    <a href="\${data.videoUrl}" target="_blank" class="alert-link">Ver no YouTube →</a>
-                \`;
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 5000);
-                new bootstrap.Modal(document.getElementById('publishModal')).hide();
-                
-                // Recarregar a lista de vídeos
-                loadDefaultFolder();
-            } else {
-                alert('Erro: ' + data.error);
+                if (data.success) {
+                    // Fechar modal
+                    bootstrap.Modal.getInstance(document.getElementById('scheduleModal')).hide();
+                    
+                    // Mostrar mensagem de sucesso
+                    const toast = document.createElement('div');
+                    toast.className = 'alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3';
+                    toast.style.zIndex = '9999';
+                    toast.innerHTML = '✅ Vídeo agendado com sucesso! Verifique na página "Agendados".';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 4000);
+                } else {
+                    alert('Erro: ' + data.error);
+                }
+            } catch (error) {
+                btn.disabled = false;
+                btn.textContent = 'Agendar';
+                alert('Erro: ' + error.message);
             }
-        } catch (error) {
-            loadingToast.remove();
-            alert('Erro: ' + error.message);
         }
-    }
 
-    function showLoadingToast(message) {
-        const toast = document.createElement('div');
-        toast.className = 'alert alert-info position-fixed top-0 start-50 translate-middle-x mt-3';
-        toast.style.zIndex = '9999';
-        toast.style.maxWidth = '500px';
-        toast.innerHTML = \`
-            <div class="d-flex align-items-center">
-                <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
-                <strong>\${message}</strong>
-            </div>
-        \`;
-        document.body.appendChild(toast);
-        return toast;
-    }
+        async function confirmPublish() {
+            const index = parseInt(document.getElementById('publishModal').dataset.videoIndex);
+            const video = currentVideos[index];
+            if (!video) return;
 
-    // Carregar vídeos da pasta padrão ao carregar a página
-    document.addEventListener('DOMContentLoaded', () => {
-        const defaultFolder = "<%= defaultFolder %>";
-        if (defaultFolder) {
-            document.getElementById('folderPath').value = defaultFolder;
-            loadDefaultFolder();
+            const title = document.getElementById('publishTitle').value;
+            const description = document.getElementById('publishDescription').value;
+
+            if (!title) {
+                alert('Preencha o título');
+                return;
+            }
+
+            // Usar o caminho do vídeo (já está no servidor quando vem do scan)
+            const videoPath = video.path;
+
+            // Verificar se tem thumbnail do conteúdo gerado
+            let thumbnailPath = null;
+            if (video.generatedContent && video.generatedContent.thumbnail_path) {
+                // Verificar se checkbox está marcado (se existir)
+                const useThumbnailCheckbox = document.getElementById('useThumbnail');
+                const useThumbnail = useThumbnailCheckbox ? useThumbnailCheckbox.checked : true; // Default true
+                if (useThumbnail) {
+                    thumbnailPath = video.generatedContent.thumbnail_path;
+                }
+            }
+
+            const btn = document.querySelector('#publishModal .btn-success');
+            btn.disabled = true;
+            document.getElementById('publishBtnText').textContent = '⏳ Publicando...';
+
+            try {
+                const response = await fetch('/user/videos/publish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        videoPath, 
+                        title, 
+                        description,
+                        thumbnail_path: thumbnailPath  // Enviar caminho do thumbnail
+                    })
+                });
+
+                const data = await response.json();
+                btn.disabled = false;
+                document.getElementById('publishBtnText').textContent = '🚀 Publicar Agora';
+
+                if (data.success) {
+                    // Fechar modal
+                    bootstrap.Modal.getInstance(document.getElementById('publishModal')).hide();
+                    
+                    // Mostrar mensagem de sucesso com link
+                    const toast = document.createElement('div');
+                    toast.className = 'alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3';
+                    toast.style.zIndex = '9999';
+                    toast.style.maxWidth = '500px';
+                    toast.innerHTML = `
+                        <strong>✅ Vídeo publicado com sucesso!</strong><br>
+                        <a href="${data.videoUrl}" target="_blank" class="alert-link">Ver no YouTube →</a>
+                    `;
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 5000);
+                } else {
+                    alert('Erro: ' + data.error);
+                }
+            } catch (error) {
+                btn.disabled = false;
+                btn.textContent = '🚀 Publicar Agora';
+                alert('Erro: ' + error.message);
+            }
         }
-    });
-</script>
-` }) %>
+    </script>
+</body>
+</html>
+

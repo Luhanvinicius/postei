@@ -1,0 +1,85 @@
+<!-- Menu de Perfil Estilo Facebook -->
+<div class="dropdown position-relative">
+    <button class="btn btn-link text-white text-decoration-none d-flex align-items-center" type="button" id="profileMenuButton" data-bs-toggle="dropdown" aria-expanded="false" style="border: none; padding: 0.25rem 0.5rem;">
+        <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; font-weight: bold; color: white;">
+            <%= user.username.charAt(0).toUpperCase() %>
+        </div>
+        <span class="ms-2 d-none d-md-inline"><%= user.username %></span>
+        <i class="bi bi-chevron-down ms-1"></i>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end shadow-lg" aria-labelledby="profileMenuButton" style="min-width: 280px; border: none; border-radius: 8px; padding: 8px 0;">
+        <!-- Perfil do Usuário -->
+        <li>
+            <a class="dropdown-item d-flex align-items-center py-2 px-3" href="/user/profile" style="border-radius: 6px; margin: 2px 8px;">
+                <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center me-3" style="width: 36px; height: 36px; font-weight: bold; color: white;">
+                    <%= user.username.charAt(0).toUpperCase() %>
+                </div>
+                <div>
+                    <div style="font-weight: 600;"><%= user.username %></div>
+                    <small class="text-muted">Ver seu perfil</small>
+                </div>
+            </a>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        
+        <!-- Plano Atual -->
+        <li>
+            <a class="dropdown-item d-flex align-items-center py-2 px-3" href="/user/profile#plano" style="border-radius: 6px; margin: 2px 8px;">
+                <i class="bi bi-credit-card me-3" style="font-size: 20px; color: #1877f2;"></i>
+                <div>
+                    <div style="font-weight: 500;">Plano Atual</div>
+                    <small class="text-muted">Gerenciar assinatura</small>
+                </div>
+            </a>
+        </li>
+        
+        <!-- Faturas -->
+        <li>
+            <a class="dropdown-item d-flex align-items-center py-2 px-3" href="/user/profile#faturas" style="border-radius: 6px; margin: 2px 8px;">
+                <i class="bi bi-receipt me-3" style="font-size: 20px; color: #1877f2;"></i>
+                <div>
+                    <div style="font-weight: 500;">Faturas</div>
+                    <small class="text-muted">Ver histórico de pagamentos</small>
+                </div>
+            </a>
+        </li>
+        
+        <!-- Privacidade -->
+        <li>
+            <a class="dropdown-item d-flex align-items-center py-2 px-3" href="/user/profile#privacidade" style="border-radius: 6px; margin: 2px 8px;">
+                <i class="bi bi-shield-lock me-3" style="font-size: 20px; color: #1877f2;"></i>
+                <div>
+                    <div style="font-weight: 500;">Privacidade</div>
+                    <small class="text-muted">Alterar senha e configurações</small>
+                </div>
+            </a>
+        </li>
+        
+        <li><hr class="dropdown-divider"></li>
+        
+        <!-- Sair -->
+        <li>
+            <form action="/auth/logout" method="POST" class="d-inline w-100">
+                <button type="submit" class="dropdown-item py-2 px-3 w-100 text-start" style="border: none; background: none; border-radius: 6px; margin: 2px 8px;">
+                    <i class="bi bi-box-arrow-right me-3" style="font-size: 20px;"></i>
+                    <span style="font-weight: 500;">Sair</span>
+                </button>
+            </form>
+        </li>
+    </ul>
+</div>
+
+<style>
+.dropdown-menu {
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.2) !important;
+}
+
+.dropdown-item:hover {
+    background-color: #f0f2f5 !important;
+}
+
+.dropdown-item:active {
+    background-color: #e4e6eb !important;
+}
+</style>
+

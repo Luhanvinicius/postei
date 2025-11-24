@@ -31,16 +31,9 @@
                                 <td><%= u.username %></td>
                                 <td><%= u.email %></td>
                                 <td><span class="badge bg-<%= u.role === 'admin' ? 'danger' : 'primary' %>"><%= u.role %></span></td>
-                                <td><%= new Date(u.created_at || u.createdAt).toLocaleDateString('pt-BR') %></td>
+                                <td><%= new Date(u.createdAt).toLocaleDateString('pt-BR') %></td>
                                 <td>
-                                    <div class="btn-group" role="group">
-                                        <button class="btn btn-sm btn-<%= u.role === 'admin' ? 'warning' : 'success' %>" 
-                                                onclick="changeRole(<%= u.id %>, '<%= u.role === 'admin' ? 'user' : 'admin' %>')"
-                                                title="Mudar para <%= u.role === 'admin' ? 'User' : 'Admin' %>">
-                                            <%= u.role === 'admin' ? '👤→User' : '👑→Admin' %>
-                                        </button>
-                                        <button class="btn btn-sm btn-danger" onclick="deleteUser(<%= u.id %>)">Deletar</button>
-                                    </div>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteUser(<%= u.id %>)">Deletar</button>
                                 </td>
                             </tr>
                         <% }); %>
@@ -158,29 +151,6 @@ async function deleteUser(userId) {
                 alert('Erro ao criar usuário');
             }
         });
-
-        async function changeRole(userId, newRole) {
-            const roleText = newRole === 'admin' ? 'Administrador' : 'Usuário';
-            if (!confirm(`Tem certeza que deseja mudar o role deste usuário para ${roleText}?`)) return;
-            
-            try {
-                const response = await fetch(`/admin/users/${userId}/role`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ role: newRole })
-                });
-                const data = await response.json();
-                
-                if (data.success) {
-                    alert(`Role atualizado para ${roleText}!`);
-                    location.reload();
-                } else {
-                    alert('Erro: ' + data.error);
-                }
-            } catch (error) {
-                alert('Erro ao atualizar role: ' + error.message);
-            }
-        }
 
         async function deleteUser(userId) {
             if (!confirm('Tem certeza que deseja deletar este usuário?')) return;

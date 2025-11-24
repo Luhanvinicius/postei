@@ -3,104 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meu Perfil - YouTube Automation</title>
+    <title>Perfil - YouTube Automation</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="/css/style.css">
     <style>
         .profile-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 40px 0;
-            margin-bottom: 30px;
+            padding: 3rem 0;
+            margin-bottom: 2rem;
         }
         .profile-avatar {
             width: 120px;
             height: 120px;
             border-radius: 50%;
-            background: white;
-            color: #667eea;
+            border: 4px solid white;
+            background: rgba(255, 255, 255, 0.2);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 48px;
+            font-size: 3rem;
             font-weight: bold;
-            border: 5px solid white;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            margin: 0 auto 1rem;
         }
         .section-card {
             border: none;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: #333;
         }
         .plan-badge {
-            font-size: 14px;
-            padding: 8px 16px;
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .plan-active {
+            background: #d4edda;
+            color: #155724;
+        }
+        .invoice-item {
+            border-bottom: 1px solid #e9ecef;
+            padding: 1rem 0;
+        }
+        .invoice-item:last-child {
+            border-bottom: none;
         }
     </style>
 </head>
 <body>
-    <%- include('../layouts/main', { title: 'Meu Perfil', user: user, body: `
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">📹 YouTube Automation</a>
+            <div class="navbar-nav ms-auto d-flex align-items-center">
+                <% if (user.role === 'admin') { %>
+                    <a class="nav-link" href="/admin/dashboard">Admin</a>
+                <% } %>
+                <a class="nav-link" href="/user/dashboard">Dashboard</a>
+                <a class="nav-link" href="/user/videos">Vídeos</a>
+                <a class="nav-link" href="/user/scheduled">Agendados</a>
+                <a class="nav-link" href="/user/published">Publicados</a>
+                <%- include('../partials/profile-menu') %>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header do Perfil -->
     <div class="profile-header">
         <div class="container text-center">
-            <div class="profile-avatar mx-auto mb-3">
+            <div class="profile-avatar">
                 <%= user.username.charAt(0).toUpperCase() %>
             </div>
-            <h2 class="mb-1"><%= user.username %></h2>
-            <p class="mb-0 opacity-75"><%= user.email %></p>
-            <span class="badge bg-light text-dark mt-2">
-                <%= user.role === 'admin' ? '👑 Administrador' : '👤 Usuário' %>
-            </span>
+            <h2><%= user.username %></h2>
+            <p class="mb-0"><%= user.email %></p>
         </div>
     </div>
 
-    <div class="container">
-        <!-- Plano e Faturas -->
-        <div class="card section-card" id="plano">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">💳 Plano e Faturas</h5>
-            </div>
-            <div class="card-body">
-                <div class="row align-items-center mb-4">
-                    <div class="col-md-6">
-                        <h6>Plano Atual</h6>
-                        <span class="badge bg-success plan-badge">Plano Gratuito</span>
-                        <p class="text-muted mt-2 mb-0">Acesso completo à plataforma</p>
+    <main class="container">
+        <!-- Seção: Plano Atual -->
+        <div id="plano" class="card section-card">
+            <div class="card-body p-4">
+                <h3 class="section-title">
+                    <i class="bi bi-credit-card me-2"></i>Plano Atual
+                </h3>
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h4 class="mb-2"><%= plan.name %></h4>
+                        <p class="text-muted mb-2">
+                            <strong><%= plan.price %></strong> / <%= plan.billing %>
+                        </p>
+                        <p class="text-muted mb-0">
+                            <small>Próxima cobrança: <%= plan.nextBilling %></small>
+                        </p>
                     </div>
-                    <div class="col-md-6 text-end">
-                        <button class="btn btn-primary" disabled>Atualizar Plano</button>
-                        <small class="d-block text-muted mt-2">Em breve: Integração com Asaas</small>
+                    <div class="col-md-4 text-end">
+                        <span class="plan-badge plan-active">
+                            <i class="bi bi-check-circle me-1"></i><%= plan.status.toUpperCase() %>
+                        </span>
                     </div>
                 </div>
-                <hr>
-                <h6 class="mb-3">Histórico de Faturas</h6>
-                <div class="alert alert-info">
-                    <strong>ℹ️</strong> Sistema de faturas em desenvolvimento. Em breve você poderá ver seu histórico de pagamentos aqui.
+                <hr class="my-3">
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary">Alterar Plano</button>
+                    <button class="btn btn-outline-danger">Cancelar Assinatura</button>
                 </div>
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Data</th>
-                            <th>Descrição</th>
-                            <th>Valor</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td colspan="4" class="text-center text-muted">Nenhuma fatura encontrada</td>
-                        </tr>
-                    </tbody>
-                </table>
             </div>
         </div>
 
-        <!-- Privacidade e Segurança -->
-        <div class="card section-card" id="privacidade">
-            <div class="card-header bg-warning text-dark">
-                <h5 class="mb-0">🔒 Privacidade e Segurança</h5>
+        <!-- Seção: Faturas -->
+        <div id="faturas" class="card section-card">
+            <div class="card-body p-4">
+                <h3 class="section-title">
+                    <i class="bi bi-receipt me-2"></i>Faturas
+                </h3>
+                <% if (invoices && invoices.length > 0) { %>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Data</th>
+                                    <th>Valor</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% invoices.forEach(invoice => { %>
+                                    <tr class="invoice-item">
+                                        <td><%= invoice.id %></td>
+                                        <td><%= invoice.date %></td>
+                                        <td><strong><%= invoice.amount %></strong></td>
+                                        <td>
+                                            <span class="badge bg-success"><%= invoice.status %></span>
+                                        </td>
+                                        <td>
+                                            <a href="<%= invoice.download %>" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-download me-1"></i>Baixar
+                                            </a>
+                                        </td>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } else { %>
+                    <p class="text-muted">Nenhuma fatura encontrada.</p>
+                <% } %>
             </div>
-            <div class="card-body">
-                <h6 class="mb-3">Alterar Senha</h6>
+        </div>
+
+        <!-- Seção: Privacidade -->
+        <div id="privacidade" class="card section-card">
+            <div class="card-body p-4">
+                <h3 class="section-title">
+                    <i class="bi bi-shield-lock me-2"></i>Privacidade e Segurança
+                </h3>
                 <form id="changePasswordForm">
                     <div class="mb-3">
                         <label class="form-label">Senha Atual</label>
@@ -109,88 +175,54 @@
                     <div class="mb-3">
                         <label class="form-label">Nova Senha</label>
                         <input type="password" class="form-control" name="newPassword" required minlength="6">
-                        <small class="text-muted">Mínimo de 6 caracteres</small>
+                        <small class="form-text text-muted">A senha deve ter no mínimo 6 caracteres</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Confirmar Nova Senha</label>
                         <input type="password" class="form-control" name="confirmPassword" required minlength="6">
                     </div>
-                    <button type="submit" class="btn btn-warning">Alterar Senha</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-key me-1"></i>Alterar Senha
+                    </button>
                 </form>
+                <div id="passwordMessage" class="mt-3"></div>
             </div>
         </div>
+    </main>
 
-        <!-- Informações da Conta -->
-        <div class="card section-card">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0">ℹ️ Informações da Conta</h5>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-3"><strong>Usuário:</strong></div>
-                    <div class="col-md-9"><%= user.username %></div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-md-3"><strong>Email:</strong></div>
-                    <div class="col-md-9"><%= user.email %></div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-md-3"><strong>Role:</strong></div>
-                    <div class="col-md-9">
-                        <span class="badge bg-<%= user.role === 'admin' ? 'danger' : 'primary' %>">
-                            <%= user.role === 'admin' ? 'Administrador' : 'Usuário' %>
-                        </span>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-3"><strong>Conta criada em:</strong></div>
-                    <div class="col-md-9">
-                        <%= typeof user.created_at !== 'undefined' ? new Date(user.created_at).toLocaleDateString('pt-BR') : 'N/A' %>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.getElementById('changePasswordForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
-            const currentPassword = formData.get('currentPassword');
+            const messageDiv = document.getElementById('passwordMessage');
+            
             const newPassword = formData.get('newPassword');
             const confirmPassword = formData.get('confirmPassword');
-
+            
             if (newPassword !== confirmPassword) {
-                alert('As senhas não coincidem!');
+                messageDiv.innerHTML = '<div class="alert alert-danger">As senhas não coincidem!</div>';
                 return;
             }
-
-            if (newPassword.length < 6) {
-                alert('A senha deve ter no mínimo 6 caracteres!');
-                return;
-            }
-
+            
             try {
                 const response = await fetch('/user/profile/change-password', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ currentPassword, newPassword })
+                    body: formData
                 });
-
                 const data = await response.json();
-
+                
                 if (data.success) {
-                    alert('Senha alterada com sucesso!');
+                    messageDiv.innerHTML = '<div class="alert alert-success">Senha alterada com sucesso!</div>';
                     e.target.reset();
                 } else {
-                    alert('Erro: ' + data.error);
+                    messageDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
                 }
             } catch (error) {
-                alert('Erro ao alterar senha: ' + error.message);
+                messageDiv.innerHTML = '<div class="alert alert-danger">Erro ao alterar senha. Tente novamente.</div>';
             }
         });
     </script>
-    ` }) %>
 </body>
 </html>
 

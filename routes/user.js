@@ -885,26 +885,6 @@ router.get('/published', async (req, res) => {
   });
 });
 
-// API: Obter dados de vídeos publicados (para filtro)
-router.get('/published-videos-data', async (req, res) => {
-  const userId = req.user.id;
-  const { published } = require('../database');
-  
-  // Buscar vídeos publicados (pode ser async no PostgreSQL)
-  let userPublished = [];
-  try {
-    if (published.findByUserId.constructor.name === 'AsyncFunction') {
-      userPublished = await published.findByUserId(userId);
-    } else {
-      userPublished = published.findByUserId(userId);
-    }
-  } catch (err) {
-    userPublished = published.findByUserId(userId);
-  }
-  
-  res.json({ success: true, videos: userPublished });
-});
-
 // Página de perfil
 router.get('/profile', async (req, res) => {
   const userId = req.user.id;
@@ -922,8 +902,36 @@ router.get('/profile', async (req, res) => {
     userData = users.findById(userId);
   }
   
+  // Dados mockados para plano e faturas (você pode integrar com um sistema de pagamento depois)
+  const planData = {
+    name: 'Plano Premium',
+    price: 'R$ 49,90',
+    billing: 'mensal',
+    status: 'ativo',
+    nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR')
+  };
+  
+  const invoices = [
+    {
+      id: 'INV-001',
+      date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR'),
+      amount: 'R$ 49,90',
+      status: 'pago',
+      download: '#'
+    },
+    {
+      id: 'INV-002',
+      date: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR'),
+      amount: 'R$ 49,90',
+      status: 'pago',
+      download: '#'
+    }
+  ];
+  
   res.render('user/profile', {
-    user: userData || req.user
+    user: userData || req.user,
+    plan: planData,
+    invoices: invoices
   });
 });
 
