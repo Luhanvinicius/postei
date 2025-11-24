@@ -205,8 +205,9 @@ router.post('/checkout/:planSlug', requireAuth, async (req, res) => {
 });
 
 // Webhook do Asaas (sem autenticação)
-router.post('/webhook/asaas', express.raw({ type: 'application/json' }), async (req, res) => {
+router.post('/webhook/asaas', express.json(), async (req, res) => {
   try {
+    console.log('📥 Webhook recebido do Asaas:', JSON.stringify(req.body, null, 2));
     const webhookData = asaasService.processWebhook(req.body);
     
     // Buscar fatura pelo ID do Asaas
