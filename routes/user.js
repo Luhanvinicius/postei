@@ -863,10 +863,21 @@ router.get('/scheduled', (req, res) => {
 });
 
 // Tela de vídeos publicados
-router.get('/published', (req, res) => {
+router.get('/published', async (req, res) => {
   const userId = req.user.id;
   const { published } = require('../database');
-  const userPublished = published.findByUserId(userId);
+  
+  // Buscar vídeos publicados (pode ser async no PostgreSQL)
+  let userPublished = [];
+  try {
+    if (published.findByUserId.constructor.name === 'AsyncFunction') {
+      userPublished = await published.findByUserId(userId);
+    } else {
+      userPublished = published.findByUserId(userId);
+    }
+  } catch (err) {
+    userPublished = published.findByUserId(userId);
+  }
   
   res.render('user/published', {
     user: req.user,
