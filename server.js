@@ -152,12 +152,24 @@ app.use((req, res, next) => {
 
 // Rotas públicas
 app.get('/', (req, res) => {
-  // Se já está autenticado, redirecionar para dashboard apropriado
+  // Se já está autenticado, verificar status de pagamento
   if (req.user) {
-    const redirectUrl = req.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
-    return res.redirect(redirectUrl);
+    // Admin sempre vai para dashboard
+    if (req.user.role === 'admin') {
+      return res.redirect('/admin/dashboard');
+    }
+    
+    // Usuário com pagamento confirmado vai para dashboard
+    if (req.user.payment_status === 'paid') {
+      return res.redirect('/user/dashboard');
+    }
+    
+    // Usuário com pagamento pendente pode ver a home para escolher plano
+    // O middleware requireAuth vai cuidar do redirecionamento para outras rotas
+    // Mas aqui permitimos ver a home
   }
-  // Se não está autenticado, mostrar página inicial
+  
+  // Mostrar página inicial (com planos)
   res.render('index');
 });
 

@@ -32,7 +32,12 @@ const requireAuth = async (req, res, next) => {
       return next();
     }
     
-    // Para outras rotas, verificar se há fatura pendente
+    // Permitir acesso à home (/) para escolher plano
+    if (req.path === '/' || req.path === '') {
+      return next();
+    }
+    
+    // Para outras rotas protegidas, verificar se há fatura pendente
     // Se houver, redirecionar para página de pagamento pendente
     // Se não houver, redirecionar para home para escolher plano
     const { invoices } = require('../database');
