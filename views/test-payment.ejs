@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Pagamento - Asaas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        .test-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+        .status-success { background: #d4edda; color: #155724; }
+        .status-error { background: #f8d7da; color: #721c24; }
+        .status-warning { background: #fff3cd; color: #856404; }
+        .status-info { background: #d1ecf1; color: #0c5460; }
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        .result-box {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4">
+                    <i class="bi bi-credit-card"></i> Teste de Integração - Asaas
+                </h1>
+
+                <!-- Status da Configuração -->
+                <div class="test-section">
+                    <h3><i class="bi bi-gear"></i> Status da Configuração</h3>
+                    <div id="configStatus" class="mt-3">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        Verificando configuração...
+                    </div>
+                </div>
+
+                <!-- Teste 1: Verificar API Key -->
+                <div class="test-section">
+                    <h3><i class="bi bi-key"></i> Teste 1: Verificar API Key</h3>
+                    <p class="text-muted">Verifica se a API Key do Asaas está configurada corretamente.</p>
+                    <button class="btn btn-primary" onclick="testApiKey()">
+                        <i class="bi bi-play-circle"></i> Executar Teste
+                    </button>
+                    <div id="apiKeyResult" class="mt-3"></div>
+                </div>
+
+                <!-- Teste 2: Criar Cliente -->
+                <div class="test-section">
+                    <h3><i class="bi bi-person-plus"></i> Teste 2: Criar Cliente</h3>
+                    <p class="text-muted">Testa a criação de um cliente no Asaas.</p>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nome</label>
+                            <input type="text" class="form-control" id="customerName" value="Cliente Teste" placeholder="Nome completo">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="customerEmail" value="teste@example.com" placeholder="email@example.com">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">CPF/CNPJ</label>
+                            <input type="text" class="form-control" id="customerCpf" value="12345678900" placeholder="000.000.000-00">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Telefone</label>
+                            <input type="text" class="form-control" id="customerPhone" value="11999999999" placeholder="(11) 99999-9999">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="testCreateCustomer()">
+                        <i class="bi bi-play-circle"></i> Criar Cliente
+                    </button>
+                    <div id="customerResult" class="mt-3"></div>
+                </div>
+
+                <!-- Teste 3: Criar Pagamento PIX -->
+                <div class="test-section">
+                    <h3><i class="bi bi-qr-code"></i> Teste 3: Criar Pagamento PIX</h3>
+                    <p class="text-muted">Testa a criação de um pagamento PIX no Asaas.</p>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">ID do Cliente (do teste anterior)</label>
+                            <input type="text" class="form-control" id="paymentCustomerId" placeholder="Cole o ID do cliente criado">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Valor (R$)</label>
+                            <input type="number" class="form-control" id="paymentValue" value="10.00" step="0.01" min="0.01">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="testCreatePayment()">
+                        <i class="bi bi-play-circle"></i> Criar Pagamento PIX
+                    </button>
+                    <div id="paymentResult" class="mt-3"></div>
+                </div>
+
+                <!-- Teste 4: Buscar QR Code PIX -->
+                <div class="test-section">
+                    <h3><i class="bi bi-image"></i> Teste 4: Buscar QR Code PIX</h3>
+                    <p class="text-muted">Busca o QR Code de um pagamento criado.</p>
+                    <div class="mb-3">
+                        <label class="form-label">ID do Pagamento (do teste anterior)</label>
+                        <input type="text" class="form-control" id="paymentId" placeholder="Cole o ID do pagamento criado">
+                    </div>
+                    <button class="btn btn-primary" onclick="testGetPixQrCode()">
+                        <i class="bi bi-play-circle"></i> Buscar QR Code
+                    </button>
+                    <div id="qrCodeResult" class="mt-3"></div>
+                </div>
+
+                <!-- Teste 5: Simular Webhook -->
+                <div class="test-section">
+                    <h3><i class="bi bi-webhook"></i> Teste 5: Simular Webhook</h3>
+                    <p class="text-muted">Simula o recebimento de um webhook do Asaas.</p>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">ID do Pagamento (Asaas)</label>
+                            <input type="text" class="form-control" id="webhookPaymentId" placeholder="ID do pagamento">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Evento</label>
+                            <select class="form-select" id="webhookEvent">
+                                <option value="PAYMENT_RECEIVED">PAYMENT_RECEIVED</option>
+                                <option value="PAYMENT_CREATED">PAYMENT_CREATED</option>
+                                <option value="PAYMENT_OVERDUE">PAYMENT_OVERDUE</option>
+                                <option value="PAYMENT_CONFIRMED">PAYMENT_CONFIRMED</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="testWebhook()">
+                        <i class="bi bi-play-circle"></i> Simular Webhook
+                    </button>
+                    <div id="webhookResult" class="mt-3"></div>
+                </div>
+
+                <!-- Logs -->
+                <div class="test-section">
+                    <h3><i class="bi bi-terminal"></i> Logs</h3>
+                    <div id="logs" class="code-block result-box">
+                        <div class="text-muted">Nenhum log ainda...</div>
+                    </div>
+                    <button class="btn btn-secondary btn-sm mt-2" onclick="clearLogs()">
+                        <i class="bi bi-trash"></i> Limpar Logs
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Adicionar log
+        function addLog(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString('pt-BR');
+            const colors = {
+                info: '#17a2b8',
+                success: '#28a745',
+                error: '#dc3545',
+                warning: '#ffc107'
+            };
+            const color = colors[type] || colors.info;
+            logsDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '<div class="text-muted">Logs limpos...</div>';
+        }
+
+        // Verificar configuração ao carregar
+        async function checkConfig() {
+            try {
+                const response = await fetch('/test/payment/check');
+                const data = await response.json();
+                
+                let html = '<div class="row g-3">';
+                html += `<div class="col-md-6"><strong>API Key Configurada:</strong> <span class="status-badge ${data.apiKeyConfigured ? 'status-success' : 'status-error'}">${data.apiKeyConfigured ? 'Sim' : 'Não'}</span></div>`;
+                html += `<div class="col-md-6"><strong>Ambiente:</strong> <span class="status-badge status-info">${data.environment || 'N/A'}</span></div>`;
+                html += `<div class="col-md-6"><strong>Base URL:</strong> <code>${data.baseURL || 'N/A'}</code></div>`;
+                html += `<div class="col-md-6"><strong>Status:</strong> <span class="status-badge ${data.configured ? 'status-success' : 'status-error'}">${data.configured ? 'Configurado' : 'Não Configurado'}</span></div>`;
+                html += '</div>';
+                
+                document.getElementById('configStatus').innerHTML = html;
+                addLog(`Configuração verificada: ${data.configured ? 'OK' : 'ERRO'}`, data.configured ? 'success' : 'error');
+            } catch (error) {
+                document.getElementById('configStatus').innerHTML = `<div class="alert alert-danger">Erro: ${error.message}</div>`;
+                addLog(`Erro ao verificar configuração: ${error.message}`, 'error');
+            }
+        }
+
+        // Teste 1: Verificar API Key
+        async function testApiKey() {
+            const resultDiv = document.getElementById('apiKeyResult');
+            resultDiv.innerHTML = '<div class="spinner-border spinner-border-sm"></div> Testando...';
+            addLog('Testando API Key...', 'info');
+            
+            try {
+                const response = await fetch('/test/payment/check');
+                const data = await response.json();
+                
+                if (data.configured) {
+                    resultDiv.innerHTML = `<div class="alert alert-success"><i class="bi bi-check-circle"></i> API Key configurada corretamente!</div>`;
+                    addLog('API Key verificada com sucesso', 'success');
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-x-circle"></i> API Key não configurada ou inválida</div>`;
+                    addLog('API Key não configurada', 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-danger">Erro: ${error.message}</div>`;
+                addLog(`Erro: ${error.message}`, 'error');
+            }
+        }
+
+        // Teste 2: Criar Cliente
+        async function testCreateCustomer() {
+            const resultDiv = document.getElementById('customerResult');
+            resultDiv.innerHTML = '<div class="spinner-border spinner-border-sm"></div> Criando cliente...';
+            
+            const customerData = {
+                name: document.getElementById('customerName').value,
+                email: document.getElementById('customerEmail').value,
+                cpfCnpj: document.getElementById('customerCpf').value.replace(/\D/g, ''),
+                phone: document.getElementById('customerPhone').value.replace(/\D/g, '')
+            };
+            
+            addLog(`Criando cliente: ${customerData.name}`, 'info');
+            
+            try {
+                const response = await fetch('/test/payment/create-customer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(customerData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i> Cliente criado com sucesso!
+                            <div class="mt-2">
+                                <strong>ID do Cliente:</strong> <code>${data.customerId}</code>
+                                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="copyToClipboard('${data.customerId}', 'paymentCustomerId')">
+                                    <i class="bi bi-clipboard"></i> Copiar
+                                </button>
+                            </div>
+                            <pre class="mt-2 code-block">${JSON.stringify(data.data, null, 2)}</pre>
+                        </div>
+                    `;
+                    addLog(`Cliente criado: ${data.customerId}`, 'success');
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-x-circle"></i> Erro: ${data.error || 'Erro desconhecido'}</div>`;
+                    addLog(`Erro ao criar cliente: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-danger">Erro: ${error.message}</div>`;
+                addLog(`Erro: ${error.message}`, 'error');
+            }
+        }
+
+        // Teste 3: Criar Pagamento
+        async function testCreatePayment() {
+            const resultDiv = document.getElementById('paymentResult');
+            resultDiv.innerHTML = '<div class="spinner-border spinner-border-sm"></div> Criando pagamento...';
+            
+            const paymentData = {
+                customerId: document.getElementById('paymentCustomerId').value,
+                value: parseFloat(document.getElementById('paymentValue').value)
+            };
+            
+            if (!paymentData.customerId) {
+                resultDiv.innerHTML = '<div class="alert alert-warning">Por favor, crie um cliente primeiro ou cole o ID do cliente.</div>';
+                return;
+            }
+            
+            addLog(`Criando pagamento PIX: R$ ${paymentData.value}`, 'info');
+            
+            try {
+                const response = await fetch('/test/payment/create-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(paymentData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i> Pagamento criado com sucesso!
+                            <div class="mt-2">
+                                <strong>ID do Pagamento:</strong> <code>${data.paymentId}</code>
+                                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="copyToClipboard('${data.paymentId}', 'paymentId')">
+                                    <i class="bi bi-clipboard"></i> Copiar
+                                </button>
+                            </div>
+                            <pre class="mt-2 code-block">${JSON.stringify(data.data, null, 2)}</pre>
+                        </div>
+                    `;
+                    addLog(`Pagamento criado: ${data.paymentId}`, 'success');
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-x-circle"></i> Erro: ${data.error || 'Erro desconhecido'}</div>`;
+                    addLog(`Erro ao criar pagamento: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-danger">Erro: ${error.message}</div>`;
+                addLog(`Erro: ${error.message}`, 'error');
+            }
+        }
+
+        // Teste 4: Buscar QR Code
+        async function testGetPixQrCode() {
+            const resultDiv = document.getElementById('qrCodeResult');
+            const paymentId = document.getElementById('paymentId').value;
+            
+            if (!paymentId) {
+                resultDiv.innerHTML = '<div class="alert alert-warning">Por favor, crie um pagamento primeiro ou cole o ID do pagamento.</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="spinner-border spinner-border-sm"></div> Buscando QR Code...';
+            addLog(`Buscando QR Code para pagamento: ${paymentId}`, 'info');
+            
+            try {
+                const response = await fetch(`/test/payment/get-qrcode/${paymentId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i> QR Code obtido com sucesso!
+                            <div class="mt-3">
+                                ${data.qrCode ? `<img src="data:image/png;base64,${data.qrCode}" class="img-fluid mb-3" alt="QR Code PIX">` : ''}
+                                <div class="mb-2">
+                                    <strong>Chave PIX (Copy & Paste):</strong>
+                                    <div class="input-group mt-1">
+                                        <input type="text" class="form-control" id="pixKey" value="${data.copyPaste || ''}" readonly>
+                                        <button class="btn btn-outline-secondary" onclick="copyPixKey()">
+                                            <i class="bi bi-clipboard"></i> Copiar
+                                        </button>
+                                    </div>
+                                </div>
+                                <pre class="mt-2 code-block">${JSON.stringify(data.data, null, 2)}</pre>
+                            </div>
+                        </div>
+                    `;
+                    addLog(`QR Code obtido para pagamento: ${paymentId}`, 'success');
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-x-circle"></i> Erro: ${data.error || 'Erro desconhecido'}</div>`;
+                    addLog(`Erro ao buscar QR Code: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-danger">Erro: ${error.message}</div>`;
+                addLog(`Erro: ${error.message}`, 'error');
+            }
+        }
+
+        // Teste 5: Simular Webhook
+        async function testWebhook() {
+            const resultDiv = document.getElementById('webhookResult');
+            const paymentId = document.getElementById('webhookPaymentId').value;
+            const event = document.getElementById('webhookEvent').value;
+            
+            if (!paymentId) {
+                resultDiv.innerHTML = '<div class="alert alert-warning">Por favor, informe o ID do pagamento.</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="spinner-border spinner-border-sm"></div> Simulando webhook...';
+            addLog(`Simulando webhook: ${event} para pagamento ${paymentId}`, 'info');
+            
+            const webhookData = {
+                event: event,
+                payment: {
+                    id: paymentId,
+                    status: event === 'PAYMENT_RECEIVED' ? 'RECEIVED' : 'PENDING',
+                    value: 10.00,
+                    dueDate: new Date().toISOString().split('T')[0]
+                }
+            };
+            
+            try {
+                const response = await fetch('/payment/webhook/asaas', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(webhookData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i> Webhook processado com sucesso!
+                            <pre class="mt-2 code-block">${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                    addLog(`Webhook processado: ${event}`, 'success');
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-x-circle"></i> Erro: ${data.error || 'Erro desconhecido'}</div>`;
+                    addLog(`Erro ao processar webhook: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-danger">Erro: ${error.message}</div>`;
+                addLog(`Erro: ${error.message}`, 'error');
+            }
+        }
+
+        // Funções auxiliares
+        function copyToClipboard(text, inputId) {
+            navigator.clipboard.writeText(text).then(() => {
+                if (inputId) {
+                    document.getElementById(inputId).value = text;
+                }
+                addLog(`Copiado: ${text}`, 'success');
+            });
+        }
+
+        function copyPixKey() {
+            const pixKey = document.getElementById('pixKey').value;
+            copyToClipboard(pixKey);
+        }
+
+        // Verificar configuração ao carregar
+        checkConfig();
+    </script>
+</body>
+</html>
+

@@ -471,4 +471,140 @@ router.post('/gemini-frames/generate', async (req, res) => {
   }
 });
 
+// ===== ROTAS DE TESTE DE PAGAMENTO =====
+
+// Página de teste de pagamento
+router.get('/payment', (req, res) => {
+  res.render('test-payment');
+});
+
+// Verificar configuração do Asaas
+router.get('/payment/check', (req, res) => {
+  try {
+    const asaasService = require('../services/asaas-service');
+    const configured = asaasService.isConfigured();
+    
+    res.json({
+      configured: configured,
+      apiKeyConfigured: !!process.env.ASAAS_API_KEY,
+      environment: process.env.ASAAS_ENVIRONMENT || 'sandbox',
+      baseURL: configured ? asaasService.baseURL : null
+    });
+  } catch (error) {
+    res.status(500).json({
+      configured: false,
+      error: error.message
+    });
+  }
+});
+
+// Criar cliente de teste
+router.post('/payment/create-customer', async (req, res) => {
+  try {
+    const asaasService = require('../services/asaas-service');
+    
+    if (!asaasService.isConfigured()) {
+      return res.json({ success: false, error: 'Asaas não configurado' });
+    }
+    
+    const result = await asaasService.createCustomer(req.body);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        customerId: result.data.id,
+        data: result.data
+      });
+    } else {
+      res.json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Criar pagamento de teste
+router.post('/payment/create-payment', async (req, res) => {
+  try {
+    const asaasService = require('../services/asaas-service');
+    
+    if (!asaasService.isConfigured()) {
+      return res.json({ success: false, error: 'Asaas não configurado' });
+    }
+    
+    const { customerId, value } = req.body;
+    
+    // Calcular data de vencimento (3 dias)
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 3);
+    const dueDateStr = dueDate.toISOString().split('T')[0];
+    
+    const result = await asaasService.createPayment({
+      customerId: customerId,
+      billingType: 'PIX',
+      value: value,
+      dueDate: dueDateStr,
+      description: `Pagamento de Teste - ${new Date().toLocaleString('pt-BR')}`,
+      externalReference: `test_${Date.now()}`
+    });
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        paymentId: result.data.id,
+        data: result.data
+      });
+    } else {
+      res.json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Buscar QR Code PIX
+router.get('/payment/get-qrcode/:paymentId', async (req, res) => {
+  try {
+    const asaasService = require('../services/asaas-service');
+    
+    if (!asaasService.isConfigured()) {
+      return res.json({ success: false, error: 'Asaas não configurado' });
+    }
+    
+    const { paymentId } = req.params;
+    const result = await asaasService.getPixQrCode(paymentId);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        qrCode: result.data.encodedImage,
+        copyPaste: result.data.payload,
+        data: result.data
+      });
+    } else {
+      res.json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
