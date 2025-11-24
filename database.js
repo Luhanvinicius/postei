@@ -309,7 +309,15 @@ const publishedQueries = {
     INSERT INTO published_videos (user_id, video_path, video_id, video_url, title, description, thumbnail_path)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `),
-  findByVideoId: db.prepare('SELECT * FROM published_videos WHERE video_id = ?')
+  findByVideoId: db.prepare('SELECT * FROM published_videos WHERE video_id = ?'),
+  findById: db.prepare('SELECT * FROM published_videos WHERE id = ?'),
+  delete: db.prepare('DELETE FROM published_videos WHERE id = ?'),
+  findAll: db.prepare(`
+    SELECT pv.*, u.username, u.email
+    FROM published_videos pv
+    JOIN users u ON pv.user_id = u.id
+    ORDER BY pv.published_at DESC
+  `)
 };
 
 // Funções para planos
@@ -520,7 +528,13 @@ module.exports = {
       create: (userId, videoPath, videoId, videoUrl, title, description, thumbnailPath = null) => {
         publishedQueries.create.run(userId, videoPath, videoId, videoUrl, title, description, thumbnailPath);
       },
-      findByVideoId: (videoId) => publishedQueries.findByVideoId.get(videoId)
+      findByVideoId: (videoId) => publishedQueries.findByVideoId.get(videoId),
+      findById: (id) => publishedQueries.findById.get(id),
+      delete: (id) => {
+        const result = publishedQueries.delete.run(id);
+        return result.changes > 0;
+      },
+      findAll: () => publishedQueries.findAll.all()
     },
     plans: {
       findAll: () => planQueries.findAll.all(),

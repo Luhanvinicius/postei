@@ -328,49 +328,16 @@ router.get('/videos', async (req, res) => {
   try {
     const { published } = require('../database');
     
-    // Buscar todos os vídeos publicados (precisa criar função findAll)
+    // Buscar todos os vídeos publicados
     let allVideos = [];
     try {
-      // Buscar todos os usuários e depois seus vídeos
-      const { users } = require('../database');
-      let allUsers;
-      try {
-        if (users.getAll.constructor.name === 'AsyncFunction') {
-          allUsers = await users.getAll();
-        } else {
-          allUsers = users.getAll();
-        }
-      } catch (err) {
-        allUsers = users.getAll();
+      if (published.findAll.constructor.name === 'AsyncFunction') {
+        allVideos = await published.findAll();
+      } else {
+        allVideos = published.findAll();
       }
-      
-      // Buscar vídeos de cada usuário
-      for (const user of allUsers) {
-        let userVideos;
-        try {
-          if (published.findByUserId.constructor.name === 'AsyncFunction') {
-            userVideos = await published.findByUserId(user.id);
-          } else {
-            userVideos = published.findByUserId(user.id);
-          }
-        } catch (err) {
-          userVideos = published.findByUserId(user.id);
-        }
-        
-        // Adicionar informações do usuário aos vídeos
-        userVideos.forEach(video => {
-          allVideos.push({
-            ...video,
-            username: user.username,
-            user_email: user.email
-          });
-        });
-      }
-      
-      // Ordenar por data de publicação (mais recente primeiro)
-      allVideos.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
     } catch (err) {
-      console.error('Erro ao buscar vídeos:', err);
+      allVideos = published.findAll();
     }
     
     res.render('admin/videos', {
@@ -395,37 +362,13 @@ router.delete('/videos/:id', async (req, res) => {
     // Buscar vídeo
     let video;
     try {
-      // Precisamos criar uma função findById no published
-      // Por enquanto, vamos buscar por todos os usuários
-      const { users } = require('../database');
-      let allUsers;
-      try {
-        if (users.getAll.constructor.name === 'AsyncFunction') {
-          allUsers = await users.getAll();
-        } else {
-          allUsers = users.getAll();
-        }
-      } catch (err) {
-        allUsers = users.getAll();
-      }
-      
-      for (const user of allUsers) {
-        let userVideos;
-        try {
-          if (published.findByUserId.constructor.name === 'AsyncFunction') {
-            userVideos = await published.findByUserId(user.id);
-          } else {
-            userVideos = published.findByUserId(user.id);
-          }
-        } catch (err) {
-          userVideos = published.findByUserId(user.id);
-        }
-        
-        video = userVideos.find(v => v.id == id);
-        if (video) break;
+      if (published.findById.constructor.name === 'AsyncFunction') {
+        video = await published.findById(id);
+      } else {
+        video = published.findById(id);
       }
     } catch (err) {
-      return res.json({ success: false, error: 'Erro ao buscar vídeo' });
+      video = published.findById(id);
     }
     
     if (!video) {
@@ -461,21 +404,20 @@ router.delete('/videos/:id', async (req, res) => {
     }
     
     // Deletar do banco de dados
-    // Precisamos criar função delete no published
-    const { db } = require('../database');
+    let deleted;
     try {
-      if (db && db.prepare) {
-        // SQLite
-        const deleteQuery = db.prepare('DELETE FROM published_videos WHERE id = ?');
-        deleteQuery.run(id);
+      if (published.delete.constructor.name === 'AsyncFunction') {
+        deleted = await published.delete(id);
       } else {
-        // PostgreSQL
-        const { pool } = require('../database');
-        await pool.query('DELETE FROM published_videos WHERE id = $1', [id]);
+        deleted = published.delete(id);
       }
     } catch (dbError) {
       console.error('Erro ao deletar do banco:', dbError);
       return res.json({ success: false, error: 'Erro ao deletar vídeo do banco de dados' });
+    }
+    
+    if (!deleted) {
+      return res.json({ success: false, error: 'Vídeo não foi deletado do banco de dados' });
     }
     
     console.log(`✅ Vídeo deletado: ID ${id}`);

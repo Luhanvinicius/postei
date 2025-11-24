@@ -414,6 +414,26 @@ const publishedQueries = {
   findByVideoId: async (videoId) => {
     const result = await pool.query('SELECT * FROM published_videos WHERE video_id = $1', [videoId]);
     return result.rows[0] || null;
+  },
+  
+  findById: async (id) => {
+    const result = await pool.query('SELECT * FROM published_videos WHERE id = $1', [id]);
+    return result.rows[0] || null;
+  },
+  
+  delete: async (id) => {
+    const result = await pool.query('DELETE FROM published_videos WHERE id = $1', [id]);
+    return result.rowCount > 0;
+  },
+  
+  findAll: async () => {
+    const result = await pool.query(`
+      SELECT pv.*, u.username, u.email
+      FROM published_videos pv
+      JOIN users u ON pv.user_id = u.id
+      ORDER BY pv.published_at DESC
+    `);
+    return result.rows;
   }
 };
 
