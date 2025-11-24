@@ -112,13 +112,18 @@
                 </div>
                 <hr class="my-3">
                 <div class="d-flex gap-2">
-                    <button class="btn btn-primary">Alterar Plano</button>
+                    <a href="/#planos" class="btn btn-primary">
+                        <%= plan.status === 'inactive' ? 'Escolher Plano' : 'Alterar Plano' %>
+                    </a>
+                    <% if (plan.status === 'active') { %>
                     <button class="btn btn-outline-danger">Cancelar Assinatura</button>
+                    <% } %>
                 </div>
             </div>
         </div>
 
-        <!-- Seção: Faturas -->
+        <!-- Seção: Faturas (apenas para usuários, não para admin) -->
+        <% if (!isAdmin) { %>
         <div id="faturas" class="card section-card">
             <div class="card-body p-4">
                 <h3 class="section-title">
@@ -129,7 +134,7 @@
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
+                                    <th>Número</th>
                                     <th>Data</th>
                                     <th>Valor</th>
                                     <th>Status</th>
@@ -139,15 +144,17 @@
                             <tbody>
                                 <% invoices.forEach(invoice => { %>
                                     <tr class="invoice-item">
-                                        <td><%= invoice.id %></td>
-                                        <td><%= invoice.date %></td>
-                                        <td><strong><%= invoice.amount %></strong></td>
+                                        <td><%= invoice.invoice_number || invoice.id %></td>
+                                        <td><%= new Date(invoice.created_at).toLocaleDateString('pt-BR') %></td>
+                                        <td><strong>R$ <%= parseFloat(invoice.amount).toFixed(2) %></strong></td>
                                         <td>
-                                            <span class="badge bg-success"><%= invoice.status %></span>
+                                            <span class="badge bg-<%= invoice.status === 'paid' ? 'success' : invoice.status === 'overdue' ? 'danger' : 'warning' %>">
+                                                <%= invoice.status === 'paid' ? 'Pago' : invoice.status === 'overdue' ? 'Vencido' : 'Pendente' %>
+                                            </span>
                                         </td>
                                         <td>
-                                            <a href="<%= invoice.download %>" class="btn btn-sm btn-outline-primary">
-                                                <i class="bi bi-download me-1"></i>Baixar
+                                            <a href="/payment/invoice/<%= invoice.id %>" class="btn btn-sm btn-outline-primary" target="_blank">
+                                                <i class="bi bi-eye me-1"></i>Ver
                                             </a>
                                         </td>
                                     </tr>
@@ -160,6 +167,7 @@
                 <% } %>
             </div>
         </div>
+        <% } %>
 
         <!-- Seção: Privacidade -->
         <div id="privacidade" class="card section-card">

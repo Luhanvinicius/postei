@@ -132,6 +132,76 @@ function initDatabase() {
     // Coluna já existe, ignorar erro
   }
 
+  // Tabela de planos
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS plans (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      price REAL NOT NULL,
+      billing_period TEXT DEFAULT 'monthly',
+      max_videos INTEGER,
+      max_channels INTEGER,
+      features TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Tabela de assinaturas
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      plan_id INTEGER NOT NULL,
+      status TEXT DEFAULT 'active',
+      asaas_subscription_id TEXT,
+      current_period_start DATETIME,
+      current_period_end DATETIME,
+      canceled_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (plan_id) REFERENCES plans(id)
+    )
+  `);
+
+  // Tabela de faturas
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS invoices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      subscription_id INTEGER,
+      plan_id INTEGER NOT NULL,
+      asaas_invoice_id TEXT UNIQUE,
+      invoice_number TEXT,
+      amount REAL NOT NULL,
+      status TEXT DEFAULT 'pending',
+      payment_method TEXT,
+      pix_qr_code TEXT,
+      pix_copy_paste TEXT,
+      due_date DATE,
+      paid_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (subscription_id) REFERENCES subscriptions(id),
+      FOREIGN KEY (plan_id) REFERENCES plans(id)
+    )
+  `);
+
+  // Inserir planos padrão se não existirem
+  const plansCheck = db.prepare('SELECT COUNT(*) as count FROM plans').get();
+  if (plansCheck.count === 0) {
+    db.exec(`
+      INSERT INTO plans (name, slug, price, billing_period, max_videos, max_channels, features) VALUES
+      ('Básico', 'basico', 29.00, 'monthly', 50, 1, '["Até 50 vídeos/mês", "Geração de conteúdo com IA", "Thumbnails automáticos", "Agendamento de vídeos", "1 canal do YouTube"]'),
+      ('Profissional', 'profissional', 79.00, 'monthly', 200, 3, '["Até 200 vídeos/mês", "Geração de conteúdo com IA", "Thumbnails automáticos", "Agendamento ilimitado", "Até 3 canais do YouTube", "Suporte prioritário"]'),
+      ('Enterprise', 'enterprise', 199.00, 'monthly', NULL, NULL, '["Vídeos ilimitados", "Geração de conteúdo com IA", "Thumbnails automáticos", "Agendamento ilimitado", "Canais ilimitados", "Suporte 24/7", "API personalizada"]')
+    `);
+    console.log('✅ Planos padrão criados');
+  }
+
   // Criar usuário admin padrão se não existir
   const adminExists = db.prepare('SELECT id FROM users WHERE username = ?').get('admin');
   if (!adminExists) {
@@ -228,10 +298,72 @@ const scheduleQueries = {
 const publishedQueries = {
   findByUserId: db.prepare('SELECT * FROM published_videos WHERE user_id = ? ORDER BY published_at DESC'),
   create: db.prepare(`
-    INSERT INTO published_videos (user_id, video_path, video_id, video_url, title, description)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO published_videos (user_id, video_path, video_id, video_url, title, description, thumbnail_path)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `),
   findByVideoId: db.prepare('SELECT * FROM published_videos WHERE video_id = ?')
+};
+
+// Funções para planos
+const planQueries = {
+  findAll: db.prepare('SELECT * FROM plans WHERE is_active = 1 ORDER BY price'),
+  findBySlug: db.prepare('SELECT * FROM plans WHERE slug = ? AND is_active = 1'),
+  findById: db.prepare('SELECT * FROM plans WHERE id = ?')
+};
+
+// Funções para assinaturas
+const subscriptionQueries = {
+  findByUserId: db.prepare(`
+    SELECT s.*, p.name as plan_name, p.slug as plan_slug, p.price, p.max_videos, p.max_channels
+    FROM subscriptions s
+    JOIN plans p ON s.plan_id = p.id
+    WHERE s.user_id = ?
+    ORDER BY s.created_at DESC
+    LIMIT 1
+  `),
+  create: db.prepare(`
+    INSERT INTO subscriptions (user_id, plan_id, asaas_subscription_id, current_period_start, current_period_end, status)
+    VALUES (?, ?, ?, ?, ?, 'active')
+  `),
+  updateStatus: db.prepare('UPDATE subscriptions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
+  findAll: db.prepare(`
+    SELECT s.*, u.username, u.email, p.name as plan_name, p.price
+    FROM subscriptions s
+    JOIN users u ON s.user_id = u.id
+    JOIN plans p ON s.plan_id = p.id
+    ORDER BY s.created_at DESC
+  `)
+};
+
+// Funções para faturas
+const invoiceQueries = {
+  findByUserId: db.prepare(`
+    SELECT i.*, p.name as plan_name, p.slug as plan_slug
+    FROM invoices i
+    JOIN plans p ON i.plan_id = p.id
+    WHERE i.user_id = ?
+    ORDER BY i.created_at DESC
+  `),
+  create: db.prepare(`
+    INSERT INTO invoices (user_id, subscription_id, plan_id, amount, asaas_invoice_id, invoice_number, due_date, pix_qr_code, pix_copy_paste, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+  `),
+  findByAsaasId: db.prepare('SELECT * FROM invoices WHERE asaas_invoice_id = ?'),
+  updateStatus: db.prepare('UPDATE invoices SET status = ?, paid_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
+  findAll: db.prepare(`
+    SELECT i.*, u.username, u.email, p.name as plan_name, p.slug as plan_slug
+    FROM invoices i
+    JOIN users u ON i.user_id = u.id
+    JOIN plans p ON i.plan_id = p.id
+    ORDER BY i.created_at DESC
+  `),
+  findById: db.prepare(`
+    SELECT i.*, u.username, u.email, p.name as plan_name, p.slug as plan_slug
+    FROM invoices i
+    JOIN users u ON i.user_id = u.id
+    JOIN plans p ON i.plan_id = p.id
+    WHERE i.id = ?
+  `)
 };
 
 module.exports = {
@@ -377,6 +509,34 @@ module.exports = {
         publishedQueries.create.run(userId, videoPath, videoId, videoUrl, title, description, thumbnailPath);
       },
       findByVideoId: (videoId) => publishedQueries.findByVideoId.get(videoId)
+    },
+    plans: {
+      findAll: () => planQueries.findAll.all(),
+      findBySlug: (slug) => planQueries.findBySlug.get(slug),
+      findById: (id) => planQueries.findById.get(id)
+    },
+    subscriptions: {
+      findByUserId: (userId) => subscriptionQueries.findByUserId.get(userId),
+      create: (userId, planId, asaasSubscriptionId = null) => {
+        const periodStart = new Date();
+        const periodEnd = new Date();
+        periodEnd.setMonth(periodEnd.getMonth() + 1);
+        const result = subscriptionQueries.create.run(userId, planId, asaasSubscriptionId, periodStart.toISOString(), periodEnd.toISOString());
+        return result.lastInsertRowid;
+      },
+      updateStatus: (id, status) => subscriptionQueries.updateStatus.run(status, id),
+      findAll: () => subscriptionQueries.findAll.all()
+    },
+    invoices: {
+      findByUserId: (userId) => invoiceQueries.findByUserId.all(userId),
+      create: (userId, planId, subscriptionId, amount, asaasInvoiceId, invoiceNumber, dueDate, pixQrCode = null, pixCopyPaste = null) => {
+        const result = invoiceQueries.create.run(userId, subscriptionId, planId, amount, asaasInvoiceId, invoiceNumber, dueDate, pixQrCode, pixCopyPaste);
+        return result.lastInsertRowid;
+      },
+      findByAsaasId: (asaasInvoiceId) => invoiceQueries.findByAsaasId.get(asaasInvoiceId),
+      updateStatus: (id, status, paidAt = null) => invoiceQueries.updateStatus.run(status, paidAt, id),
+      findAll: () => invoiceQueries.findAll.all(),
+      findById: (id) => invoiceQueries.findById.get(id)
     }
   };
 }

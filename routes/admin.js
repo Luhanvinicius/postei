@@ -294,5 +294,34 @@ router.put('/users/:id/role', async (req, res) => {
   }
 });
 
+// Tela de gerenciamento de faturas
+router.get('/invoices', async (req, res) => {
+  try {
+    const { invoices } = require('../database');
+    
+    let allInvoices;
+    try {
+      if (invoices.findAll.constructor.name === 'AsyncFunction') {
+        allInvoices = await invoices.findAll();
+      } else {
+        allInvoices = invoices.findAll();
+      }
+    } catch (err) {
+      allInvoices = invoices.findAll();
+    }
+    
+    res.render('admin/invoices', {
+      user: req.user,
+      invoices: allInvoices
+    });
+  } catch (error) {
+    console.error('Erro ao carregar faturas:', error);
+    res.render('admin/invoices', {
+      user: req.user,
+      invoices: []
+    });
+  }
+});
+
 module.exports = router;
 

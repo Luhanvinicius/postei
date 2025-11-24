@@ -131,6 +131,71 @@ async function initDatabase() {
       )
     `);
 
+    // Tabela de planos
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS plans (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        slug VARCHAR(100) UNIQUE NOT NULL,
+        price DECIMAL(10,2) NOT NULL,
+        billing_period VARCHAR(20) DEFAULT 'monthly',
+        max_videos INTEGER,
+        max_channels INTEGER,
+        features JSONB,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Tabela de assinaturas
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        plan_id INTEGER NOT NULL REFERENCES plans(id),
+        status VARCHAR(50) DEFAULT 'active',
+        asaas_subscription_id VARCHAR(255),
+        current_period_start TIMESTAMP,
+        current_period_end TIMESTAMP,
+        canceled_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Tabela de faturas
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS invoices (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        subscription_id INTEGER REFERENCES subscriptions(id),
+        plan_id INTEGER NOT NULL REFERENCES plans(id),
+        asaas_invoice_id VARCHAR(255) UNIQUE,
+        invoice_number VARCHAR(100),
+        amount DECIMAL(10,2) NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending',
+        payment_method VARCHAR(50),
+        pix_qr_code TEXT,
+        pix_copy_paste TEXT,
+        due_date DATE,
+        paid_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Inserir planos padrão se não existirem
+    const plansCheck = await client.query('SELECT COUNT(*) FROM plans');
+    if (parseInt(plansCheck.rows[0].count) === 0) {
+      await client.query(`
+        INSERT INTO plans (name, slug, price, billing_period, max_videos, max_channels, features) VALUES
+        ('Básico', 'basico', 29.00, 'monthly', 50, 1, '["Até 50 vídeos/mês", "Geração de conteúdo com IA", "Thumbnails automáticos", "Agendamento de vídeos", "1 canal do YouTube"]'::jsonb),
+        ('Profissional', 'profissional', 79.00, 'monthly', 200, 3, '["Até 200 vídeos/mês", "Geração de conteúdo com IA", "Thumbnails automáticos", "Agendamento ilimitado", "Até 3 canais do YouTube", "Suporte prioritário"]'::jsonb),
+        ('Enterprise', 'enterprise', 199.00, 'monthly', NULL, NULL, '["Vídeos ilimitados", "Geração de conteúdo com IA", "Thumbnails automáticos", "Agendamento ilimitado", "Canais ilimitados", "Suporte 24/7", "API personalizada"]'::jsonb)
+      `);
+      console.log('✅ Planos padrão criados');
+    }
+
     // Criar usuário admin padrão se não existir
     const adminResult = await client.query('SELECT id FROM users WHERE username = $1', ['admin']);
     if (adminResult.rows.length === 0) {
@@ -339,6 +404,125 @@ const publishedQueries = {
   }
 };
 
+// Funções para planos
+const planQueries = {
+  findAll: async () => {
+    const result = await pool.query('SELECT * FROM plans WHERE is_active = true ORDER BY price');
+    return result.rows;
+  },
+  
+  findBySlug: async (slug) => {
+    const result = await pool.query('SELECT * FROM plans WHERE slug = $1 AND is_active = true', [slug]);
+    return result.rows[0] || null;
+  },
+  
+  findById: async (id) => {
+    const result = await pool.query('SELECT * FROM plans WHERE id = $1', [id]);
+    return result.rows[0] || null;
+  }
+};
+
+// Funções para assinaturas
+const subscriptionQueries = {
+  findByUserId: async (userId) => {
+    const result = await pool.query(`
+      SELECT s.*, p.name as plan_name, p.slug as plan_slug, p.price, p.max_videos, p.max_channels
+      FROM subscriptions s
+      JOIN plans p ON s.plan_id = p.id
+      WHERE s.user_id = $1
+      ORDER BY s.created_at DESC
+      LIMIT 1
+    `, [userId]);
+    return result.rows[0] || null;
+  },
+  
+  create: async (userId, planId, asaasSubscriptionId = null) => {
+    const periodStart = new Date();
+    const periodEnd = new Date();
+    periodEnd.setMonth(periodEnd.getMonth() + 1);
+    
+    const result = await pool.query(`
+      INSERT INTO subscriptions (user_id, plan_id, asaas_subscription_id, current_period_start, current_period_end, status)
+      VALUES ($1, $2, $3, $4, $5, 'active')
+      RETURNING id
+    `, [userId, planId, asaasSubscriptionId, periodStart, periodEnd]);
+    return result.rows[0].id;
+  },
+  
+  updateStatus: async (id, status) => {
+    await pool.query('UPDATE subscriptions SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [status, id]);
+  },
+  
+  findAll: async () => {
+    const result = await pool.query(`
+      SELECT s.*, u.username, u.email, p.name as plan_name, p.price
+      FROM subscriptions s
+      JOIN users u ON s.user_id = u.id
+      JOIN plans p ON s.plan_id = p.id
+      ORDER BY s.created_at DESC
+    `);
+    return result.rows;
+  }
+};
+
+// Funções para faturas
+const invoiceQueries = {
+  findByUserId: async (userId) => {
+    const result = await pool.query(`
+      SELECT i.*, p.name as plan_name, p.slug as plan_slug
+      FROM invoices i
+      JOIN plans p ON i.plan_id = p.id
+      WHERE i.user_id = $1
+      ORDER BY i.created_at DESC
+    `, [userId]);
+    return result.rows;
+  },
+  
+  create: async (userId, planId, subscriptionId, amount, asaasInvoiceId, invoiceNumber, dueDate, pixQrCode = null, pixCopyPaste = null) => {
+    const result = await pool.query(`
+      INSERT INTO invoices (user_id, subscription_id, plan_id, amount, asaas_invoice_id, invoice_number, due_date, pix_qr_code, pix_copy_paste, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
+      RETURNING id
+    `, [userId, subscriptionId, planId, amount, asaasInvoiceId, invoiceNumber, dueDate, pixQrCode, pixCopyPaste]);
+    return result.rows[0].id;
+  },
+  
+  findByAsaasId: async (asaasInvoiceId) => {
+    const result = await pool.query('SELECT * FROM invoices WHERE asaas_invoice_id = $1', [asaasInvoiceId]);
+    return result.rows[0] || null;
+  },
+  
+  updateStatus: async (id, status, paidAt = null) => {
+    await pool.query(`
+      UPDATE invoices 
+      SET status = $1, paid_at = $2, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = $3
+    `, [status, paidAt, id]);
+  },
+  
+  findAll: async () => {
+    const result = await pool.query(`
+      SELECT i.*, u.username, u.email, p.name as plan_name, p.slug as plan_slug
+      FROM invoices i
+      JOIN users u ON i.user_id = u.id
+      JOIN plans p ON i.plan_id = p.id
+      ORDER BY i.created_at DESC
+    `);
+    return result.rows;
+  },
+  
+  findById: async (id) => {
+    const result = await pool.query(`
+      SELECT i.*, u.username, u.email, p.name as plan_name, p.slug as plan_slug
+      FROM invoices i
+      JOIN users u ON i.user_id = u.id
+      JOIN plans p ON i.plan_id = p.id
+      WHERE i.id = $1
+    `, [id]);
+    return result.rows[0] || null;
+  }
+};
+
 // Inicializar banco
 let initPromise = null;
 let isInitialized = false;
@@ -375,6 +559,9 @@ module.exports = {
   users: userQueries,
   configs: configQueries,
   schedules: scheduleQueries,
-  published: publishedQueries
+  published: publishedQueries,
+  plans: planQueries,
+  subscriptions: subscriptionQueries,
+  invoices: invoiceQueries
 };
 

@@ -888,7 +888,7 @@ router.get('/published', async (req, res) => {
 // Página de perfil
 router.get('/profile', async (req, res) => {
   const userId = req.user.id;
-  const { users } = require('../database');
+  const { users, subscriptions, invoices: invoiceDB } = require('../database');
   
   // Buscar dados completos do usuário (pode ser async no PostgreSQL)
   let userData;
@@ -902,36 +902,63 @@ router.get('/profile', async (req, res) => {
     userData = users.findById(userId);
   }
   
-  // Dados mockados para plano e faturas (você pode integrar com um sistema de pagamento depois)
-  const planData = {
-    name: 'Plano Premium',
-    price: 'R$ 49,90',
-    billing: 'mensal',
-    status: 'ativo',
-    nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR')
-  };
-  
-  const invoices = [
-    {
-      id: 'INV-001',
-      date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR'),
-      amount: 'R$ 49,90',
-      status: 'pago',
-      download: '#'
-    },
-    {
-      id: 'INV-002',
-      date: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR'),
-      amount: 'R$ 49,90',
-      status: 'pago',
-      download: '#'
+  // Buscar assinatura ativa
+  let subscription = null;
+  try {
+    if (subscriptions.findByUserId.constructor.name === 'AsyncFunction') {
+      subscription = await subscriptions.findByUserId(userId);
+    } else {
+      subscription = subscriptions.findByUserId(userId);
     }
-  ];
+  } catch (err) {
+    subscription = subscriptions.findByUserId(userId);
+  }
+  
+  // Buscar faturas (apenas se não for admin)
+  let userInvoices = [];
+  if (req.user.role !== 'admin') {
+    try {
+      if (invoiceDB.findByUserId.constructor.name === 'AsyncFunction') {
+        userInvoices = await invoiceDB.findByUserId(userId);
+      } else {
+        userInvoices = invoiceDB.findByUserId(userId);
+      }
+    } catch (err) {
+      userInvoices = invoiceDB.findByUserId(userId);
+    }
+  }
+  
+  // Preparar dados do plano
+  let planData = null;
+  if (subscription) {
+    const nextBilling = subscription.current_period_end 
+      ? new Date(subscription.current_period_end).toLocaleDateString('pt-BR')
+      : null;
+    
+    planData = {
+      name: subscription.plan_name || 'Sem Plano',
+      price: subscription.price ? `R$ ${parseFloat(subscription.price).toFixed(2)}` : 'R$ 0,00',
+      billing: 'mensal',
+      status: subscription.status || 'inactive',
+      nextBilling: nextBilling || 'N/A',
+      maxVideos: subscription.max_videos,
+      maxChannels: subscription.max_channels
+    };
+  } else {
+    planData = {
+      name: 'Sem Plano Ativo',
+      price: 'R$ 0,00',
+      billing: 'mensal',
+      status: 'inactive',
+      nextBilling: 'N/A'
+    };
+  }
   
   res.render('user/profile', {
     user: userData || req.user,
     plan: planData,
-    invoices: invoices
+    invoices: userInvoices,
+    isAdmin: req.user.role === 'admin'
   });
 });
 

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - <%= plan.name %> - YouTube Automation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">📹 YouTube Automation</a>
+        </div>
+    </nav>
+
+    <main class="container my-5">
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="mb-0">Dados para Faturamento</h4>
+                    </div>
+                    <div class="card-body">
+                        <form id="checkoutForm">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Nome Completo *</label>
+                                    <input type="text" class="form-control" name="name" required value="<%= user.username %>">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Email *</label>
+                                    <input type="email" class="form-control" name="email" required value="<%= user.email %>">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">CPF/CNPJ *</label>
+                                    <input type="text" class="form-control" name="cpfCnpj" required placeholder="000.000.000-00">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Telefone *</label>
+                                    <input type="text" class="form-control" name="phone" required placeholder="(00) 00000-0000">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">CEP</label>
+                                    <input type="text" class="form-control" name="postalCode" placeholder="00000-000">
+                                </div>
+                                <div class="col-md-8 mb-3">
+                                    <label class="form-label">Endereço</label>
+                                    <input type="text" class="form-control" name="address" placeholder="Rua, Avenida, etc">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Número</label>
+                                    <input type="text" class="form-control" name="addressNumber">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Complemento</label>
+                                    <input type="text" class="form-control" name="complement">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Bairro</label>
+                                    <input type="text" class="form-control" name="province">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Cidade</label>
+                                    <input type="text" class="form-control" name="city">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Estado</label>
+                                    <input type="text" class="form-control" name="state" maxlength="2" placeholder="SP">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-lg w-100">
+                                <i class="bi bi-credit-card me-2"></i>Gerar PIX e Finalizar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Resumo do Pedido</h5>
+                    </div>
+                    <div class="card-body">
+                        <h4><%= plan.name %></h4>
+                        <p class="text-muted mb-3">R$ <%= plan.price.toFixed(2) %>/mês</p>
+                        <hr>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Subtotal:</span>
+                            <strong>R$ <%= plan.price.toFixed(2) %></strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-3">
+                            <span>Total:</span>
+                            <strong class="text-primary">R$ <%= plan.price.toFixed(2) %></strong>
+                        </div>
+                        <div id="pixSection" style="display: none;">
+                            <hr>
+                            <h6>PIX Gerado</h6>
+                            <div id="pixQrCode" class="text-center mb-3"></div>
+                            <div class="mb-3">
+                                <label class="form-label">Chave PIX (Copiar e Colar):</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="pixCopyPaste" readonly>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="copyPix()">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Após o pagamento, sua assinatura será ativada automaticamente.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processando...';
+
+            try {
+                const response = await fetch(`/payment/checkout/<%= plan.slug %>`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    // Mostrar QR Code PIX
+                    if (data.pixQrCode) {
+                        document.getElementById('pixQrCode').innerHTML = `<img src="${data.pixQrCode}" alt="QR Code PIX" class="img-fluid" style="max-width: 300px;">`;
+                        document.getElementById('pixCopyPaste').value = data.pixCopyPaste;
+                        document.getElementById('pixSection').style.display = 'block';
+                        submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>PIX Gerado!';
+                    }
+                } else {
+                    alert('Erro: ' + data.error);
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-credit-card me-2"></i>Gerar PIX e Finalizar';
+                }
+            } catch (error) {
+                alert('Erro ao processar pagamento');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-credit-card me-2"></i>Gerar PIX e Finalizar';
+            }
+        });
+
+        function copyPix() {
+            const input = document.getElementById('pixCopyPaste');
+            input.select();
+            document.execCommand('copy');
+            alert('Chave PIX copiada!');
+        }
+    </script>
+</body>
+</html>
+

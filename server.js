@@ -35,6 +35,7 @@ const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/user');
 const apiRoutes = require('./routes/api');
 const testRoutes = require('./routes/test');
+const paymentRoutes = require('./routes/payment');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -167,6 +168,7 @@ app.get('/login', (req, res) => {
 
 app.use('/auth', authRoutes);
 app.use('/test', testRoutes); // Rota de teste (sem autenticação)
+app.use('/payment', paymentRoutes); // Rotas de pagamento (webhook sem auth, checkout com auth)
 app.use('/admin', requireAuth, requireAdmin, adminRoutes);
 app.use('/user', requireAuth, userRoutes);
 app.use('/api', requireAuth, apiRoutes);

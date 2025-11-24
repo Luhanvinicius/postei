@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fatura #<%= invoice.invoice_number %> - YouTube Automation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        @media print {
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark no-print">
+        <div class="container">
+            <a class="navbar-brand" href="/">📹 YouTube Automation</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/user/profile">Voltar ao Perfil</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container my-5">
+        <div class="card">
+            <div class="card-body p-5">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h2>YouTube Automation</h2>
+                        <p class="text-muted">Fatura de Assinatura</p>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <h4>Fatura #<%= invoice.invoice_number %></h4>
+                        <p class="text-muted">Data: <%= new Date(invoice.created_at).toLocaleDateString('pt-BR') %></p>
+                        <span class="badge bg-<%= invoice.status === 'paid' ? 'success' : invoice.status === 'overdue' ? 'danger' : 'warning' %>">
+                            <%= invoice.status === 'paid' ? 'Pago' : invoice.status === 'overdue' ? 'Vencido' : 'Pendente' %>
+                        </span>
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5>Cliente</h5>
+                        <p><strong><%= invoice.username %></strong><br>
+                        <%= invoice.email %></p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Plano</h5>
+                        <p><strong><%= invoice.plan_name %></strong><br>
+                        R$ <%= parseFloat(invoice.amount).toFixed(2) %>/mês</p>
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5>Detalhes do Pagamento</h5>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Descrição</th>
+                                    <th class="text-end">Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Assinatura <%= invoice.plan_name %> - <%= new Date(invoice.due_date).toLocaleDateString('pt-BR') %></td>
+                                    <td class="text-end">R$ <%= parseFloat(invoice.amount).toFixed(2) %></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Total</strong></td>
+                                    <td class="text-end"><strong>R$ <%= parseFloat(invoice.amount).toFixed(2) %></strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <% if (invoice.status === 'pending' && invoice.pix_qr_code) { %>
+                <hr>
+                <div class="row">
+                    <div class="col-12 text-center">
+                        <h5>Pagamento via PIX</h5>
+                        <div class="mb-3">
+                            <img src="<%= invoice.pix_qr_code %>" alt="QR Code PIX" class="img-fluid" style="max-width: 300px;">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Chave PIX (Copiar e Colar):</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="pixCopyPaste" value="<%= invoice.pix_copy_paste %>" readonly>
+                                <button class="btn btn-outline-secondary" type="button" onclick="copyPix()">
+                                    <i class="bi bi-clipboard"></i> Copiar
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-muted">Vencimento: <%= new Date(invoice.due_date).toLocaleDateString('pt-BR') %></p>
+                    </div>
+                </div>
+                <% } %>
+
+                <% if (invoice.status === 'paid' && invoice.paid_at) { %>
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle me-2"></i>
+                    Pagamento confirmado em <%= new Date(invoice.paid_at).toLocaleString('pt-BR') %>
+                </div>
+                <% } %>
+
+                <div class="text-center mt-4 no-print">
+                    <button class="btn btn-primary" onclick="window.print()">
+                        <i class="bi bi-printer me-2"></i>Imprimir Fatura
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function copyPix() {
+            const input = document.getElementById('pixCopyPaste');
+            input.select();
+            document.execCommand('copy');
+            alert('Chave PIX copiada!');
+        }
+    </script>
+</body>
+</html>
+
