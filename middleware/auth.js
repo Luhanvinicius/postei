@@ -29,15 +29,22 @@ const requireAuth = async (req, res, next) => {
     // SEMPRE permitir acesso às rotas de pagamento (checkout, pending, webhook)
     // Isso permite que o usuário complete o pagamento ou crie nova fatura
     const path = req.path || req.originalUrl?.split('?')[0] || '';
-    console.log('🔍 Verificando acesso - Path:', path, 'OriginalUrl:', req.originalUrl);
+    const originalUrl = req.originalUrl || '';
     
-    if (path.startsWith('/payment/') || path.startsWith('/auth/logout')) {
-      console.log('✅ Permitindo acesso à rota de pagamento:', path);
+    console.log('🔍 Middleware - Verificando acesso para usuário com payment_status=pending');
+    console.log('   Path:', path);
+    console.log('   OriginalUrl:', originalUrl);
+    console.log('   User:', req.user.username);
+    
+    // PRIMEIRO: Sempre permitir acesso a rotas de pagamento
+    if (path.startsWith('/payment/') || originalUrl.startsWith('/payment/') || path.startsWith('/auth/logout')) {
+      console.log('✅ PERMITINDO acesso à rota de pagamento:', path);
       return next();
     }
     
     // Permitir acesso à home (/) para escolher plano
     if (path === '/' || path === '') {
+      console.log('✅ PERMITINDO acesso à home');
       return next();
     }
     
