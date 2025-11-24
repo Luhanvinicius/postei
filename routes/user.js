@@ -1007,14 +1007,37 @@ router.post('/videos/schedule-weekly', async (req, res) => {
 });
 
 // Tela de vídeos agendados
-router.get('/scheduled', (req, res) => {
-  const userId = req.user.id;
-  const userSchedules = schedules.findByUserId(userId);
-  
-  res.render('user/scheduled', {
-    user: req.user,
-    schedules: userSchedules
-  });
+router.get('/scheduled', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    let userSchedules;
+    
+    try {
+      if (schedules.findByUserId.constructor.name === 'AsyncFunction') {
+        userSchedules = await schedules.findByUserId(userId);
+      } else {
+        userSchedules = schedules.findByUserId(userId);
+      }
+    } catch (err) {
+      userSchedules = schedules.findByUserId(userId);
+    }
+    
+    // Garantir que é um array
+    if (!Array.isArray(userSchedules)) {
+      userSchedules = [];
+    }
+    
+    res.render('user/scheduled', {
+      user: req.user,
+      schedules: userSchedules
+    });
+  } catch (error) {
+    console.error('Erro ao carregar vídeos agendados:', error);
+    res.render('user/scheduled', {
+      user: req.user,
+      schedules: []
+    });
+  }
 });
 
 // Tela de vídeos publicados
