@@ -914,13 +914,24 @@ router.post('/videos/schedule-weekly', async (req, res) => {
         try {
           // Gerar conteúdo com IA
           console.log(`🤖 Gerando conteúdo com IA para: ${video.name}`);
-          const aiResult = await generateWithAI(video.path, userId);
-          
-          if (!aiResult || !aiResult.title) {
-            console.warn(`⚠️  Falha ao gerar conteúdo para ${video.name}, usando fallback`);
+          let aiResult;
+          try {
+            aiResult = await generateWithAI(video.path, userId);
+            
+            if (!aiResult || !aiResult.title) {
+              console.warn(`⚠️  Falha ao gerar conteúdo para ${video.name}, usando fallback`);
+              aiResult = {
+                title: video.name.replace(/\.[^/.]+$/, ''),
+                description: '#shorts',
+                thumbnailPath: null
+              };
+            }
+          } catch (aiError) {
+            console.error(`❌ Erro ao gerar conteúdo com IA para ${video.name}:`, aiError);
             aiResult = {
               title: video.name.replace(/\.[^/.]+$/, ''),
-              description: '#shorts'
+              description: '#shorts',
+              thumbnailPath: null
             };
           }
 
