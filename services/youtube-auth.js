@@ -221,7 +221,23 @@ async function handleAuthCallback(userId, code) {
     
     // Detectar se está em produção (Render/Vercel) ou local
     const isProduction = process.env.RENDER || process.env.VERCEL || process.env.NODE_ENV === 'production';
-    const baseUrl = process.env.BASE_URL || (isProduction ? (process.env.RENDER_EXTERNAL_URL || process.env.VERCEL_URL || '') : 'http://localhost:3000');
+    
+    // Obter URL base - prioridade: BASE_URL > RENDER_EXTERNAL_URL > VERCEL_URL > localhost
+    let baseUrl = process.env.BASE_URL;
+    if (!baseUrl && isProduction) {
+      baseUrl = process.env.RENDER_EXTERNAL_URL || process.env.VERCEL_URL || '';
+    }
+    if (!baseUrl) {
+      baseUrl = 'http://localhost:3000';
+    }
+    
+    console.log('🔍 Debug callback - Detecção de URL:', {
+      isProduction,
+      RENDER_EXTERNAL_URL: process.env.RENDER_EXTERNAL_URL,
+      VERCEL_URL: process.env.VERCEL_URL,
+      BASE_URL: process.env.BASE_URL,
+      baseUrlFinal: baseUrl
+    });
     
     let redirectUri = process.env.YOUTUBE_REDIRECT_URI;
     
