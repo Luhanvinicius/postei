@@ -327,17 +327,65 @@ router.post('/upload-video', async (req, res) => {
 
   try {
     fs.ensureDirSync(videosDir);
-    const videoPath = path.join(videosDir, video.name);
+    
+    // Usar nome único para evitar conflitos
+    const timestamp = Date.now();
+    const originalName = video.name;
+    const ext = path.extname(originalName);
+    const baseName = path.basename(originalName, ext);
+    const uniqueName = `${baseName}_${timestamp}${ext}`;
+    
+    const videoPath = path.join(videosDir, uniqueName);
     await video.mv(videoPath);
+
+    console.log('✅ Vídeo enviado:', videoPath);
 
     res.json({ 
       success: true, 
       message: 'Vídeo enviado com sucesso!',
-      videoPath: videoPath
+      videoPath: videoPath,
+      originalName: originalName
     });
   } catch (error) {
     console.error('Erro ao fazer upload do vídeo:', error);
-    res.json({ success: false, error: 'Erro ao fazer upload do vídeo' });
+    res.json({ success: false, error: 'Erro ao fazer upload do vídeo: ' + error.message });
+  }
+});
+
+// Rota alternativa para upload (compatibilidade)
+router.post('/videos/upload', async (req, res) => {
+  if (!req.files || !req.files.video) {
+    return res.json({ success: false, error: 'Nenhum vídeo enviado' });
+  }
+
+  const userId = req.user.id;
+  const video = req.files.video;
+  const videosDir = path.join(__dirname, '../videos', `user_${userId}`);
+
+  try {
+    fs.ensureDirSync(videosDir);
+    
+    // Usar nome único para evitar conflitos
+    const timestamp = Date.now();
+    const originalName = video.name;
+    const ext = path.extname(originalName);
+    const baseName = path.basename(originalName, ext);
+    const uniqueName = `${baseName}_${timestamp}${ext}`;
+    
+    const videoPath = path.join(videosDir, uniqueName);
+    await video.mv(videoPath);
+
+    console.log('✅ Vídeo enviado:', videoPath);
+
+    res.json({ 
+      success: true, 
+      message: 'Vídeo enviado com sucesso!',
+      videoPath: videoPath,
+      originalName: originalName
+    });
+  } catch (error) {
+    console.error('Erro ao fazer upload do vídeo:', error);
+    res.json({ success: false, error: 'Erro ao fazer upload do vídeo: ' + error.message });
   }
 });
 

@@ -565,9 +565,38 @@
             btn.textContent = '⏳ Gerando...';
 
             try {
-                // Usar o caminho do vídeo diretamente (já está no servidor quando vem do scan)
-                const videoPath = video.path;
+                let videoPath = video.path;
+                
+                // Se o vídeo tem um objeto File (foi selecionado via input), fazer upload primeiro
+                if (video.file && video.file instanceof File) {
+                    console.log('📤 Vídeo selecionado via input, fazendo upload...');
+                    btn.textContent = '⏳ Enviando vídeo...';
+                    
+                    const formData = new FormData();
+                    formData.append('video', video.file);
+                    
+                    const uploadResponse = await fetch('/user/videos/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const uploadData = await uploadResponse.json();
+                    
+                    if (!uploadData.success) {
+                        throw new Error(uploadData.error || 'Erro ao fazer upload do vídeo');
+                    }
+                    
+                    // Usar o caminho retornado pelo upload
+                    videoPath = uploadData.videoPath;
+                    console.log('✅ Vídeo enviado com sucesso:', videoPath);
+                    
+                    // Atualizar o caminho no objeto do vídeo para próximas operações
+                    currentVideos[index].path = videoPath;
+                    currentVideos[index].file = null; // Limpar referência ao arquivo
+                }
 
+                btn.textContent = '⏳ Gerando conteúdo...';
+                
                 const response = await fetch('/user/videos/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
