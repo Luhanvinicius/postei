@@ -446,10 +446,57 @@ router.post('/videos/generate', async (req, res) => {
     // Normalizar caminho (Windows)
     let normalizedPath = videoPath.replace(/\\/g, path.sep).trim();
     
-    // Se não existe, verificar se é uma pasta e procurar vídeos
+    // Se o caminho é relativo (começa com "videos/" ou não tem barra inicial), tentar resolver
+    if (!path.isAbsolute(normalizedPath)) {
+      console.log('⚠️  Caminho relativo detectado, tentando resolver...');
+      
+      // Se começa com "videos/", remover esse prefixo e tentar encontrar
+      if (normalizedPath.startsWith('videos/')) {
+        normalizedPath = normalizedPath.replace(/^videos\//, '');
+      }
+      
+      // Tentar encontrar o arquivo na pasta padrão do usuário
+      const userId = req.user.id;
+      const dbConfig = configs.findByUserId(userId);
+      
+      if (dbConfig && dbConfig.default_video_folder) {
+        // Tentar construir caminho absoluto a partir da pasta padrão
+        const possiblePath = path.join(dbConfig.default_video_folder, normalizedPath);
+        if (fs.existsSync(possiblePath)) {
+          normalizedPath = possiblePath;
+          console.log('✅ Caminho resolvido usando pasta padrão:', normalizedPath);
+        } else {
+          // Tentar apenas o nome do arquivo na pasta padrão
+          const fileName = path.basename(normalizedPath);
+          const possiblePath2 = path.join(dbConfig.default_video_folder, fileName);
+          if (fs.existsSync(possiblePath2)) {
+            normalizedPath = possiblePath2;
+            console.log('✅ Caminho resolvido usando nome do arquivo:', normalizedPath);
+          }
+        }
+      }
+    }
+    
+    // Se ainda não existe, verificar se é uma pasta e procurar vídeos
     if (!fs.existsSync(normalizedPath)) {
       console.warn(`⚠️  Caminho não encontrado: ${normalizedPath}`);
-      return res.json({ success: false, error: `Caminho não encontrado: ${normalizedPath}` });
+      console.warn(`🔍 Tentando encontrar arquivo pelo nome...`);
+      
+      // Última tentativa: procurar pelo nome do arquivo na pasta padrão
+      const userId = req.user.id;
+      const dbConfig = configs.findByUserId(userId);
+      if (dbConfig && dbConfig.default_video_folder) {
+        const fileName = path.basename(normalizedPath);
+        const searchPath = path.join(dbConfig.default_video_folder, fileName);
+        if (fs.existsSync(searchPath)) {
+          normalizedPath = searchPath;
+          console.log('✅ Arquivo encontrado pelo nome:', normalizedPath);
+        } else {
+          return res.json({ success: false, error: `Caminho não encontrado: ${videoPath}. Verifique se o arquivo existe na pasta: ${dbConfig.default_video_folder}` });
+        }
+      } else {
+        return res.json({ success: false, error: `Caminho não encontrado: ${normalizedPath}` });
+      }
     }
 
     // Verificar se é uma pasta ou arquivo
