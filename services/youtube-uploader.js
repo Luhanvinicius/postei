@@ -71,10 +71,46 @@ async function uploadVideoToYouTube(userId, videoPath, title, description, thumb
     const clientSecret = userCredentials.installed?.client_secret || userCredentials.web?.client_secret;
 
     if (!clientId || !clientSecret) {
+      console.error('❌ Credenciais inválidas no arquivo');
       return { success: false, error: 'Credenciais inválidas no arquivo' };
     }
+    
+    console.log('✅ Client ID e Secret encontrados');
 
-    const redirectUri = process.env.YOUTUBE_REDIRECT_URI || 'http://localhost:3000/user/auth/callback';
+    // Detectar redirect URI (mesma lógica do youtube-auth.js)
+    const isProduction = process.env.RENDER || process.env.VERCEL || process.env.NODE_ENV === 'production';
+    let redirectUri = process.env.YOUTUBE_REDIRECT_URI;
+    
+    if (!redirectUri) {
+      const isDesktopApp = !!userCredentials.installed;
+      const isWebApp = !!userCredentials.web;
+      
+      if (isDesktopApp) {
+        if (isProduction && process.env.BASE_URL) {
+          redirectUri = `${process.env.BASE_URL}/user/auth/callback`;
+        } else {
+          redirectUri = 'http://localhost:3000/user/auth/callback';
+        }
+      } else if (isWebApp) {
+        const redirectUris = userCredentials.web?.redirect_uris || [];
+        if (isProduction && process.env.BASE_URL) {
+          redirectUri = `${process.env.BASE_URL}/user/auth/callback`;
+        } else if (redirectUris.length > 0) {
+          redirectUri = redirectUris[0];
+          if (redirectUri === 'http://localhost') {
+            redirectUri = 'http://localhost:3000/user/auth/callback';
+          }
+        } else {
+          redirectUri = 'http://localhost:3000/user/auth/callback';
+        }
+      } else {
+        redirectUri = isProduction && process.env.BASE_URL 
+          ? `${process.env.BASE_URL}/user/auth/callback`
+          : 'http://localhost:3000/user/auth/callback';
+      }
+    }
+    
+    console.log('🔗 Redirect URI:', redirectUri);
     
     // Configurar OAuth2
     const oauth2Client = new google.auth.OAuth2(
@@ -83,13 +119,24 @@ async function uploadVideoToYouTube(userId, videoPath, title, description, thumb
       redirectUri
     );
 
+    console.log('🔄 Configurando credenciais OAuth2...');
     oauth2Client.setCredentials({
       refresh_token: dbConfig.refresh_token
     });
 
     // Obter novo access token
-    const { credentials } = await oauth2Client.refreshAccessToken();
-    oauth2Client.setCredentials(credentials);
+    console.log('🔄 Renovando access token...');
+    try {
+      const { credentials } = await oauth2Client.refreshAccessToken();
+      oauth2Client.setCredentials(credentials);
+      console.log('✅ Access token renovado com sucesso');
+    } catch (tokenError) {
+      console.error('❌ Erro ao renovar access token:', tokenError.message);
+      return { 
+        success: false, 
+        error: 'Erro ao renovar token de autenticação. Por favor, autentique seu canal novamente na página "Vincular Contas".' 
+      };
+    }
 
     // Upload do vídeo
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
