@@ -372,6 +372,28 @@ const scheduleQueries = {
     return result.rows;
   },
   
+  findNeedingAI: async () => {
+    const result = await pool.query(`
+      SELECT * FROM scheduled_videos 
+      WHERE status = 'pending' 
+      AND (title IS NULL OR title = '')
+      AND scheduled_time <= NOW() + INTERVAL '10 minutes'
+      AND scheduled_time > NOW()
+      ORDER BY scheduled_time
+    `);
+    return result.rows;
+  },
+  
+  updateContent: async (id, title, description, thumbnailPath) => {
+    await pool.query(`
+      UPDATE scheduled_videos SET
+        title = $1,
+        description = $2,
+        thumbnail_path = $3
+      WHERE id = $4
+    `, [title, description, thumbnailPath, id]);
+  },
+  
   create: async (userId, videoPath, scheduledTime, title, description, thumbnailPath = null) => {
     const result = await pool.query(`
       INSERT INTO scheduled_videos (user_id, video_path, scheduled_time, title, description, thumbnail_path, status)

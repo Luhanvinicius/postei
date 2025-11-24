@@ -912,35 +912,10 @@ router.post('/videos/schedule-weekly', async (req, res) => {
         const time = times[i] || times[0] || '08:00'; // Usar horário configurado ou padrão
 
         try {
-          // Gerar conteúdo com IA
-          console.log(`🤖 Gerando conteúdo com IA para: ${video.name}`);
-          let aiResult;
-          try {
-            const videoName = path.basename(video.path);
-            const geminiResult = await generateContentWithGemini(video.path, videoName);
-            
-            if (geminiResult && geminiResult.title) {
-              aiResult = {
-                title: geminiResult.title,
-                description: geminiResult.description || '#shorts',
-                thumbnailPath: geminiResult.thumbnail_path || null
-              };
-            } else {
-              console.warn(`⚠️  Falha ao gerar conteúdo para ${video.name}, usando fallback`);
-              aiResult = {
-                title: video.name.replace(/\.[^/.]+$/, ''),
-                description: '#shorts',
-                thumbnailPath: null
-              };
-            }
-          } catch (aiError) {
-            console.error(`❌ Erro ao gerar conteúdo com IA para ${video.name}:`, aiError);
-            aiResult = {
-              title: video.name.replace(/\.[^/.]+$/, ''),
-              description: '#shorts',
-              thumbnailPath: null
-            };
-          }
+          // NÃO gerar conteúdo com IA agora - será gerado 10 minutos antes do horário
+          // Usar título temporário baseado no nome do arquivo
+          const tempTitle = video.name.replace(/\.[^/.]+$/, '');
+          const tempDescription = '#shorts';
 
           // Combinar data e hora
           const [hours, minutes] = time.split(':');
@@ -963,7 +938,8 @@ router.post('/videos/schedule-weekly', async (req, res) => {
             await fs.copy(video.path, scheduledVideoPath);
           }
 
-          // Criar agendamento
+          // Criar agendamento SEM conteúdo gerado (será gerado 10 min antes)
+          // title e description serão NULL para indicar que precisa gerar com IA
           let scheduleId;
           try {
             if (schedules.create.constructor.name === 'AsyncFunction') {
@@ -971,18 +947,18 @@ router.post('/videos/schedule-weekly', async (req, res) => {
                 userId, 
                 scheduledVideoPath, 
                 scheduledDateTime.toISOString(), 
-                aiResult.title, 
-                aiResult.description || '#shorts',
-                aiResult.thumbnailPath || null
+                null, // title será gerado 10 min antes
+                null, // description será gerado 10 min antes
+                null  // thumbnail será gerado 10 min antes
               );
             } else {
               scheduleId = schedules.create(
                 userId, 
                 scheduledVideoPath, 
                 scheduledDateTime.toISOString(), 
-                aiResult.title, 
-                aiResult.description || '#shorts',
-                aiResult.thumbnailPath || null
+                null,
+                null,
+                null
               );
             }
           } catch (err) {
@@ -990,11 +966,13 @@ router.post('/videos/schedule-weekly', async (req, res) => {
               userId, 
               scheduledVideoPath, 
               scheduledDateTime.toISOString(), 
-              aiResult.title, 
-              aiResult.description || '#shorts',
-              aiResult.thumbnailPath || null
+              null,
+              null,
+              null
             );
           }
+          
+          console.log(`✅ Vídeo agendado: ${video.name} para ${scheduledDateTime.toLocaleString('pt-BR')} (conteúdo será gerado 10 min antes)`);
 
           scheduledCount++;
           console.log(`✅ Vídeo agendado: ${video.name} para ${scheduledDateTime.toLocaleString('pt-BR')}`);

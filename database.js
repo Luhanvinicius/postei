@@ -287,6 +287,21 @@ const scheduleQueries = {
     WHERE status = 'pending' 
     ORDER BY scheduled_time
   `),
+  findNeedingAI: db.prepare(`
+    SELECT * FROM scheduled_videos 
+    WHERE status = 'pending' 
+    AND (title IS NULL OR title = '')
+    AND scheduled_time <= datetime('now', '+10 minutes')
+    AND scheduled_time > datetime('now')
+    ORDER BY scheduled_time
+  `),
+  updateContent: db.prepare(`
+    UPDATE scheduled_videos SET
+      title = ?,
+      description = ?,
+      thumbnail_path = ?
+    WHERE id = ?
+  `),
   create: db.prepare(`
     INSERT INTO scheduled_videos (user_id, video_path, scheduled_time, title, description, thumbnail_path, status)
     VALUES (?, ?, ?, ?, ?, ?, 'pending')
