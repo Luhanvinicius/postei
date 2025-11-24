@@ -151,7 +151,7 @@ app.use((req, res, next) => {
 });
 
 // Rotas públicas
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
   // Se já está autenticado, verificar status de pagamento
   if (req.user) {
     // Admin sempre vai para dashboard
@@ -164,9 +164,30 @@ app.get('/', (req, res) => {
       return res.redirect('/user/dashboard');
     }
     
-    // Usuário com pagamento pendente pode ver a home para escolher plano
-    // O middleware requireAuth vai cuidar do redirecionamento para outras rotas
-    // Mas aqui permitimos ver a home
+    // Usuário com pagamento pendente - verificar se tem fatura pendente
+    if (req.user.payment_status === 'pending') {
+      const { invoices } = require('./database');
+      let pendingInvoice = null;
+      
+      try {
+        let userInvoices;
+        if (invoices.findByUserId.constructor.name === 'AsyncFunction') {
+          userInvoices = await invoices.findByUserId(req.user.id);
+        } else {
+          userInvoices = invoices.findByUserId(req.user.id);
+        }
+        
+        pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+      } catch (err) {
+        console.error('Erro ao buscar faturas na home:', err);
+      }
+      
+      if (pendingInvoice) {
+        // Se tem fatura pendente, redirecionar para página de pagamento
+        return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
+      }
+      // Se não tem fatura, pode ver a home para escolher plano
+    }
   }
   
   // Mostrar página inicial (com planos)
