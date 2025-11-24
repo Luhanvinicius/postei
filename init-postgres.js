@@ -13,9 +13,14 @@ if (!connectionString) {
   process.exit(1);
 }
 
+// Detectar se é local ou produção
+const isLocal = !process.env.VERCEL && !process.env.VERCEL_ENV && process.env.NODE_ENV !== 'production';
+const isLocalhost = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
 const pool = new Pool({
   connectionString: connectionString,
-  ssl: process.env.NODE_ENV === 'production' || process.env.VERCEL ? { rejectUnauthorized: false } : false,
+  // SSL apenas em produção (Vercel) ou se não for localhost
+  ssl: (!isLocal && !isLocalhost) ? { rejectUnauthorized: false } : false,
 });
 
 async function initTables() {

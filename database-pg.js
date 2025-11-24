@@ -37,9 +37,14 @@ if (!connectionString.startsWith('postgres://') && !connectionString.startsWith(
 
 console.log('✅ DATABASE_URL encontrada e válida');
 
+// Detectar se é local ou produção
+const isLocal = !process.env.VERCEL && !process.env.VERCEL_ENV && process.env.NODE_ENV !== 'production';
+const isLocalhost = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
 const pool = new Pool({
   connectionString: connectionString,
-  ssl: process.env.NODE_ENV === 'production' || process.env.VERCEL ? { rejectUnauthorized: false } : false,
+  // SSL apenas em produção (Vercel) ou se não for localhost
+  ssl: (!isLocal && !isLocalhost) ? { rejectUnauthorized: false } : false,
   max: 20, // Máximo de conexões no pool
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000, // Aumentado para 10 segundos
