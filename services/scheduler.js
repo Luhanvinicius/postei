@@ -6,7 +6,19 @@ const { uploadVideoToYouTube } = require('./youtube-uploader');
 async function checkAndPost() {
   try {
     const now = new Date();
-    const pending = scheduleDB.findPending();
+    // findPending pode ser async (PostgreSQL) ou sync (SQLite)
+    let pending;
+    if (typeof scheduleDB.findPending === 'function' && scheduleDB.findPending.constructor.name === 'AsyncFunction') {
+      pending = await scheduleDB.findPending();
+    } else {
+      pending = scheduleDB.findPending();
+    }
+    
+    // Garantir que pending é um array
+    if (!Array.isArray(pending)) {
+      console.warn('⚠️  findPending não retornou um array:', pending);
+      pending = [];
+    }
     
     for (const schedule of pending) {
       const scheduledTime = new Date(schedule.scheduled_time);
