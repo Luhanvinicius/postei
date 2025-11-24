@@ -227,7 +227,10 @@
 
         // Quando selecionar pasta via input
         document.getElementById('folderInput').addEventListener('change', function(e) {
+            console.log('📂 ===== PASTA SELECIONADA VIA INPUT =====');
             const files = Array.from(e.target.files);
+            console.log('📁 Total de arquivos selecionados:', files.length);
+            
             const videoExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv'];
             
             // Extrair pasta base do primeiro arquivo (webkitRelativePath contém o caminho relativo)
@@ -238,10 +241,8 @@
                 const relativePath = files[0].webkitRelativePath;
                 const lastSlash = relativePath.lastIndexOf('/');
                 if (lastSlash > 0) {
-                    // Tentar obter o caminho real da pasta
-                    // Como não temos acesso ao caminho absoluto via File API, vamos usar apenas o nome do arquivo
-                    // e deixar o servidor resolver usando a pasta padrão
                     baseFolder = relativePath.substring(0, lastSlash);
+                    console.log('📁 Pasta base detectada:', baseFolder);
                 }
             }
             
@@ -252,13 +253,9 @@
                     return videoExtensions.includes(ext);
                 })
                 .map(file => {
-                    // Se temos webkitRelativePath, usar apenas o nome do arquivo
-                    // O servidor vai resolver usando a pasta padrão
-                    // Se não, usar o nome do arquivo diretamente
                     const videoName = file.name;
                     return {
                         name: videoName,
-                        // Usar apenas o nome do arquivo - o servidor vai resolver usando a pasta padrão
                         path: videoName,
                         size: file.size,
                         sizeMB: (file.size / (1024 * 1024)).toFixed(2),
@@ -266,13 +263,20 @@
                     };
                 });
 
+            console.log('📹 Vídeos encontrados:', videos.length);
+            videos.forEach((video, idx) => {
+                console.log(`   ${idx + 1}. ${video.name} (${video.sizeMB} MB)`);
+            });
+
             if (videos.length === 0) {
+                console.warn('⚠️  Nenhum vídeo encontrado nesta pasta');
                 alert('Nenhum vídeo encontrado nesta pasta.');
                 return;
             }
 
             currentVideos = videos;
             displayVideos(videos);
+            console.log('✅ ===== VÍDEOS LISTADOS COM SUCESSO =====');
         });
 
         // Função para carregar pasta padrão
@@ -390,15 +394,20 @@
         }
 
         function displayVideos(videos) {
+            console.log('📋 ===== EXIBINDO VÍDEOS =====');
+            console.log('📊 Total de vídeos para exibir:', videos.length);
+            
             const container = document.getElementById('videosContainer');
             container.innerHTML = '';
 
             if (videos.length === 0) {
+                console.warn('⚠️  Nenhum vídeo para exibir');
                 container.innerHTML = '<p class="text-muted">Nenhum vídeo encontrado nesta pasta.</p>';
                 return;
             }
 
             videos.forEach((video, index) => {
+                console.log(`   Criando card para: ${video.name}`);
                 const card = document.createElement('div');
                 card.className = 'card mb-3';
                 card.innerHTML = `
@@ -426,6 +435,7 @@
             });
 
             document.getElementById('videosList').style.display = 'block';
+            console.log('✅ ===== VÍDEOS EXIBIDOS COM SUCESSO =====');
         }
 
         function escapeHtml(text) {
@@ -564,42 +574,56 @@
             btn.disabled = true;
             btn.textContent = '⏳ Gerando...';
 
+            console.log('🎬 ===== INICIANDO GERAÇÃO DE CONTEÚDO COM IA =====');
+            console.log('📹 Vídeo selecionado:', video.name);
+            console.log('📁 Caminho:', video.path);
+
             try {
                 let videoPath = video.path;
                 
                 // Se o vídeo tem um objeto File (foi selecionado via input), fazer upload primeiro
                 if (video.file && video.file instanceof File) {
                     console.log('📤 Vídeo selecionado via input, fazendo upload...');
+                    console.log('📊 Tamanho do arquivo:', (video.file.size / (1024 * 1024)).toFixed(2), 'MB');
                     btn.textContent = '⏳ Enviando vídeo...';
                     
                     const formData = new FormData();
                     formData.append('video', video.file);
                     
+                    const uploadStartTime = Date.now();
                     const uploadResponse = await fetch('/user/videos/upload', {
                         method: 'POST',
                         body: formData
                     });
                     
                     const uploadData = await uploadResponse.json();
+                    const uploadDuration = ((Date.now() - uploadStartTime) / 1000).toFixed(2);
                     
                     if (!uploadData.success) {
+                        console.error('❌ Erro no upload:', uploadData.error);
                         throw new Error(uploadData.error || 'Erro ao fazer upload do vídeo');
                     }
                     
                     // Usar o caminho retornado pelo upload
                     videoPath = uploadData.videoPath;
-                    console.log('✅ Vídeo enviado com sucesso:', videoPath);
+                    console.log('✅ Vídeo enviado com sucesso em', uploadDuration, 'segundos');
+                    console.log('📁 Caminho no servidor:', videoPath);
                     
                     // Atualizar o caminho no objeto do vídeo para próximas operações
                     currentVideos[index].path = videoPath;
                     currentVideos[index].file = null; // Limpar referência ao arquivo
                 }
 
+                console.log('🤖 Iniciando geração de conteúdo com Gemini...');
+                console.log('📸 Extraindo frames do vídeo...');
                 btn.textContent = '⏳ Gerando conteúdo...';
                 
                 // Timeout de 10 minutos (600 segundos)
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 600000);
+                
+                console.log('📤 Enviando requisição para o servidor...');
+                const generateStartTime = Date.now();
                 
                 const response = await fetch('/user/videos/generate', {
                     method: 'POST',
@@ -609,6 +633,8 @@
                 });
                 
                 clearTimeout(timeoutId);
+                const generateDuration = ((Date.now() - generateStartTime) / 1000).toFixed(2);
+                console.log('⏱️  Tempo de processamento:', generateDuration, 'segundos');
                 
                 // Verificar se a resposta é JSON
                 const contentType = response.headers.get('content-type');
@@ -620,17 +646,29 @@
                 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error('❌ Erro HTTP:', response.status, errorText);
+                    console.error('❌ Erro HTTP:', response.status);
+                    console.error('📝 Detalhes do erro:', errorText.substring(0, 200));
                     throw new Error(`Erro ${response.status}: ${errorText.substring(0, 200)}`);
                 }
                 
                 const data = await response.json();
                 
+                console.log('✅ Resposta recebida do servidor!');
+                console.log('📦 Dados recebidos:', {
+                    success: data.success,
+                    title: data.title,
+                    description: data.description,
+                    thumbnail_path: data.thumbnail_path
+                });
+                
                 btn.disabled = false;
                 btn.textContent = '🤖 Gerar com IA';
 
                 if (data.success) {
-                        console.log('✅ Conteúdo gerado:', data);
+                        console.log('✅ ===== CONTEÚDO GERADO COM SUCESSO =====');
+                        console.log('📝 Título gerado:', data.title);
+                        console.log('📄 Descrição gerada:', data.description);
+                        console.log('📸 Thumbnail:', data.thumbnail_path || 'N/A');
                     
                         // Guardar conteúdo gerado no vídeo (mesmo formato do bot antigo)
                         const generatedContent = {
@@ -656,10 +694,9 @@
                             // Não precisa reconstruir, usar diretamente
                             thumbnailUrl = data.thumbnail_path;
                             
-                            console.log('📸 Thumbnail encontrado:', {
-                                thumbnail_path: data.thumbnail_path,
-                                thumbnailUrl: thumbnailUrl
-                            });
+                            console.log('📸 Thumbnail encontrado!');
+                            console.log('   Caminho:', data.thumbnail_path);
+                            console.log('   URL:', thumbnailUrl);
                             
                             // Mostrar thumbnail
                             const thumbnailImg = document.getElementById('aiResultThumbnail');
@@ -669,7 +706,7 @@
                                 
                                 // Configurar handlers ANTES de definir o src
                                 thumbnailImg.onerror = function() {
-                                    console.error('❌ Erro ao carregar thumbnail:', thumbnailUrl);
+                                    console.error('❌ Erro ao carregar thumbnail no navegador');
                                     console.error('   URL tentada:', this.src);
                                     this.style.display = 'none';
                                     const errorMsg = document.getElementById('thumbnailError');
@@ -677,7 +714,8 @@
                                 };
                                 
                                 thumbnailImg.onload = function() {
-                                    console.log('✅ Thumbnail carregado com sucesso:', thumbnailUrl);
+                                    console.log('✅ Thumbnail carregado com sucesso no navegador!');
+                                    console.log('   URL final:', this.src);
                                     this.style.display = 'block';
                                     const errorMsg = document.getElementById('thumbnailError');
                                     if (errorMsg) errorMsg.style.display = 'none';
@@ -694,12 +732,20 @@
                             currentVideos[index].generatedContent.thumbnailUrl = thumbnailUrl;
                             currentVideos[index].generatedContent.thumbnail_path = data.thumbnail_path;
                         } else {
-                            console.warn('⚠️  Nenhum thumbnail retornado (thumbnail_path é null ou vazio)');
+                            console.warn('⚠️  Nenhum thumbnail retornado pelo servidor');
+                            console.warn('   thumbnail_path:', data.thumbnail_path);
                             thumbnailSection.style.display = 'none';
                         }
                         
-                    // Mostrar modal
-                    new bootstrap.Modal(document.getElementById('aiResultModal')).show();
+                        console.log('🎉 ===== GERAÇÃO CONCLUÍDA =====');
+                        console.log('📊 Resumo:');
+                        console.log('   - Título:', data.title);
+                        console.log('   - Descrição:', data.description);
+                        console.log('   - Thumbnail:', data.thumbnail_path ? 'Sim' : 'Não');
+                        console.log('   - Tempo total:', generateDuration, 'segundos');
+                        
+                        // Mostrar modal
+                        new bootstrap.Modal(document.getElementById('aiResultModal')).show();
                 } else {
                     // Mostrar erro em modal também
                     const errorModal = document.createElement('div');
@@ -730,14 +776,20 @@
                 btn.disabled = false;
                 btn.textContent = '🤖 Gerar com IA';
                 
+                console.error('❌ ===== ERRO NA GERAÇÃO DE CONTEÚDO =====');
+                console.error('❌ Tipo de erro:', error.name);
+                console.error('❌ Mensagem:', error.message);
+                console.error('❌ Stack:', error.stack);
+                
                 let errorMessage = 'Erro ao gerar conteúdo';
                 if (error.name === 'AbortError') {
                     errorMessage = 'Tempo de espera excedido. O processamento está demorando muito. Tente novamente.';
+                    console.error('⏱️  Timeout: O processamento demorou mais de 10 minutos');
                 } else if (error.message) {
                     errorMessage = error.message;
                 }
                 
-                console.error('❌ Erro ao gerar conteúdo:', error);
+                console.error('❌ ===== FIM DO ERRO =====');
                 alert('Erro: ' + errorMessage);
             }
         }
