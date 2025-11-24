@@ -40,7 +40,16 @@ async function authenticateYouTube(userId, credentialsPath) {
 
     // Se já tem refresh token salvo, usar ele (buscar do banco)
     const { configs } = require('../database');
-    const dbConfig = configs.findByUserId(userId);
+    let dbConfig;
+    try {
+      if (configs.findByUserId.constructor.name === 'AsyncFunction') {
+        dbConfig = await configs.findByUserId(userId);
+      } else {
+        dbConfig = configs.findByUserId(userId);
+      }
+    } catch (err) {
+      dbConfig = configs.findByUserId(userId);
+    }
     if (dbConfig && dbConfig.refresh_token) {
       oauth2Client.setCredentials({
         refresh_token: dbConfig.refresh_token
