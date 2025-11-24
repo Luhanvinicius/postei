@@ -205,8 +205,9 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">Data de Início (Primeiro dia da semana):</label>
-                        <input type="date" class="form-control" id="weekStartDate" required>
+                        <label class="form-label">Data de Início:</label>
+                        <input type="date" class="form-control" id="weekStartDate" required onchange="updateScheduleTable()">
+                        <small class="text-muted">A tabela abaixo mostrará os próximos 7 dias a partir desta data.</small>
                     </div>
 
                     <div class="table-responsive">
@@ -1138,12 +1139,13 @@
             document.getElementById('totalNeeded').textContent = total;
             
             const totalVideos = currentVideos.length;
+            const alertElement = document.getElementById('totalNeeded').parentElement;
             if (total > totalVideos) {
-                document.getElementById('totalNeeded').parentElement.classList.add('alert-danger');
-                document.getElementById('totalNeeded').parentElement.classList.remove('alert-warning');
+                alertElement.classList.add('alert-danger');
+                alertElement.classList.remove('alert-warning');
             } else {
-                document.getElementById('totalNeeded').parentElement.classList.remove('alert-danger');
-                document.getElementById('totalNeeded').parentElement.classList.add('alert-warning');
+                alertElement.classList.remove('alert-danger');
+                alertElement.classList.add('alert-warning');
             }
         }
 
