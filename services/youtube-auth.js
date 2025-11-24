@@ -115,7 +115,16 @@ async function handleAuthCallback(userId, code) {
   try {
     // Carregar configuração do banco
     const { configs } = require('../database');
-    const dbConfig = configs.findByUserId(userId);
+    let dbConfig;
+    try {
+      if (configs.findByUserId.constructor.name === 'AsyncFunction') {
+        dbConfig = await configs.findByUserId(userId);
+      } else {
+        dbConfig = configs.findByUserId(userId);
+      }
+    } catch (err) {
+      dbConfig = configs.findByUserId(userId);
+    }
     
     if (!dbConfig || !dbConfig.config_path) {
       return { success: false, error: 'Configuração do usuário não encontrada' };
