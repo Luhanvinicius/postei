@@ -2,13 +2,12 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const router = express.Router();
 const { users } = require('../database');
-const { createToken } = require('../middleware/auth');
 
 // Login
 router.get('/login', (req, res) => {
-  // Se já está autenticado (req.user vem do attachUser middleware)
-  if (req.user) {
-    const redirectUrl = req.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
+  // Se já está autenticado, redirecionar
+  if (req.session && req.session.user) {
+    const redirectUrl = req.session.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
     return res.redirect(redirectUrl);
   }
   res.render('auth/login', { error: null });
@@ -21,46 +20,55 @@ router.post('/login', async (req, res) => {
     // Buscar usuário
     let user;
     try {
-      user = await Promise.resolve(users.findByUsername(username));
+      if (users.findByUsername.constructor.name === 'AsyncFunction') {
+        user = await users.findByUsername(username);
+      } else {
+        user = users.findByUsername(username);
+      }
     } catch (err) {
       user = users.findByUsername(username);
     }
 
     if (!user) {
+      console.log('❌ Usuário não encontrado:', username);
       return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
     }
 
     // Verificar senha
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
+      console.log('❌ Senha incorreta para usuário:', username);
       return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
     }
 
-    // Criar token JWT
-    const userData = {
+    console.log('✅ Login bem-sucedido para:', username);
+    
+    // Criar sessão
+    req.session.user = {
       id: user.id,
       username: user.username,
       email: user.email,
       role: user.role
     };
-
-    const token = createToken(userData);
     
-    if (!token) {
-      console.error('❌ Falha ao criar token no login');
-      return res.render('auth/login', { error: 'Erro ao criar sessão' });
-    }
+    // Salvar sessão explicitamente
+    req.session.save((err) => {
+      if (err) {
+        console.error('❌ Erro ao salvar sessão:', err);
+        return res.render('auth/login', { error: 'Erro ao criar sessão' });
+      }
+      
+      console.log('✅ Sessão criada com sucesso');
+      
+      // Redirecionar
+      const redirectUrl = user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
+      console.log('🔀 Redirecionando para:', redirectUrl);
+      res.redirect(redirectUrl);
+    });
 
-    // Redirecionar com token na query string
-    const redirectUrl = user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
-    const finalUrl = `${redirectUrl}?token=${encodeURIComponent(token)}`;
-    console.log('🔀 Redirecionando para:', finalUrl);
-    
-    // Redirecionar com token na query (o frontend vai salvar no localStorage)
-    return res.redirect(finalUrl);
   } catch (error) {
     console.error('❌ Erro no login:', error);
-    res.render('auth/login', { error: 'Erro ao fazer login' });
+    res.render('auth/login', { error: 'Erro ao fazer login: ' + error.message });
   }
 });
 
@@ -77,52 +85,62 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    // Verificar se usuário já existe (assíncrono no PostgreSQL)
+    // Verificar se usuário já existe
     let existingUser;
     try {
-      existingUser = await Promise.resolve(users.findByUsername(username));
+      if (users.findByUsername.constructor.name === 'AsyncFunction') {
+        existingUser = await users.findByUsername(username);
+      } else {
+        existingUser = users.findByUsername(username);
+      }
     } catch (err) {
       existingUser = users.findByUsername(username);
     }
+    
     if (existingUser) {
-      return res.render('auth/register', { error: 'Usuário ou email já existe' });
+      return res.render('auth/register', { error: 'Usuário já existe' });
     }
 
-    // Verificar se email já existe (assíncrono no PostgreSQL)
+    // Verificar se email já existe
     let existingByEmail;
     try {
-      existingByEmail = await Promise.resolve(users.findByEmail(email));
+      if (users.findByEmail.constructor.name === 'AsyncFunction') {
+        existingByEmail = await users.findByEmail(email);
+      } else {
+        existingByEmail = users.findByEmail(email);
+      }
     } catch (err) {
       existingByEmail = users.findByEmail(email);
     }
+    
     if (existingByEmail) {
       return res.render('auth/register', { error: 'Email já está em uso' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Tentar criar com tratamento de erro (assíncrono no PostgreSQL)
     let userId;
     try {
-      userId = await Promise.resolve(users.create(username, email, hashedPassword, 'user'));
-    } catch (createError) {
-      if (createError.message && createError.message.includes('UNIQUE constraint')) {
-        if (createError.message.includes('email')) {
-          return res.render('auth/register', { error: 'Email já está em uso' });
-        } else if (createError.message.includes('username')) {
-          return res.render('auth/register', { error: 'Nome de usuário já existe' });
-        }
+      if (users.create.constructor.name === 'AsyncFunction') {
+        userId = await users.create(username, email, hashedPassword, 'user');
+      } else {
+        userId = users.create(username, email, hashedPassword, 'user');
       }
-      throw createError;
+    } catch (err) {
+      userId = users.create(username, email, hashedPassword, 'user');
     }
 
-    // Verificar se foi criado corretamente (assíncrono no PostgreSQL)
     let createdUser;
     try {
-      createdUser = await Promise.resolve(users.findById(userId));
+      if (users.findById.constructor.name === 'AsyncFunction') {
+        createdUser = await users.findById(userId);
+      } else {
+        createdUser = users.findById(userId);
+      }
     } catch (err) {
       createdUser = users.findById(userId);
     }
+    
     if (!createdUser) {
       return res.render('auth/register', { error: 'Erro ao criar conta. Tente novamente.' });
     }
@@ -136,12 +154,12 @@ router.post('/register', async (req, res) => {
 
 // Logout
 router.post('/logout', (req, res) => {
-  if (req.session) {
-    req.session.destroy();
-  }
-  clearAuthCookie(res);
-  res.redirect('/auth/login');
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Erro ao destruir sessão:', err);
+    }
+    res.redirect('/auth/login');
+  });
 });
 
 module.exports = router;
-

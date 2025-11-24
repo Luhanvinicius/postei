@@ -68,36 +68,34 @@ app.use(fileUpload({
 }));
 
 // Configuração de sessão
-// No Vercel, MemoryStore não funciona bem (cada requisição pode estar em container diferente)
-// Vamos usar MemoryStore mas com aviso, ou considerar usar Redis/Upstash no futuro
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'change-this-secret-key',
-  resave: true, // Mudado para true no Vercel para garantir que salva
-  saveUninitialized: false,
-  name: 'sessionId', // Nome customizado para evitar conflitos
+  resave: false, // Não salvar sessão se não foi modificada
+  saveUninitialized: false, // Não criar sessão até que algo seja salvo
+  name: 'youtube_automation_session', // Nome customizado
   rolling: true, // Renovar cookie a cada requisição
   cookie: {
-    secure: isVercel ? true : false, // HTTPS no Vercel
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 horas
-    sameSite: isVercel ? 'none' : 'lax', // Necessário para HTTPS no Vercel com cross-site
-    path: '/',
-    domain: undefined // Não definir domain para funcionar em todos os subdomínios do Vercel
+    secure: isVercel ? true : false, // HTTPS no Vercel, HTTP localmente
+    httpOnly: true, // Cookie não acessível via JavaScript (segurança)
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
+    sameSite: isVercel ? 'none' : 'lax', // Necessário para HTTPS no Vercel
+    path: '/'
   }
 };
 
-// Usar file-store apenas em desenvolvimento local
+// Usar file-store em desenvolvimento local (persistente)
 if (!isVercel) {
   sessionConfig.store = new FileStore({
     path: path.join(__dirname, 'data', 'sessions'),
-    ttl: 86400, // 24 horas
+    ttl: 7 * 24 * 60 * 60, // 7 dias em segundos
     retries: 0
   });
+  console.log('📁 Usando FileStore para sessões (desenvolvimento local)');
 } else {
-  // No Vercel, usar MemoryStore (limitação do serverless)
-  // TODO: Considerar usar Upstash Redis para produção
-  console.warn('⚠️  Usando MemoryStore para sessões (não ideal para produção serverless)');
-  console.warn('⚠️  Considere usar Upstash Redis para sessões persistentes');
+  // No Vercel, usar MemoryStore (cada função serverless tem sua própria memória)
+  // Isso funciona porque o Vercel mantém as funções "quentes" por um tempo
+  console.log('💾 Usando MemoryStore para sessões (Vercel)');
+  console.log('⚠️  Nota: Sessões podem ser perdidas entre deploys ou após inatividade');
 }
 
 app.use(session(sessionConfig));
