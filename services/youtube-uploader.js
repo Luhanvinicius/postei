@@ -196,18 +196,30 @@ async function uploadVideoToYouTube(userId, videoPath, title, description, thumb
     // Copiar ao invés de mover (pode estar na pasta scheduled)
     if (fs.existsSync(videoPath)) {
       await fs.copy(videoPath, postedPath);
+      console.log(`✅ Vídeo copiado para pasta posted: ${postedPath}`);
       
-      // Deletar vídeo da pasta videos se estiver lá (não deletar se estiver em scheduled)
+      // Deletar vídeo da pasta videos se estiver lá (não deletar se estiver em scheduled ou posted)
       const videosDir = path.join(__dirname, '../videos');
       const videoInVideosDir = path.join(videosDir, path.basename(videoPath));
       
-      if (fs.existsSync(videoInVideosDir) && !videoPath.includes('scheduled')) {
+      // Verificar se o vídeo está na pasta videos (não em scheduled ou posted)
+      const isInVideosFolder = videoPath.includes('videos') && !videoPath.includes('scheduled') && !videoPath.includes('posted');
+      
+      if (isInVideosFolder && fs.existsSync(videoInVideosDir)) {
         try {
           await fs.remove(videoInVideosDir);
           console.log(`🗑️  Vídeo deletado da pasta videos: ${path.basename(videoPath)}`);
         } catch (deleteError) {
           console.warn(`⚠️  Erro ao deletar vídeo da pasta videos: ${deleteError.message}`);
           // Não falhar o upload se não conseguir deletar
+        }
+      } else if (fs.existsSync(videoInVideosDir) && !videoPath.includes('scheduled') && !videoPath.includes('posted')) {
+        // Fallback: se o caminho não contém 'videos' mas o arquivo existe na pasta videos
+        try {
+          await fs.remove(videoInVideosDir);
+          console.log(`🗑️  Vídeo deletado da pasta videos (fallback): ${path.basename(videoPath)}`);
+        } catch (deleteError) {
+          console.warn(`⚠️  Erro ao deletar vídeo da pasta videos: ${deleteError.message}`);
         }
       }
     }
