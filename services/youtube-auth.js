@@ -2,7 +2,7 @@ const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs-extra');
 
-async function authenticateYouTube(userId, credentialsPath) {
+async function authenticateYouTube(userId, credentialsPath, req = null) {
   try {
     if (!fs.existsSync(credentialsPath)) {
       return { success: false, error: 'Arquivo de credenciais não encontrado' };

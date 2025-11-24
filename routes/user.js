@@ -172,7 +172,8 @@ router.post('/authenticate', async (req, res) => {
     }
 
     const { authenticateYouTube } = require('../services/youtube-auth');
-    const authResult = await authenticateYouTube(userId, dbConfig.config_path);
+    // Passar req para obter headers (host, protocol) em produção
+    const authResult = await authenticateYouTube(userId, dbConfig.config_path, req);
     
     if (authResult.success) {
       // Atualizar no banco (pode ser async no PostgreSQL)
