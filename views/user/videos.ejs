@@ -601,36 +601,35 @@
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 600000);
                 
-                try {
-                    const response = await fetch('/user/videos/generate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ videoPath }),
-                        signal: controller.signal
-                    });
-                    
-                    clearTimeout(timeoutId);
-                    
-                    // Verificar se a resposta é JSON
-                    const contentType = response.headers.get('content-type');
-                    if (!contentType || !contentType.includes('application/json')) {
-                        const text = await response.text();
-                        console.error('❌ Resposta não é JSON:', text.substring(0, 200));
-                        throw new Error(`Erro do servidor (${response.status}): ${text.substring(0, 100)}`);
-                    }
-                    
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error('❌ Erro HTTP:', response.status, errorText);
-                        throw new Error(`Erro ${response.status}: ${errorText.substring(0, 200)}`);
-                    }
-                    
-                    const data = await response.json();
-                    
-                    btn.disabled = false;
-                    btn.textContent = '🤖 Gerar com IA';
+                const response = await fetch('/user/videos/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ videoPath }),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                // Verificar se a resposta é JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('❌ Resposta não é JSON:', text.substring(0, 200));
+                    throw new Error(`Erro do servidor (${response.status}): ${text.substring(0, 100)}`);
+                }
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ Erro HTTP:', response.status, errorText);
+                    throw new Error(`Erro ${response.status}: ${errorText.substring(0, 200)}`);
+                }
+                
+                const data = await response.json();
+                
+                btn.disabled = false;
+                btn.textContent = '🤖 Gerar com IA';
 
-                    if (data.success) {
+                if (data.success) {
                         console.log('✅ Conteúdo gerado:', data);
                     
                         // Guardar conteúdo gerado no vídeo (mesmo formato do bot antigo)
@@ -699,9 +698,9 @@
                             thumbnailSection.style.display = 'none';
                         }
                         
-                        // Mostrar modal
-                        new bootstrap.Modal(document.getElementById('aiResultModal')).show();
-                    } else {
+                    // Mostrar modal
+                    new bootstrap.Modal(document.getElementById('aiResultModal')).show();
+                } else {
                     // Mostrar erro em modal também
                     const errorModal = document.createElement('div');
                     errorModal.className = 'modal fade';
@@ -727,9 +726,19 @@
                     errorModal.addEventListener('hidden.bs.modal', () => errorModal.remove());
                 }
             } catch (error) {
+                clearTimeout(timeoutId);
                 btn.disabled = false;
                 btn.textContent = '🤖 Gerar com IA';
-                alert('Erro: ' + error.message);
+                
+                let errorMessage = 'Erro ao gerar conteúdo';
+                if (error.name === 'AbortError') {
+                    errorMessage = 'Tempo de espera excedido. O processamento está demorando muito. Tente novamente.';
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+                
+                console.error('❌ Erro ao gerar conteúdo:', error);
+                alert('Erro: ' + errorMessage);
             }
         }
 
