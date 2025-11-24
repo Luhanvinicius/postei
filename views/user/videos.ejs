@@ -1038,6 +1038,173 @@
                 alert('Erro: ' + error.message);
             }
         }
+
+        // Agendamento Semanal
+        function openWeeklyScheduleModal() {
+            if (!currentVideos || currentVideos.length === 0) {
+                alert('Nenhum vídeo disponível. Por favor, escaneie uma pasta primeiro.');
+                return;
+            }
+
+            document.getElementById('totalVideosCount').textContent = currentVideos.length;
+            
+            // Definir data de início como hoje se não estiver definida
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const dateStr = today.toISOString().split('T')[0];
+            document.getElementById('weekStartDate').value = dateStr;
+
+            // Criar tabela de agendamento semanal
+            const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+            const defaultTimes = ['08:00', '12:00', '18:00', '21:00'];
+            const tableBody = document.getElementById('weeklyScheduleTable');
+            tableBody.innerHTML = '';
+
+            days.forEach((day, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${day}</strong></td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm qtd-videos" 
+                               min="0" max="4" value="0" 
+                               onchange="updateTotalNeeded()" 
+                               data-day="${index}">
+                    </td>
+                    <td>
+                        <div class="d-flex flex-wrap gap-2">
+                            ${defaultTimes.map((time, timeIndex) => `
+                                <input type="time" class="form-control form-control-sm schedule-time" 
+                                       value="${time}" 
+                                       data-day="${index}" 
+                                       data-time-index="${timeIndex}"
+                                       style="width: 100px;">
+                            `).join('')}
+                        </div>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            updateTotalNeeded();
+            new bootstrap.Modal(document.getElementById('weeklyScheduleModal')).show();
+        }
+
+        function updateTotalNeeded() {
+            const qtdInputs = document.querySelectorAll('.qtd-videos');
+            let total = 0;
+            qtdInputs.forEach(input => {
+                total += parseInt(input.value) || 0;
+            });
+            document.getElementById('totalNeeded').textContent = total;
+            
+            const totalVideos = currentVideos.length;
+            if (total > totalVideos) {
+                document.getElementById('totalNeeded').parentElement.classList.add('alert-danger');
+                document.getElementById('totalNeeded').parentElement.classList.remove('alert-warning');
+            } else {
+                document.getElementById('totalNeeded').parentElement.classList.remove('alert-danger');
+                document.getElementById('totalNeeded').parentElement.classList.add('alert-warning');
+            }
+        }
+
+        async function processWeeklySchedule() {
+            const startDate = document.getElementById('weekStartDate').value;
+            if (!startDate) {
+                alert('Por favor, selecione a data de início.');
+                return;
+            }
+
+            // Coletar configurações de cada dia
+            const scheduleConfig = [];
+            const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+            
+            days.forEach((day, dayIndex) => {
+                const qtdInput = document.querySelector(`.qtd-videos[data-day="${dayIndex}"]`);
+                const qtd = parseInt(qtdInput.value) || 0;
+                
+                if (qtd > 0) {
+                    const times = [];
+                    const timeInputs = document.querySelectorAll(`.schedule-time[data-day="${dayIndex}"]`);
+                    timeInputs.forEach(input => {
+                        if (input.value) {
+                            times.push(input.value);
+                        }
+                    });
+                    
+                    // Se não tiver horários definidos, usar os padrão
+                    if (times.length === 0) {
+                        times.push('08:00', '12:00', '18:00', '21:00');
+                    }
+                    
+                    scheduleConfig.push({
+                        day: dayIndex,
+                        dayName: day,
+                        qtd: qtd,
+                        times: times.slice(0, qtd) // Limitar aos primeiros N horários baseado na quantidade
+                    });
+                }
+            });
+
+            // Validar total
+            const totalNeeded = scheduleConfig.reduce((sum, day) => sum + day.qtd, 0);
+            if (totalNeeded === 0) {
+                alert('Por favor, defina pelo menos um vídeo para agendar.');
+                return;
+            }
+
+            if (totalNeeded > currentVideos.length) {
+                alert(`Você precisa de ${totalNeeded} vídeos, mas só tem ${currentVideos.length} disponíveis.`);
+                return;
+            }
+
+            // Confirmar
+            if (!confirm(`Deseja agendar ${totalNeeded} vídeos para a semana?\n\nIsso irá gerar conteúdo com IA para cada vídeo e agendá-los automaticamente.`)) {
+                return;
+            }
+
+            // Desabilitar botão
+            const btn = event.target;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processando...';
+
+            try {
+                // Preparar dados para envio
+                const scheduleData = {
+                    startDate: startDate,
+                    schedule: scheduleConfig,
+                    videos: currentVideos.map(v => ({
+                        path: v.path,
+                        name: v.name
+                    }))
+                };
+
+                const response = await fetch('/user/videos/schedule-weekly', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(scheduleData)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(`✅ ${data.scheduled} vídeos agendados com sucesso!`);
+                    bootstrap.Modal.getInstance(document.getElementById('weeklyScheduleModal')).hide();
+                    // Recarregar página ou atualizar lista
+                    location.reload();
+                } else {
+                    alert('Erro: ' + data.error);
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-calendar-check me-1"></i>Agendar Todos';
+                }
+            } catch (error) {
+                console.error('Erro ao processar agendamento semanal:', error);
+                alert('Erro ao processar agendamento: ' + error.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-calendar-check me-1"></i>Agendar Todos';
+            }
+        }
     </script>
 </body>
 </html>
