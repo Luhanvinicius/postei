@@ -43,8 +43,23 @@ router.post('/login', async (req, res) => {
 
     console.log('✅ Login bem-sucedido para:', username);
     
-    // Buscar payment_status do usuário
-    const paymentStatus = user.payment_status || 'pending';
+    // Buscar payment_status do usuário (pode não estar na query, buscar do banco)
+    let paymentStatus = user.payment_status || 'pending';
+    if (!paymentStatus) {
+      // Se não veio na query, buscar do banco
+      const { users: userDB } = require('../database');
+      let fullUser;
+      try {
+        if (userDB.findById.constructor.name === 'AsyncFunction') {
+          fullUser = await userDB.findById(user.id);
+        } else {
+          fullUser = userDB.findById(user.id);
+        }
+      } catch (err) {
+        fullUser = userDB.findById(user.id);
+      }
+      paymentStatus = fullUser?.payment_status || 'pending';
+    }
     
     // Criar sessão
     req.session.user = {
