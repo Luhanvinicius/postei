@@ -53,10 +53,11 @@ router.post('/login', async (req, res) => {
 
     // Redirecionar com token na query string
     const redirectUrl = user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
-    console.log('🔀 Redirecionando para:', redirectUrl, 'com token');
+    const finalUrl = `${redirectUrl}?token=${encodeURIComponent(token)}`;
+    console.log('🔀 Redirecionando para:', finalUrl);
     
     // Redirecionar com token na query (o frontend vai salvar no localStorage)
-    return res.redirect(`${redirectUrl}?token=${token}`);
+    return res.redirect(finalUrl);
   } catch (error) {
     console.error('❌ Erro no login:', error);
     res.render('auth/login', { error: 'Erro ao fazer login' });
