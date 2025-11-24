@@ -887,7 +887,7 @@ router.post('/videos/schedule-weekly', async (req, res) => {
       }
     }
 
-    const generateWithAI = require('../services/gemini-service').generateWithAI;
+    const { generateContentWithGemini } = require('../services/gemini-service');
     let videoIndex = 0;
     let scheduledCount = 0;
     const errors = [];
@@ -916,9 +916,16 @@ router.post('/videos/schedule-weekly', async (req, res) => {
           console.log(`🤖 Gerando conteúdo com IA para: ${video.name}`);
           let aiResult;
           try {
-            aiResult = await generateWithAI(video.path, userId);
+            const videoName = path.basename(video.path);
+            const geminiResult = await generateContentWithGemini(video.path, videoName);
             
-            if (!aiResult || !aiResult.title) {
+            if (geminiResult && geminiResult.title) {
+              aiResult = {
+                title: geminiResult.title,
+                description: geminiResult.description || '#shorts',
+                thumbnailPath: geminiResult.thumbnail_path || null
+              };
+            } else {
               console.warn(`⚠️  Falha ao gerar conteúdo para ${video.name}, usando fallback`);
               aiResult = {
                 title: video.name.replace(/\.[^/.]+$/, ''),
