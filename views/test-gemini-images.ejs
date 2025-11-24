@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Gemini - Análise de Imagens</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 1200px;
+        }
+        .images-preview {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .image-preview {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            max-width: 200px;
+        }
+        .image-preview img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 4px;
+        }
+        .log-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid transparent;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .log-info { border-left-color: #4a9eff; }
+        .log-success { border-left-color: #4caf50; }
+        .log-error { border-left-color: #f44336; }
+        .log-warning { border-left-color: #ff9800; }
+        .result-box {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .result-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .result-description {
+            color: #666;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">🧪 Teste Gemini - Análise de Imagens</h1>
+        <p class="text-muted">Selecione uma ou mais imagens do seu PC para testar a geração de título e descrição pelo Gemini.</p>
+        
+        <div class="mb-4">
+            <label for="imageInput" class="form-label">Selecionar Imagens (JPG, PNG, etc.)</label>
+            <input type="file" class="form-control" id="imageInput" accept="image/*" multiple>
+        </div>
+
+        <div id="imagesPreview" class="images-preview"></div>
+
+        <button class="btn btn-primary btn-lg" id="generateBtn" disabled>
+            🤖 Gerar Título e Descrição
+        </button>
+
+        <div id="loading" style="display: none;" class="mt-3">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Gerando...</span>
+            </div>
+            <span class="ms-2">Gerando conteúdo com Gemini...</span>
+        </div>
+
+        <div id="result" class="result-box" style="display: none;">
+            <div class="result-title">📝 Título Gerado:</div>
+            <div id="resultTitle" class="mb-3"></div>
+            
+            <div class="result-title">📄 Descrição Gerada:</div>
+            <div id="resultDescription" class="result-description"></div>
+        </div>
+
+        <div class="log-container" id="logContainer">
+            <div class="log-entry log-info">📋 Logs aparecerão aqui...</div>
+        </div>
+    </div>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const imagesPreview = document.getElementById('imagesPreview');
+        const generateBtn = document.getElementById('generateBtn');
+        const loading = document.getElementById('loading');
+        const result = document.getElementById('result');
+        const resultTitle = document.getElementById('resultTitle');
+        const resultDescription = document.getElementById('resultDescription');
+        const logContainer = document.getElementById('logContainer');
+
+        let selectedImages = [];
+
+        function addLog(message, type = 'info') {
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLogs() {
+            logContainer.innerHTML = '';
+        }
+
+        imageInput.addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            selectedImages = files;
+            imagesPreview.innerHTML = '';
+
+            if (files.length === 0) {
+                generateBtn.disabled = true;
+                return;
+            }
+
+            addLog(`✅ ${files.length} imagem(ns) selecionada(s)`, 'success');
+
+            files.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.createElement('div');
+                    preview.className = 'image-preview';
+                    preview.innerHTML = `
+                        <img src="${e.target.result}" alt="${file.name}">
+                        <small class="d-block mt-2">${file.name}</small>
+                    `;
+                    imagesPreview.appendChild(preview);
+                };
+                reader.readAsDataURL(file);
+            });
+
+            generateBtn.disabled = false;
+        });
+
+        generateBtn.addEventListener('click', async function() {
+            if (selectedImages.length === 0) {
+                alert('Selecione pelo menos uma imagem!');
+                return;
+            }
+
+            clearLogs();
+            addLog('🚀 Iniciando geração de conteúdo...', 'info');
+            addLog(`📸 Total de imagens: ${selectedImages.length}`, 'info');
+            
+            generateBtn.disabled = true;
+            loading.style.display = 'block';
+            result.style.display = 'none';
+
+            try {
+                // Fazer upload das imagens
+                const formData = new FormData();
+                selectedImages.forEach((file, index) => {
+                    formData.append('images', file);
+                });
+
+                addLog('📤 Enviando imagens para o servidor...', 'info');
+
+                const uploadResponse = await fetch('/test/gemini-images/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const uploadData = await uploadResponse.json();
+
+                if (!uploadData.success) {
+                    throw new Error(uploadData.error || 'Erro ao fazer upload das imagens');
+                }
+
+                addLog('✅ Imagens enviadas com sucesso!', 'success');
+                addLog(`📁 Caminhos: ${uploadData.imagePaths.join(', ')}`, 'info');
+
+                // Gerar conteúdo
+                addLog('🤖 Enviando para Gemini Vision API...', 'info');
+                addLog('⏳ Aguardando resposta do Gemini...', 'info');
+
+                const startTime = Date.now();
+
+                const generateResponse = await fetch('/test/gemini-images/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imagePaths: uploadData.imagePaths })
+                });
+
+                const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+                addLog(`⏱️  Tempo de processamento: ${duration} segundos`, 'info');
+
+                if (!generateResponse.ok) {
+                    const errorText = await generateResponse.text();
+                    throw new Error(`Erro HTTP ${generateResponse.status}: ${errorText}`);
+                }
+
+                const generateData = await generateResponse.json();
+
+                if (!generateData.success) {
+                    throw new Error(generateData.error || 'Erro ao gerar conteúdo');
+                }
+
+                // Mostrar resultado
+                addLog('✅ Conteúdo gerado com sucesso!', 'success');
+                addLog(`📝 Título: ${generateData.title}`, 'success');
+                addLog(`📄 Descrição: ${generateData.description}`, 'success');
+                
+                if (generateData.rawResponse) {
+                    addLog('📋 Resposta bruta do Gemini:', 'info');
+                    addLog(generateData.rawResponse.substring(0, 500) + '...', 'info');
+                }
+
+                resultTitle.textContent = generateData.title || 'N/A';
+                resultDescription.textContent = generateData.description || 'N/A';
+                result.style.display = 'block';
+
+            } catch (error) {
+                addLog(`❌ Erro: ${error.message}`, 'error');
+                console.error('Erro:', error);
+            } finally {
+                generateBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
+

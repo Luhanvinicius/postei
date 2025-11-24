@@ -141,6 +141,249 @@ router.get('/gemini-check', (req, res) => {
   }
 });
 
+// Rota de teste para Gemini - análise de imagens
+router.get('/gemini-images', (req, res) => {
+  res.render('test-gemini-images');
+});
+
+// Upload de imagens para teste
+router.post('/gemini-images/upload', async (req, res) => {
+  try {
+    if (!req.files || !req.files.images) {
+      return res.json({ success: false, error: 'Nenhuma imagem enviada' });
+    }
+
+    const images = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+    const imagesDir = path.join(__dirname, '../temp_frames', 'test_images');
+    
+    fs.ensureDirSync(imagesDir);
+    
+    const imagePaths = [];
+    
+    for (const image of images) {
+      const timestamp = Date.now();
+      const safeName = image.name.replace(/[^a-zA-Z0-9.\s\-_]/g, '');
+      const imagePath = path.join(imagesDir, `${timestamp}_${safeName}`);
+      
+      await image.mv(imagePath);
+      imagePaths.push(imagePath);
+      
+      console.log('✅ Imagem de teste enviada:', imagePath);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `${images.length} imagem(ns) enviada(s) com sucesso!`,
+      imagePaths: imagePaths
+    });
+  } catch (error) {
+    console.error('Erro ao fazer upload das imagens de teste:', error);
+    res.json({ success: false, error: 'Erro ao fazer upload das imagens: ' + error.message });
+  }
+});
+
+// API de teste para gerar conteúdo com imagens
+router.post('/gemini-images/generate', async (req, res) => {
+  try {
+    const { imagePaths } = req.body;
+    
+    if (!imagePaths || !Array.isArray(imagePaths) || imagePaths.length === 0) {
+      return res.json({ success: false, error: 'Nenhuma imagem fornecida' });
+    }
+    
+    console.log('\n🧪 ===== TESTE DE GERAÇÃO COM IMAGENS =====');
+    console.log('📸 Total de imagens:', imagePaths.length);
+    imagePaths.forEach((path, idx) => {
+      console.log(`   Imagem ${idx + 1}: ${path} (existe: ${fs.existsSync(path)})`);
+    });
+    
+    // Carregar imagens e converter para base64
+    const frameData = await Promise.all(
+      imagePaths.map(async (imagePath, index) => {
+        try {
+          if (!fs.existsSync(imagePath)) {
+            console.error(`❌ Imagem ${index + 1} não existe: ${imagePath}`);
+            return null;
+          }
+          
+          const imageData = await fs.readFile(imagePath);
+          const base64Data = imageData.toString('base64');
+          
+          console.log(`✅ Imagem ${index + 1} carregada: ${base64Data.length} chars base64`);
+          
+          return {
+            inlineData: {
+              data: base64Data,
+              mimeType: 'image/jpeg' // Assumir JPEG, pode melhorar depois
+            }
+          };
+        } catch (error) {
+          console.error(`❌ Erro ao carregar imagem ${index + 1}:`, error);
+          return null;
+        }
+      })
+    );
+    
+    const validFrameData = frameData.filter(f => f !== null);
+    
+    if (validFrameData.length === 0) {
+      return res.json({ success: false, error: 'Nenhuma imagem válida encontrada' });
+    }
+    
+    console.log(`✅ ${validFrameData.length} imagem(ns) válida(s) para envio ao Gemini`);
+    
+    // Usar o serviço Gemini
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    
+    if (!GEMINI_API_KEY) {
+      return res.json({ success: false, error: 'GEMINI_API_KEY não configurada' });
+    }
+    
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-2.0-flash',
+      generationConfig: {
+        temperature: 1.0,
+        topP: 0.95,
+        topK: 40
+      }
+    });
+    
+    // PROMPT ULTRA ESPECÍFICO
+    const prompt = `Você está recebendo ${validFrameData.length} imagem(ns) REAL(IS).
+
+═══════════════════════════════════════════════════════════════
+⚠️ INSTRUÇÕES OBRIGATÓRIAS - SIGA EXATAMENTE:
+═══════════════════════════════════════════════════════════════
+
+PASSO 1: ANÁLISE VISUAL DETALHADA (OBRIGATÓRIO)
+Para CADA imagem acima, descreva EXATAMENTE o que você vê:
+- Quem aparece? (descreva pessoas, personagens, atores - cor de pele, roupas, idade aproximada)
+- O que estão fazendo? (ações específicas: falando, gesticulando, trabalhando, etc.)
+- Onde estão? (cenário: sala, escritório, rua, estúdio, etc.)
+- Qual é o contexto? (reunião, aula, entrevista, vlog, tutorial, etc.)
+- Qual é a emoção/atmosfera? (sério, engraçado, dramático, educativo, etc.)
+
+PASSO 2: CRIAR TÍTULO ESPECÍFICO BASEADO NO QUE VOCÊ VÊ
+Baseado APENAS na sua análise visual acima, crie um título que:
+- Descreva ESPECIFICAMENTE o conteúdo visual (não genérico!)
+- Seja criativo e chamativo para redes sociais
+- Use emojis relevantes ao conteúdo REAL que você vê
+- Tenha entre 30-60 caracteres
+
+EXEMPLOS DE TÍTULOS ESPECÍFICOS (baseados em análise visual):
+- Se vê pessoas em reunião: "O momento mais tenso da reunião! 😰"
+- Se vê alguém explicando algo: "Como [tema específico] funciona na prática! 💡"
+- Se vê uma cena engraçada: "A reação mais inesperada que você vai ver! 😂"
+- Se vê um tutorial: "Passo a passo que ninguém te ensinou! 🎯"
+
+PASSO 3: CRIAR DESCRIÇÃO DETALHADA
+Crie uma descrição de 2-3 linhas que:
+- Descreva o conteúdo visual das imagens
+- Inclua hashtags relevantes (#shorts, #viral, etc.)
+- Seja específica baseada no que você VÊ nas imagens
+
+═══════════════════════════════════════════════════════════════
+❌ PROIBIÇÕES ABSOLUTAS:
+═══════════════════════════════════════════════════════════════
+
+NUNCA use:
+- "A cena mais icônica de [palavra genérica]"
+- "Por que [palavra] está viralizando?"
+- Títulos genéricos que não descrevem o conteúdo visual
+- Descrições vazias ou apenas "#shorts"
+
+Se você usar qualquer título genérico, sua resposta será REJEITADA.
+
+═══════════════════════════════════════════════════════════════
+FORMATO DE RESPOSTA (OBRIGATÓRIO):
+═══════════════════════════════════════════════════════════════
+
+Responda APENAS em JSON válido (sem markdown, sem código):
+
+{
+    "title": "título ESPECÍFICO baseado no conteúdo visual que você VÊ nas imagens acima",
+    "description": "Descrição detalhada de 2-3 linhas do conteúdo visual com hashtags relevantes como #shorts #viral"
+}`;
+
+    console.log('📤 Enviando para Gemini Vision API...');
+    console.log(`   Modelo: gemini-2.0-flash`);
+    console.log(`   Imagens: ${validFrameData.length}`);
+    console.log(`   Prompt: ${prompt.length} caracteres`);
+    
+    const result = await model.generateContent([...validFrameData, prompt]);
+    const response = result.response.text();
+    
+    console.log('\n✅ Resposta recebida do Gemini Vision!');
+    console.log(`📝 Tamanho da resposta: ${response.length} caracteres`);
+    console.log(`📝 Primeiros 500 caracteres: ${response.substring(0, 500)}`);
+    console.log(`📝 Resposta completa: ${response}`);
+    
+    // Parse JSON
+    let title = null;
+    let description = null;
+    
+    let jsonMatch = response.match(/\{[\s\S]*\}/);
+    
+    if (!jsonMatch) {
+      jsonMatch = response.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+      if (jsonMatch) {
+        jsonMatch = [jsonMatch[1], jsonMatch[1]];
+      }
+    }
+    
+    if (!jsonMatch) {
+      jsonMatch = response.match(/\{[\s\S]*?\}/);
+    }
+    
+    if (jsonMatch) {
+      try {
+        const content = JSON.parse(jsonMatch[0]);
+        title = content.title || null;
+        description = content.description || content.desc || null;
+        
+        console.log('✅ JSON parseado:');
+        console.log(`   Título: ${title}`);
+        console.log(`   Descrição: ${description}`);
+      } catch (parseError) {
+        console.error('❌ Erro ao fazer parse do JSON:', parseError);
+        console.error('JSON encontrado:', jsonMatch[0].substring(0, 200));
+      }
+    }
+    
+    // Se não conseguiu parsear, tentar extrair manualmente
+    if (!title) {
+      const titleMatch = response.match(/["']title["']\s*:\s*["']([^"']+)["']/i);
+      if (titleMatch) {
+        title = titleMatch[1];
+      }
+    }
+    
+    if (!description || description.trim() === '#shorts') {
+      if (title) {
+        description = `${title}\n\n#shorts #viral #youtube #trending`;
+      } else {
+        description = '#shorts #viral #youtube #trending';
+      }
+    }
+    
+    res.json({
+      success: true,
+      title: title || 'Título não gerado',
+      description: description || 'Descrição não gerada',
+      rawResponse: response // Incluir resposta bruta para debug
+    });
+  } catch (error) {
+    console.error('❌ Erro no teste:', error);
+    res.json({ 
+      success: false, 
+      error: error.message, 
+      stack: error.stack 
+    });
+  }
+});
+
 // Rota de teste para Gemini - geração de conteúdo com frames
 router.get('/gemini-frames', (req, res) => {
   res.render('test-gemini-frames');
