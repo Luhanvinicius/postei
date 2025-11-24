@@ -28,7 +28,7 @@ Adicione as seguintes variáveis de ambiente:
 
 2. **GEMINI_API_KEY**
    - **Key:** `GEMINI_API_KEY`
-   - **Value:** `AIzaSyCd2F9N7En-T7uxbSQJRpOKzJcUW73fxUU` (sua chave do Gemini)
+   - **Value:** `sua-chave-gemini-aqui` (sua chave do Gemini - obtenha em https://aistudio.google.com/app/apikey)
    - **Environments:** ✅ Production, ✅ Preview, ✅ Development
 
 3. **NODE_ENV**

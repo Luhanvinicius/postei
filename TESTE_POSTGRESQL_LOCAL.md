@@ -44,7 +44,7 @@ DATABASE_URL=postgresql://postgres:SUA_SENHA@localhost:5432/youtube_automation
 SESSION_SECRET=859ccf81c6ebc0251e9ab411a069544851472e140572898c2c9ec4c0d29fba02
 
 # API Key do Gemini
-GEMINI_API_KEY=AIzaSyCd2F9N7En-T7uxbSQJRpOKzJcUW73fxUU
+GEMINI_API_KEY=sua-chave-gemini-aqui
 ```
 
 **Substitua:**
