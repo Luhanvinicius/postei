@@ -23,7 +23,35 @@ async function authenticateYouTube(userId, credentialsPath, req = null) {
     
     // Detectar se está em produção (Render/Vercel) ou local
     const isProduction = process.env.RENDER || process.env.VERCEL || process.env.NODE_ENV === 'production';
-    const baseUrl = process.env.BASE_URL || (isProduction ? (process.env.RENDER_EXTERNAL_URL || process.env.VERCEL_URL || '') : 'http://localhost:3000');
+    
+    // Obter URL base - prioridade: BASE_URL > RENDER_EXTERNAL_URL > VERCEL_URL > req.headers > localhost
+    let baseUrl = process.env.BASE_URL;
+    if (!baseUrl && isProduction) {
+      baseUrl = process.env.RENDER_EXTERNAL_URL || process.env.VERCEL_URL || '';
+      
+      // Se ainda não encontrou, tentar construir a partir dos headers da requisição
+      if (!baseUrl && req && req.headers && req.headers.host) {
+        const protocol = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http') || 'https';
+        baseUrl = `${protocol}://${req.headers.host}`;
+        console.log('🔍 URL construída a partir dos headers da requisição:', baseUrl);
+      }
+    }
+    
+    if (!baseUrl) {
+      baseUrl = 'http://localhost:3000';
+    }
+    
+    console.log('🔍 Debug - Detecção de URL:', {
+      isProduction,
+      RENDER: process.env.RENDER,
+      VERCEL: process.env.VERCEL,
+      RENDER_EXTERNAL_URL: process.env.RENDER_EXTERNAL_URL,
+      VERCEL_URL: process.env.VERCEL_URL,
+      BASE_URL: process.env.BASE_URL,
+      baseUrlFinal: baseUrl,
+      hasReq: !!req,
+      reqHost: req?.headers?.host
+    });
     
     let redirectUri = process.env.YOUTUBE_REDIRECT_URI;
     
@@ -39,22 +67,29 @@ async function authenticateYouTube(userId, credentialsPath, req = null) {
         }
         console.log('📱 Detectado: Aplicação Desktop - usando', redirectUri);
       } else if (isWebApp) {
-        // Para aplicações web, tentar pegar do arquivo ou usar padrão
-        const redirectUris = userCredentials.web?.redirect_uris || [];
-        if (redirectUris.length > 0) {
-          redirectUri = redirectUris[0];
-          if (redirectUri === 'http://localhost') {
-            redirectUri = 'http://localhost:3000/user/auth/callback';
-          }
+        // Para aplicações web, em produção SEMPRE usar URL do ambiente, não do arquivo
+        if (isProduction && baseUrl) {
+          // Em produção, ignorar redirect URIs do arquivo e usar URL do ambiente
+          redirectUri = `${baseUrl}/user/auth/callback`;
+          console.log('🌐 Detectado: Aplicação Web em Produção - usando URL do ambiente:', redirectUri);
         } else {
-          // Usar URL base do ambiente
-          if (isProduction && baseUrl) {
-            redirectUri = `${baseUrl}/user/auth/callback`;
+          // Local: tentar pegar do arquivo ou usar padrão
+          const redirectUris = userCredentials.web?.redirect_uris || [];
+          if (redirectUris.length > 0) {
+            // Procurar por localhost no array
+            const localhostUri = redirectUris.find(uri => uri.includes('localhost'));
+            if (localhostUri) {
+              redirectUri = localhostUri === 'http://localhost' 
+                ? 'http://localhost:3000/user/auth/callback'
+                : localhostUri;
+            } else {
+              redirectUri = redirectUris[0];
+            }
           } else {
             redirectUri = 'http://localhost:3000/user/auth/callback';
           }
+          console.log('🌐 Detectado: Aplicação Web Local');
         }
-        console.log('🌐 Detectado: Aplicação Web');
       } else {
         // Fallback: assumir desktop se não detectar
         if (isProduction && baseUrl) {
