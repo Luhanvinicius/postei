@@ -237,22 +237,29 @@ async function handleAuthCallback(userId, code) {
         }
         console.log('📱 Detectado: Aplicação Desktop - usando', redirectUri);
       } else if (isWebApp) {
-        // Para aplicações web, tentar pegar do arquivo ou usar padrão
-        const redirectUris = userCredentials.web?.redirect_uris || [];
-        if (redirectUris.length > 0) {
-          redirectUri = redirectUris[0];
-          if (redirectUri === 'http://localhost') {
-            redirectUri = 'http://localhost:3000/user/auth/callback';
-          }
+        // Para aplicações web, em produção SEMPRE usar URL do ambiente, não do arquivo
+        if (isProduction && baseUrl) {
+          // Em produção, ignorar redirect URIs do arquivo e usar URL do ambiente
+          redirectUri = `${baseUrl}/user/auth/callback`;
+          console.log('🌐 Detectado: Aplicação Web em Produção - usando URL do ambiente:', redirectUri);
         } else {
-          // Usar URL base do ambiente
-          if (isProduction && baseUrl) {
-            redirectUri = `${baseUrl}/user/auth/callback`;
+          // Local: tentar pegar do arquivo ou usar padrão
+          const redirectUris = userCredentials.web?.redirect_uris || [];
+          if (redirectUris.length > 0) {
+            // Procurar por localhost no array
+            const localhostUri = redirectUris.find(uri => uri.includes('localhost'));
+            if (localhostUri) {
+              redirectUri = localhostUri === 'http://localhost' 
+                ? 'http://localhost:3000/user/auth/callback'
+                : localhostUri;
+            } else {
+              redirectUri = redirectUris[0];
+            }
           } else {
             redirectUri = 'http://localhost:3000/user/auth/callback';
           }
+          console.log('🌐 Detectado: Aplicação Web Local');
         }
-        console.log('🌐 Detectado: Aplicação Web');
       } else {
         // Fallback: assumir desktop se não detectar
         if (isProduction && baseUrl) {
@@ -273,7 +280,12 @@ async function handleAuthCallback(userId, code) {
       redirectUri
     );
 
+    console.log('🔄 Tentando trocar código OAuth por tokens...');
+    console.log('🔑 Client ID:', clientId);
+    console.log('🔗 Redirect URI usado no callback:', redirectUri);
+    
     const { tokens } = await oauth2Client.getToken(code);
+    console.log('✅ Tokens recebidos com sucesso!');
     oauth2Client.setCredentials(tokens);
 
     // Salvar refresh token no banco
