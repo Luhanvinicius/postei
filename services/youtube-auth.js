@@ -18,20 +18,37 @@ async function authenticateYouTube(userId, credentialsPath) {
     }
 
     // Usar redirect_uri do arquivo ou padrão
+    // Detectar se está em produção (Render/Vercel) ou local
+    const isProduction = process.env.RENDER || process.env.VERCEL || process.env.NODE_ENV === 'production';
+    const baseUrl = process.env.BASE_URL || (isProduction ? (process.env.RENDER_EXTERNAL_URL || process.env.VERCEL_URL || '') : 'http://localhost:3000');
+    
     let redirectUri = process.env.YOUTUBE_REDIRECT_URI;
     if (!redirectUri) {
       // Tentar pegar do arquivo
       const redirectUris = userCredentials.installed?.redirect_uris || userCredentials.web?.redirect_uris || [];
       if (redirectUris.length > 0) {
         redirectUri = redirectUris[0];
-        // Se for apenas "http://localhost", adicionar porta e path
-        if (redirectUri === 'http://localhost') {
-          redirectUri = 'http://localhost:3000/user/auth/callback';
+        // Se for apenas "http://localhost", ajustar para o ambiente correto
+        if (redirectUri === 'http://localhost' || redirectUri.includes('localhost')) {
+          if (isProduction && baseUrl) {
+            redirectUri = `${baseUrl}/user/auth/callback`;
+          } else {
+            redirectUri = 'http://localhost:3000/user/auth/callback';
+          }
         }
       } else {
-        redirectUri = 'http://localhost:3000/user/auth/callback';
+        // Usar URL base do ambiente
+        if (isProduction && baseUrl) {
+          redirectUri = `${baseUrl}/user/auth/callback`;
+        } else {
+          redirectUri = 'http://localhost:3000/user/auth/callback';
+        }
       }
     }
+    
+    console.log('🔗 Ambiente:', isProduction ? 'Produção' : 'Local');
+    console.log('🔗 Base URL:', baseUrl);
+    console.log('🔗 Redirect URI usado:', redirectUri);
     const oauth2Client = new google.auth.OAuth2(
       clientId,
       clientSecret,
@@ -144,18 +161,36 @@ async function handleAuthCallback(userId, code) {
     }
 
     // Usar redirect_uri do arquivo ou padrão
+    // Detectar se está em produção (Render/Vercel) ou local
+    const isProduction = process.env.RENDER || process.env.VERCEL || process.env.NODE_ENV === 'production';
+    const baseUrl = process.env.BASE_URL || (isProduction ? (process.env.RENDER_EXTERNAL_URL || process.env.VERCEL_URL || '') : 'http://localhost:3000');
+    
     let redirectUri = process.env.YOUTUBE_REDIRECT_URI;
     if (!redirectUri) {
       const redirectUris = userCredentials.installed?.redirect_uris || userCredentials.web?.redirect_uris || [];
       if (redirectUris.length > 0) {
         redirectUri = redirectUris[0];
-        if (redirectUri === 'http://localhost') {
-          redirectUri = 'http://localhost:3000/user/auth/callback';
+        // Se for apenas "http://localhost", ajustar para o ambiente correto
+        if (redirectUri === 'http://localhost' || redirectUri.includes('localhost')) {
+          if (isProduction && baseUrl) {
+            redirectUri = `${baseUrl}/user/auth/callback`;
+          } else {
+            redirectUri = 'http://localhost:3000/user/auth/callback';
+          }
         }
       } else {
-        redirectUri = 'http://localhost:3000/user/auth/callback';
+        // Usar URL base do ambiente
+        if (isProduction && baseUrl) {
+          redirectUri = `${baseUrl}/user/auth/callback`;
+        } else {
+          redirectUri = 'http://localhost:3000/user/auth/callback';
+        }
       }
     }
+    
+    console.log('🔗 Ambiente:', isProduction ? 'Produção' : 'Local');
+    console.log('🔗 Base URL:', baseUrl);
+    console.log('🔗 Redirect URI usado:', redirectUri);
     const oauth2Client = new google.auth.OAuth2(
       clientId,
       clientSecret,

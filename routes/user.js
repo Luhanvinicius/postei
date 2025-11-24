@@ -255,18 +255,41 @@ router.get('/auth/callback', async (req, res) => {
     const result = await handleAuthCallback(userId, code);
 
     if (result.success) {
-      // Atualizar no banco
-      configs.updateAuth(
-        userId,
-        true,
-        result.channelId,
-        result.channelName,
-        result.refreshToken,
-        result.accessToken
-      );
-      res.redirect('/user/dashboard?success=authenticated');
+      console.log('✅ Autenticação bem-sucedida! Canal:', result.channelName);
+      console.log('📝 Salvando no banco de dados...');
+      
+      // Atualizar no banco (pode ser async no PostgreSQL)
+      try {
+        if (configs.updateAuth.constructor.name === 'AsyncFunction') {
+          await configs.updateAuth(
+            userId,
+            true,
+            result.channelId,
+            result.channelName,
+            result.refreshToken,
+            result.accessToken
+          );
+        } else {
+          configs.updateAuth(
+            userId,
+            true,
+            result.channelId,
+            result.channelName,
+            result.refreshToken,
+            result.accessToken
+          );
+        }
+        console.log('✅ Dados salvos no banco com sucesso!');
+      } catch (updateError) {
+        console.error('❌ Erro ao salvar no banco:', updateError);
+        return res.redirect('/user/accounts?error=' + encodeURIComponent('Erro ao salvar autenticação: ' + updateError.message));
+      }
+      
+      // Redirecionar para a página de contas para mostrar o status atualizado
+      res.redirect('/user/accounts?success=authenticated');
     } else {
-      res.redirect('/user/dashboard?error=' + encodeURIComponent(result.error || 'Erro ao autenticar'));
+      console.error('❌ Erro na autenticação:', result.error);
+      res.redirect('/user/accounts?error=' + encodeURIComponent(result.error || 'Erro ao autenticar'));
     }
   } catch (error) {
     console.error('❌ Erro no callback:', error);
