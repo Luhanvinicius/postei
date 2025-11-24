@@ -28,13 +28,16 @@ const requireAuth = async (req, res, next) => {
   if (req.user.role !== 'admin' && req.user.payment_status === 'pending') {
     // SEMPRE permitir acesso às rotas de pagamento (checkout, pending, webhook)
     // Isso permite que o usuário complete o pagamento ou crie nova fatura
-    if (req.path.startsWith('/payment/') || req.path.startsWith('/auth/logout')) {
-      console.log('✅ Permitindo acesso à rota de pagamento:', req.path);
+    const path = req.path || req.originalUrl?.split('?')[0] || '';
+    console.log('🔍 Verificando acesso - Path:', path, 'OriginalUrl:', req.originalUrl);
+    
+    if (path.startsWith('/payment/') || path.startsWith('/auth/logout')) {
+      console.log('✅ Permitindo acesso à rota de pagamento:', path);
       return next();
     }
     
     // Permitir acesso à home (/) para escolher plano
-    if (req.path === '/' || req.path === '') {
+    if (path === '/' || path === '') {
       return next();
     }
     
