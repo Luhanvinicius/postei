@@ -66,43 +66,43 @@ const attachUser = (req, res, next) => {
   // 1. PRIMEIRO: Tentar pegar da query string (para navegação normal - mais comum)
   if (req.query && req.query.token) {
     const tokenValue = req.query.token;
-    console.log('🔍 Tentando verificar token da query string...', tokenValue ? 'Token presente' : 'Token ausente');
-    user = verifyToken(tokenValue);
-    if (user) {
-      console.log('✅ Usuário autenticado via query token:', user.username, 'URL:', req.url);
-    } else {
-      console.log('❌ Token da query string inválido ou expirado. Token recebido:', tokenValue ? tokenValue.substring(0, 20) + '...' : 'null');
+    if (tokenValue && typeof tokenValue === 'string' && tokenValue.trim() !== '') {
+      user = verifyToken(tokenValue);
+      if (user) {
+        console.log('✅ Usuário autenticado via query token:', user.username, 'URL:', req.url);
+      } else {
+        console.log('❌ Token da query string inválido ou expirado');
+      }
     }
   }
   
   // 2. SEGUNDO: Tentar pegar token do header Authorization (para AJAX/fetch)
   if (!user && req.headers.authorization) {
-    console.log('🔍 Tentando verificar token do header Authorization...');
     user = verifyToken(req.headers.authorization);
     if (user) {
       console.log('✅ Usuário autenticado via header Authorization:', user.username);
-    } else {
-      console.log('❌ Token do header Authorization inválido ou expirado');
     }
   }
   
   // 3. TERCEIRO: Tentar pegar do body (para formulários POST)
   if (!user && req.body && req.body.token) {
-    console.log('🔍 Tentando verificar token do body...');
     user = verifyToken(req.body.token);
     if (user) {
       console.log('✅ Usuário autenticado via body token:', user.username);
-    } else {
-      console.log('❌ Token do body inválido ou expirado');
     }
   }
   
   req.user = user;
   
-  if (!user && !req.url.includes('/auth/login') && !req.url.includes('/css/') && !req.url.includes('/js/') && !req.url.includes('/images/')) {
+  // Log apenas para rotas protegidas sem autenticação
+  if (!user && 
+      !req.url.includes('/auth/login') && 
+      !req.url.includes('/auth/register') &&
+      !req.url.includes('/css/') && 
+      !req.url.includes('/js/') && 
+      !req.url.includes('/images/') &&
+      !req.url.includes('/favicon.ico')) {
     console.log('⚠️  Nenhum token válido encontrado na requisição:', req.url);
-    console.log('   Query:', req.query);
-    console.log('   Headers Authorization:', req.headers.authorization ? 'present' : 'missing');
   }
   
   next();
