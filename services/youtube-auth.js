@@ -29,10 +29,15 @@ async function authenticateYouTube(userId, credentialsPath) {
     
     if (!redirectUri) {
       if (isDesktopApp) {
-        // Para aplicações desktop, usar http://localhost (não precisa configurar no Google Cloud Console)
-        // O Google aceita automaticamente http://localhost para desktop apps
-        redirectUri = 'http://localhost/user/auth/callback';
-        console.log('📱 Detectado: Aplicação Desktop - usando http://localhost');
+        // Para aplicações desktop, usar http://localhost:PORT (não precisa configurar no Google Cloud Console)
+        // O Google aceita automaticamente http://localhost ou http://localhost:PORT para desktop apps
+        if (isProduction && baseUrl) {
+          redirectUri = `${baseUrl}/user/auth/callback`;
+        } else {
+          // Local: usar porta 3000
+          redirectUri = 'http://localhost:3000/user/auth/callback';
+        }
+        console.log('📱 Detectado: Aplicação Desktop - usando', redirectUri);
       } else if (isWebApp) {
         // Para aplicações web, tentar pegar do arquivo ou usar padrão
         const redirectUris = userCredentials.web?.redirect_uris || [];
@@ -52,8 +57,12 @@ async function authenticateYouTube(userId, credentialsPath) {
         console.log('🌐 Detectado: Aplicação Web');
       } else {
         // Fallback: assumir desktop se não detectar
-        redirectUri = 'http://localhost/user/auth/callback';
-        console.log('⚠️  Tipo não detectado, assumindo Desktop');
+        if (isProduction && baseUrl) {
+          redirectUri = `${baseUrl}/user/auth/callback`;
+        } else {
+          redirectUri = 'http://localhost:3000/user/auth/callback';
+        }
+        console.log('⚠️  Tipo não detectado, assumindo Desktop - usando', redirectUri);
       }
     }
     
@@ -183,10 +192,15 @@ async function handleAuthCallback(userId, code) {
     
     if (!redirectUri) {
       if (isDesktopApp) {
-        // Para aplicações desktop, usar http://localhost (não precisa configurar no Google Cloud Console)
-        // O Google aceita automaticamente http://localhost para desktop apps
-        redirectUri = 'http://localhost/user/auth/callback';
-        console.log('📱 Detectado: Aplicação Desktop - usando http://localhost');
+        // Para aplicações desktop, usar http://localhost:PORT (não precisa configurar no Google Cloud Console)
+        // O Google aceita automaticamente http://localhost ou http://localhost:PORT para desktop apps
+        if (isProduction && baseUrl) {
+          redirectUri = `${baseUrl}/user/auth/callback`;
+        } else {
+          // Local: usar porta 3000
+          redirectUri = 'http://localhost:3000/user/auth/callback';
+        }
+        console.log('📱 Detectado: Aplicação Desktop - usando', redirectUri);
       } else if (isWebApp) {
         // Para aplicações web, tentar pegar do arquivo ou usar padrão
         const redirectUris = userCredentials.web?.redirect_uris || [];
@@ -206,8 +220,12 @@ async function handleAuthCallback(userId, code) {
         console.log('🌐 Detectado: Aplicação Web');
       } else {
         // Fallback: assumir desktop se não detectar
-        redirectUri = 'http://localhost/user/auth/callback';
-        console.log('⚠️  Tipo não detectado, assumindo Desktop');
+        if (isProduction && baseUrl) {
+          redirectUri = `${baseUrl}/user/auth/callback`;
+        } else {
+          redirectUri = 'http://localhost:3000/user/auth/callback';
+        }
+        console.log('⚠️  Tipo não detectado, assumindo Desktop - usando', redirectUri);
       }
     }
     
