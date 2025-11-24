@@ -370,135 +370,166 @@ async function generateContentWithGemini(videoPath, videoName) {
     let title = null;
     let description = '#shorts';
 
-    // Tentar até 3 vezes para evitar títulos genéricos
-    for (let attempt = 0; attempt < 3; attempt++) {
-      let prompt = '';
-
-      if (frames.length > 0) {
-        console.log(`👁️  GEMINI VISION ATIVO! Analisando ${frames.length} frames do vídeo: ${videoName}`);
-        console.log(`👁️  O Gemini vai VER o conteúdo real do vídeo e criar título baseado no que vê!`);
-        
-        // Modo visual - analisar frames (igual bot antigo)
-        const frameData = await Promise.all(
-          frames.map(async (framePath) => {
-            try {
-              if (!fs.existsSync(framePath)) {
-                console.error(`⚠️  Frame não existe: ${framePath}`);
-                return null;
-              }
-              const imageData = await fs.readFile(framePath);
-              console.log(`✅ Frame carregado: ${framePath} (${imageData.length} bytes)`);
-              return {
-                inlineData: {
-                  data: imageData.toString('base64'),
-                  mimeType: 'image/jpeg'
-                }
-              };
-            } catch (error) {
-              console.error(`⚠️  Erro ao carregar frame ${framePath}:`, error);
-              return null;
-            }
-          })
-        );
-        
-        // Remove frames nulos
-        const validFrameData = frameData.filter(f => f !== null);
-        console.log(`📸 Frames válidos para análise: ${validFrameData.length}/${frames.length}`);
-        
-        if (validFrameData.length === 0) {
-          console.error('❌ NENHUM FRAME VÁLIDO PARA ANÁLISE! Caindo para modo texto...');
-          // Não limpar frames aqui, apenas marcar que não temos dados válidos
-          // Isso vai fazer cair no else abaixo
-        } else {
-          console.log(`✅ ${validFrameData.length} frames prontos para enviar ao Gemini!`);
+    // ===== REFATORAÇÃO COMPLETA: VALIDAR FRAMES PRIMEIRO =====
+    console.log('\n🔍 ===== VALIDAÇÃO DE FRAMES =====');
+    console.log(`📸 Total de frames extraídos: ${frames.length}`);
+    
+    if (frames.length === 0) {
+      console.error('❌ ERRO CRÍTICO: NENHUM FRAME FOI EXTRAÍDO!');
+      console.error('   O Gemini NÃO pode analisar o vídeo sem frames!');
+      throw new Error('Nenhum frame disponível para análise visual. Verifique se o FFmpeg está funcionando corretamente.');
+    }
+    
+    // Carregar e validar TODOS os frames ANTES de enviar
+    console.log('📤 Carregando frames para envio ao Gemini...');
+    const frameData = await Promise.all(
+      frames.map(async (framePath, index) => {
+        try {
+          if (!fs.existsSync(framePath)) {
+            console.error(`❌ Frame ${index + 1} não existe: ${framePath}`);
+            return null;
+          }
           
-          // Continuar apenas se tiver frames válidos
-          if (validFrameData.length > 0) {
-            // Prompt REFORMULADO - foco total na análise visual
-            prompt = `ANÁLISE VISUAL OBRIGATÓRIA - Você está vendo ${validFrameData.length} frame(s) REAL(is) de um vídeo do YouTube Shorts.
+          const imageData = await fs.readFile(framePath);
+          const base64Data = imageData.toString('base64');
+          
+          console.log(`✅ Frame ${index + 1} carregado:`);
+          console.log(`   - Caminho: ${framePath}`);
+          console.log(`   - Tamanho original: ${imageData.length} bytes`);
+          console.log(`   - Tamanho base64: ${base64Data.length} caracteres`);
+          console.log(`   - Primeiros 50 chars base64: ${base64Data.substring(0, 50)}...`);
+          
+          return {
+            inlineData: {
+              data: base64Data,
+              mimeType: 'image/jpeg'
+            }
+          };
+        } catch (error) {
+          console.error(`❌ Erro ao carregar frame ${index + 1}:`, error);
+          return null;
+        }
+      })
+    );
+    
+    // Remover frames nulos
+    const validFrameData = frameData.filter(f => f !== null);
+    console.log(`\n✅ VALIDAÇÃO CONCLUÍDA:`);
+    console.log(`   - Frames válidos: ${validFrameData.length}/${frames.length}`);
+    console.log(`   - Frames nulos: ${frames.length - validFrameData.length}`);
+    
+    if (validFrameData.length === 0) {
+      console.error('❌ ERRO CRÍTICO: NENHUM FRAME VÁLIDO PARA ENVIAR AO GEMINI!');
+      throw new Error('Nenhum frame válido disponível. Verifique se os frames foram extraídos corretamente.');
+    }
+    
+    // Validar que os dados base64 estão presentes
+    console.log('\n🔍 Validando dados dos frames...');
+    validFrameData.forEach((frame, idx) => {
+      if (!frame.inlineData || !frame.inlineData.data) {
+        console.error(`❌ Frame ${idx + 1} não tem dados base64!`);
+      } else {
+        console.log(`✅ Frame ${idx + 1}: Dados base64 presentes (${frame.inlineData.data.length} chars)`);
+      }
+    });
+    
+    console.log('\n✅ TODOS OS FRAMES ESTÃO PRONTOS PARA ENVIO AO GEMINI!');
+    console.log(`📤 Enviando ${validFrameData.length} frame(s) para análise visual...\n`);
+
+    // Tentar até 5 vezes para garantir título baseado em análise visual
+    for (let attempt = 0; attempt < 5; attempt++) {
+      console.log(`\n🔄 ===== TENTATIVA ${attempt + 1}/5 =====`);
+      // PROMPT COMPLETAMENTE REFORMULADO - ANÁLISE VISUAL OBRIGATÓRIA
+      const prompt = `VOCÊ ESTÁ RECEBENDO ${validFrameData.length} IMAGEM(NS) REAL(IS) DE UM VÍDEO DO YOUTUBE SHORTS.
 
 ═══════════════════════════════════════════════════════════════
-INSTRUÇÕES CRÍTICAS - LEIA COM ATENÇÃO:
+⚠️ INSTRUÇÕES CRÍTICAS - LEIA COM MUITA ATENÇÃO:
 ═══════════════════════════════════════════════════════════════
 
-1. OLHE ATENTAMENTE para CADA frame acima
-2. DESCREVA EXATAMENTE o que você VÊ:
-   - Quem aparece? (pessoa, personagem, ator)
-   - O que está acontecendo? (ação, cena, situação)
-   - Qual é o contexto? (filme, série, tutorial, etc.)
-   - Qual é a emoção/cenário? (ação, drama, comédia, suspense)
+PASSO 1: OLHE PARA AS IMAGENS ACIMA
+- Você está vendo frames reais do vídeo
+- Analise CADA imagem individualmente
+- Identifique: pessoas, objetos, ações, cenários, emoções
 
-3. CRIE um título ESPECÍFICO baseado APENAS no que você VÊ:
-   - NÃO use fórmulas genéricas
-   - NÃO use "Por que X está viralizando?"
-   - NÃO use "Você não vai acreditar"
-   - SEJA ESPECÍFICO sobre o conteúdo visual
+PASSO 2: DESCREVA O QUE VOCÊ VÊ
+Responda mentalmente:
+- Quem aparece nas imagens? (ator, personagem, pessoa)
+- O que está acontecendo? (ação, cena, situação específica)
+- Qual é o contexto? (filme, série, tutorial, vlog, etc.)
+- Qual é a emoção/cenário? (ação, drama, comédia, suspense, etc.)
 
-4. EXEMPLOS DE TÍTULOS CORRETOS (baseados no que você vê):
-   - Se vê um personagem específico: "A cena mais icônica de [personagem]! 🎬"
-   - Se vê uma ação: "Como [ação específica] foi filmada! 🎥"
-   - Se vê uma cena emocional: "O momento que mudou tudo! 💔"
-   - Se vê um tutorial: "Aprenda [técnica específica] em 30 segundos! 🎓"
-   - Se vê algo engraçado: "A reação mais inesperada! 😂"
-   - Se vê um produto: "Este [produto] vai surpreender você! 🛍️"
-
-5. PROIBIÇÕES ABSOLUTAS:
-   ❌ "Por que [palavra] está viralizando?"
-   ❌ "Você não vai acreditar"
-   ❌ "Isso vai mudar tudo"
-   ❌ Qualquer título genérico que não descreva o conteúdo visual
-   ❌ Títulos baseados apenas no nome do arquivo
+PASSO 3: CRIE UM TÍTULO ESPECÍFICO
+Baseado APENAS no que você VÊ nas imagens:
+- Se vê um personagem específico: "A cena mais épica de [nome do personagem]! 🎬"
+- Se vê uma ação específica: "Como [ação] foi filmada! 🎥"
+- Se vê uma cena emocional: "O momento que mudou tudo! 💔"
+- Se vê algo engraçado: "A reação mais inesperada! 😂"
+- Se vê um produto: "Este [produto] vai surpreender! 🛍️"
+- Se vê uma cena de ação: "A cena mais épica que você vai ver! 💥"
 
 ═══════════════════════════════════════════════════════════════
-SUA TAREFA:
+❌ PROIBIÇÕES ABSOLUTAS - NUNCA USE:
 ═══════════════════════════════════════════════════════════════
 
-1. Analise CADA frame individualmente
-2. Identifique o CONTEÚDO PRINCIPAL que aparece
-3. Crie um título ESPECÍFICO e CRIATIVO baseado no que você REALMENTE vê
-4. Use emojis relevantes ao conteúdo visual
-5. Seja ORIGINAL - cada vídeo é único!
+NUNCA crie títulos com:
+- "Por que [palavra] está viralizando?"
+- "Por que [palavra] está viral?"
+- "Você não vai acreditar"
+- "Isso vai mudar tudo"
+- Qualquer fórmula genérica
+- Títulos baseados no nome do arquivo
 
-Nome do arquivo (apenas para referência, NÃO use no título): ${videoName}
+Se você usar qualquer uma dessas fórmulas, seu título será REJEITADO.
 
 ═══════════════════════════════════════════════════════════════
-FORMATO DE RESPOSTA (OBRIGATÓRIO):
+✅ O QUE FAZER:
 ═══════════════════════════════════════════════════════════════
 
-Responda APENAS em JSON válido (sem markdown, sem código, sem explicações):
+1. Analise as imagens acima
+2. Identifique o conteúdo visual específico
+3. Crie um título que descreva EXATAMENTE o que você vê
+4. Use emojis relevantes ao conteúdo
+5. Seja CRIATIVO e ESPECÍFICO
+
+Nome do arquivo (NÃO use no título, apenas referência): ${videoName}
+
+═══════════════════════════════════════════════════════════════
+FORMATO DE RESPOSTA:
+═══════════════════════════════════════════════════════════════
+
+Responda APENAS em JSON válido (sem markdown, sem código):
 
 {
-    "title": "título específico e criativo baseado EXCLUSIVAMENTE no conteúdo visual que você vê nos frames acima",
-    "description": "#shorts descrição detalhada do conteúdo visual com hashtags relevantes"
-}
+    "title": "título específico baseado no que você VÊ nas imagens acima",
+    "description": "#shorts descrição do conteúdo visual com hashtags"
+}`;
 
-IMPORTANTE: O título DEVE descrever o que você VÊ nas imagens, não o nome do arquivo!`;
-
-        console.log('🤖 Enviando frames para análise do Gemini...');
-        console.log(`   Modelo: gemini-2.0-flash`);
-        console.log(`   Frames válidos: ${validFrameData.length}`);
-        console.log(`   Prompt length: ${prompt.length}`);
-        
-        try {
-          // Envia frames + prompt (igual bot antigo)
-          if (validFrameData.length === 0) {
-            throw new Error('Nenhum frame válido para enviar ao Gemini');
+      console.log('📤 Enviando frames + prompt para Gemini Vision...');
+      console.log(`   Modelo: gemini-2.0-flash (Vision)`);
+      console.log(`   Frames: ${validFrameData.length}`);
+      console.log(`   Prompt: ${prompt.length} caracteres`);
+      
+      try {
+        // VALIDAÇÃO FINAL ANTES DE ENVIAR
+        console.log('\n🔍 Validação final antes de enviar:');
+        validFrameData.forEach((frame, idx) => {
+          if (!frame.inlineData || !frame.inlineData.data) {
+            throw new Error(`Frame ${idx + 1} não tem dados base64!`);
           }
-          console.log(`📤 Enviando ${validFrameData.length} frames + prompt para Gemini...`);
-          console.log(`📸 Frames sendo enviados:`);
-          validFrameData.forEach((frame, idx) => {
-            console.log(`   Frame ${idx + 1}: ${frame.inlineData ? 'Dados base64 presentes (' + (frame.inlineData.data.length) + ' chars)' : 'SEM DADOS'}`);
-          });
-          console.log(`📝 Prompt sendo enviado (${prompt.length} caracteres):`);
-          console.log(prompt.substring(0, 300) + '...');
-          
-          const result = await model.generateContent([...validFrameData, prompt]);
-          const response = result.response.text();
-          
-          console.log('✅ Resposta recebida do Gemini!');
-          console.log('📝 Resposta completa:', response);
-          console.log('📝 Primeiros 200 caracteres:', response.substring(0, 200));
-          console.log('📝 Últimos 200 caracteres:', response.substring(Math.max(0, response.length - 200)));
+          console.log(`   ✅ Frame ${idx + 1}: OK (${frame.inlineData.data.length} chars base64)`);
+        });
+        
+        console.log('\n📤 ENVIANDO PARA GEMINI VISION...');
+        console.log('   ⚠️  O Gemini DEVE analisar as imagens e criar título baseado no conteúdo visual!');
+        
+        // Enviar frames PRIMEIRO, depois o prompt
+        const result = await model.generateContent([...validFrameData, prompt]);
+        const response = result.response.text();
+        
+        console.log('\n✅ Resposta recebida do Gemini Vision!');
+        console.log(`📝 Tamanho da resposta: ${response.length} caracteres`);
+        console.log(`📝 Primeiros 300 caracteres: ${response.substring(0, 300)}`);
+        console.log(`📝 Últimos 200 caracteres: ${response.substring(Math.max(0, response.length - 200))}`);
           
           // Parse JSON - tentar múltiplas formas
           console.log('🔍 Tentando fazer parse da resposta do Gemini...');
@@ -533,21 +564,29 @@ IMPORTANTE: O título DEVE descrever o que você VÊ nas imagens, não o nome do
               console.log(`✅ Título extraído do JSON: "${title}"`);
               console.log(`   - Tamanho: ${title ? title.length : 0} caracteres`);
               
-              // VALIDAÇÃO IMEDIATA - Se for genérico, NÃO aceitar e continuar loop
+              // VALIDAÇÃO IMEDIATA E RIGOROSA
               if (title) {
-                const titleLower = title.toLowerCase();
-                const isGeneric = titleLower.includes('viralizando') || 
-                                 (titleLower.includes('por que') && titleLower.includes('viral')) ||
-                                 titleLower.includes('por que') && titleLower.includes('está viralizando');
+                const titleLower = title.toLowerCase().trim();
                 
-                if (isGeneric) {
-                  console.error(`❌ TÍTULO GENÉRICO DETECTADO: "${title}"`);
-                  console.error(`   - Contém "viralizando": ${titleLower.includes('viralizando')}`);
-                  console.error(`   - Contém "por que": ${titleLower.includes('por que')}`);
-                  console.error(`   - Este título será REJEITADO e tentaremos novamente!`);
+                // Padrões genéricos CRÍTICOS
+                const criticalPatterns = [
+                  /por que.*viralizando/i,
+                  /por que.*viral/i,
+                  /viralizando/i,
+                  /está viralizando/i
+                ];
+                
+                const isCriticalGeneric = criticalPatterns.some(pattern => pattern.test(titleLower));
+                
+                if (isCriticalGeneric) {
+                  console.error(`\n❌❌❌ TÍTULO GENÉRICO CRÍTICO REJEITADO! ❌❌❌`);
+                  console.error(`   Título: "${title}"`);
+                  console.error(`   Padrão detectado: ${criticalPatterns.find(p => p.test(titleLower))}`);
+                  console.error(`   ⚠️  Este título será REJEITADO e tentaremos novamente!`);
+                  console.error(`   ⚠️  O Gemini NÃO analisou os frames corretamente!`);
                   title = null; // Forçar nova tentativa
                 } else {
-                  console.log(`✅ Título parece válido (não genérico)`);
+                  console.log(`✅ Título parece válido (não contém padrões genéricos críticos)`);
                 }
               }
               
@@ -792,20 +831,21 @@ Responda APENAS em formato JSON:
       }
     }
 
-    // Fallback se ainda for genérico ou vazio
-    if (!title || title.length < 5) {
-      console.warn('⚠️  Título ainda está vazio ou muito curto após todas as tentativas');
-      console.warn(`   Título atual: "${title}"`);
-      console.warn('   Usando fallback baseado no nome do arquivo...');
+      console.error('\n❌ ERRO CRÍTICO: Não foi possível gerar título válido após 5 tentativas!');
+      console.error('   Isso indica que:');
+      console.error('   1. O Gemini não está analisando os frames corretamente');
+      console.error('   2. Os frames podem não estar sendo enviados corretamente');
+      console.error('   3. O prompt pode não estar sendo seguido');
       
+      // Fallback criativo SEM usar padrões genéricos
       const nameClean = videoName.replace(/\.[^/.]+$/, '').replace(/[()]/g, ' ').trim();
       const words = nameClean.split(/\s+/).filter(w => w.length > 2);
       if (words.length > 0) {
-        title = `Por que ${words[0]} está viralizando? 🚀`;
+        title = `A cena mais icônica de ${words[0]}! 🎬`;
       } else {
-        title = 'Conteúdo que você precisa ver! 🚀';
+        title = 'Conteúdo exclusivo que você precisa ver! 🎥';
       }
-      console.log(`✅ Título fallback gerado: ${title}`);
+      console.warn(`⚠️  Usando fallback criativo: "${title}"`);
     }
     
     // Garantir que description não está vazia
