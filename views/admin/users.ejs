@@ -31,7 +31,7 @@
                                 <td><%= u.username %></td>
                                 <td><%= u.email %></td>
                                 <td><span class="badge bg-<%= u.role === 'admin' ? 'danger' : 'primary' %>"><%= u.role %></span></td>
-                                <td><%= new Date(u.createdAt).toLocaleDateString('pt-BR') %></td>
+                                <td><%= new Date(u.created_at || u.createdAt).toLocaleDateString('pt-BR') %></td>
                                 <td>
                                     <div class="btn-group" role="group">
                                         <button class="btn btn-sm btn-<%= u.role === 'admin' ? 'warning' : 'success' %>" 
