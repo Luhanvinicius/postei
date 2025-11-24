@@ -184,6 +184,27 @@ if (!isVercel) {
   // Iniciar scheduler apenas em desenvolvimento/local
   // No Vercel, use Vercel Cron Jobs (vercel.json)
   require('./services/scheduler').start();
+  
+  // Iniciar processamento periódico de agendamentos (gera conteúdo 10 min antes)
+  const { processPendingAI } = require('./services/scheduler-service');
+  
+  // Processar imediatamente ao iniciar (após 5 segundos para o banco inicializar)
+  setTimeout(() => {
+    console.log('🔄 Iniciando processamento de agendamentos...');
+    processPendingAI().catch(err => {
+      console.error('❌ Erro no processamento inicial:', err);
+    });
+  }, 5000);
+  
+  // Processar a cada 2 minutos (verifica vídeos que estão 10 min antes)
+  setInterval(() => {
+    console.log('🔄 Verificando agendamentos que precisam de conteúdo com IA...');
+    processPendingAI().catch(err => {
+      console.error('❌ Erro no processamento periódico:', err);
+    });
+  }, 2 * 60 * 1000); // 2 minutos
+  
+  console.log('✅ Processamento periódico de agendamentos iniciado (a cada 2 minutos)');
 }
 
 // Exportar app para Vercel
