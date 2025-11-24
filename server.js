@@ -10,8 +10,8 @@ require('dotenv').config();
 // Inicializar banco de dados ANTES de carregar rotas
 const db = require('./database');
 
-// Importar middlewares de autenticação (ANTES de usar)
-const { attachUser, requireAuth, requireAdmin } = require('./middleware/auth');
+// Importar middlewares de autenticação
+const { requireAuth, requireAdmin } = require('./middleware/auth');
 
 // Garantir que o banco está inicializado antes de processar requisições
 let dbReady = false;
