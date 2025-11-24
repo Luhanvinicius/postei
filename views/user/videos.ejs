@@ -631,77 +631,77 @@
                     btn.textContent = '🤖 Gerar com IA';
 
                     if (data.success) {
-                    console.log('✅ Conteúdo gerado:', data);
+                        console.log('✅ Conteúdo gerado:', data);
                     
-                    // Guardar conteúdo gerado no vídeo (mesmo formato do bot antigo)
-                    const generatedContent = {
-                        title: data.title,
-                        description: data.description,
-                        thumbnail_path: data.thumbnail_path
-                    };
-                    currentVideos[index].generatedContent = generatedContent;
-                    currentAIVideoIndex = index;
-                    
-                    // Preencher modal de resultado
-                    document.getElementById('aiResultTitle').value = data.title || '';
-                    document.getElementById('aiResultDescription').value = data.description || '';
-                    
-                    // Processar thumbnail - usar diretamente a URL retornada pelo backend
-                    const thumbnailSection = document.getElementById('thumbnailSection');
-                    let thumbnailUrl = '';
-                    
-                    console.log('🔍 Verificando thumbnail_path:', data.thumbnail_path);
-                    
-                    if (data.thumbnail_path) {
-                        // O backend já retorna a URL relativa correta (/thumbnails/nome_arquivo.jpg)
-                        // Não precisa reconstruir, usar diretamente
-                        thumbnailUrl = data.thumbnail_path;
+                        // Guardar conteúdo gerado no vídeo (mesmo formato do bot antigo)
+                        const generatedContent = {
+                            title: data.title,
+                            description: data.description,
+                            thumbnail_path: data.thumbnail_path
+                        };
+                        currentVideos[index].generatedContent = generatedContent;
+                        currentAIVideoIndex = index;
                         
-                        console.log('📸 Thumbnail encontrado:', {
-                            thumbnail_path: data.thumbnail_path,
-                            thumbnailUrl: thumbnailUrl
-                        });
+                        // Preencher modal de resultado
+                        document.getElementById('aiResultTitle').value = data.title || '';
+                        document.getElementById('aiResultDescription').value = data.description || '';
                         
-                        // Mostrar thumbnail
-                        const thumbnailImg = document.getElementById('aiResultThumbnail');
-                        if (thumbnailImg) {
-                            // Limpar src anterior para forçar recarregamento
-                            thumbnailImg.src = '';
+                        // Processar thumbnail - usar diretamente a URL retornada pelo backend
+                        const thumbnailSection = document.getElementById('thumbnailSection');
+                        let thumbnailUrl = '';
+                        
+                        console.log('🔍 Verificando thumbnail_path:', data.thumbnail_path);
+                        
+                        if (data.thumbnail_path) {
+                            // O backend já retorna a URL relativa correta (/thumbnails/nome_arquivo.jpg)
+                            // Não precisa reconstruir, usar diretamente
+                            thumbnailUrl = data.thumbnail_path;
                             
-                            // Configurar handlers ANTES de definir o src
-                            thumbnailImg.onerror = function() {
-                                console.error('❌ Erro ao carregar thumbnail:', thumbnailUrl);
-                                console.error('   URL tentada:', this.src);
-                                this.style.display = 'none';
-                                const errorMsg = document.getElementById('thumbnailError');
-                                if (errorMsg) errorMsg.style.display = 'block';
-                            };
+                            console.log('📸 Thumbnail encontrado:', {
+                                thumbnail_path: data.thumbnail_path,
+                                thumbnailUrl: thumbnailUrl
+                            });
                             
-                            thumbnailImg.onload = function() {
-                                console.log('✅ Thumbnail carregado com sucesso:', thumbnailUrl);
-                                this.style.display = 'block';
-                                const errorMsg = document.getElementById('thumbnailError');
-                                if (errorMsg) errorMsg.style.display = 'none';
-                            };
+                            // Mostrar thumbnail
+                            const thumbnailImg = document.getElementById('aiResultThumbnail');
+                            if (thumbnailImg) {
+                                // Limpar src anterior para forçar recarregamento
+                                thumbnailImg.src = '';
+                                
+                                // Configurar handlers ANTES de definir o src
+                                thumbnailImg.onerror = function() {
+                                    console.error('❌ Erro ao carregar thumbnail:', thumbnailUrl);
+                                    console.error('   URL tentada:', this.src);
+                                    this.style.display = 'none';
+                                    const errorMsg = document.getElementById('thumbnailError');
+                                    if (errorMsg) errorMsg.style.display = 'block';
+                                };
+                                
+                                thumbnailImg.onload = function() {
+                                    console.log('✅ Thumbnail carregado com sucesso:', thumbnailUrl);
+                                    this.style.display = 'block';
+                                    const errorMsg = document.getElementById('thumbnailError');
+                                    if (errorMsg) errorMsg.style.display = 'none';
+                                };
+                                
+                                // Definir src com timestamp para evitar cache
+                                thumbnailImg.src = thumbnailUrl + '?t=' + Date.now();
+                                thumbnailImg.style.display = 'block';
+                            }
                             
-                            // Definir src com timestamp para evitar cache
-                            thumbnailImg.src = thumbnailUrl + '?t=' + Date.now();
-                            thumbnailImg.style.display = 'block';
+                            thumbnailSection.style.display = 'block';
+                            
+                            // Guardar URL do thumbnail
+                            currentVideos[index].generatedContent.thumbnailUrl = thumbnailUrl;
+                            currentVideos[index].generatedContent.thumbnail_path = data.thumbnail_path;
+                        } else {
+                            console.warn('⚠️  Nenhum thumbnail retornado (thumbnail_path é null ou vazio)');
+                            thumbnailSection.style.display = 'none';
                         }
                         
-                        thumbnailSection.style.display = 'block';
-                        
-                        // Guardar URL do thumbnail
-                        currentVideos[index].generatedContent.thumbnailUrl = thumbnailUrl;
-                        currentVideos[index].generatedContent.thumbnail_path = data.thumbnail_path;
+                        // Mostrar modal
+                        new bootstrap.Modal(document.getElementById('aiResultModal')).show();
                     } else {
-                        console.warn('⚠️  Nenhum thumbnail retornado (thumbnail_path é null ou vazio)');
-                        thumbnailSection.style.display = 'none';
-                    }
-                    
-                    // Mostrar modal
-                    new bootstrap.Modal(document.getElementById('aiResultModal')).show();
-                } else {
                     // Mostrar erro em modal também
                     const errorModal = document.createElement('div');
                     errorModal.className = 'modal fade';
