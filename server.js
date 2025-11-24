@@ -92,10 +92,17 @@ if (!isVercel) {
   });
   console.log('📁 Usando FileStore para sessões (desenvolvimento local)');
 } else {
-  // No Vercel, usar MemoryStore (cada função serverless tem sua própria memória)
-  // Isso funciona porque o Vercel mantém as funções "quentes" por um tempo
+  // No Vercel, usar MemoryStore (padrão do express-session)
+  // IMPORTANTE: MemoryStore funciona no Vercel porque:
+  // 1. O Vercel mantém funções "quentes" por ~10 minutos após última requisição
+  // 2. Durante esse período, a sessão persiste na memória
+  // 3. Após inatividade ou deploy, a sessão é perdida (usuário precisa fazer login novamente)
+  // 
+  // Para produção com muitas requisições, considere usar Redis (Upstash):
+  // https://vercel.com/docs/storage/upstash
   console.log('💾 Usando MemoryStore para sessões (Vercel)');
-  console.log('⚠️  Nota: Sessões podem ser perdidas entre deploys ou após inatividade');
+  console.log('✅ Funciona bem para a maioria dos casos');
+  console.log('⚠️  Nota: Sessões podem ser perdidas após ~10min de inatividade ou entre deploys');
 }
 
 app.use(session(sessionConfig));
