@@ -216,9 +216,9 @@ function initDatabase() {
     const bcrypt = require('bcryptjs');
     const hashedPassword = bcrypt.hashSync('admin123', 10);
     db.prepare(`
-      INSERT INTO users (username, email, password, role)
-      VALUES (?, ?, ?, ?)
-    `).run('admin', 'admin@example.com', hashedPassword, 'admin');
+      INSERT INTO users (username, email, password, role, payment_status)
+      VALUES (?, ?, ?, ?, ?)
+    `).run('admin', 'admin@example.com', hashedPassword, 'admin', 'paid');
     console.log('✅ Usuário admin criado: admin / admin123');
   }
 
@@ -235,8 +235,8 @@ const userQueries = {
   findByEmail: db.prepare('SELECT * FROM users WHERE email = ?'),
   findById: db.prepare('SELECT * FROM users WHERE id = ?'),
   create: db.prepare(`
-    INSERT INTO users (username, email, password, role)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO users (username, email, password, role, payment_status)
+    VALUES (?, ?, ?, ?, 'pending')
   `),
   delete: db.prepare('DELETE FROM users WHERE id = ?'),
   getAll: db.prepare('SELECT id, username, email, role, created_at FROM users ORDER BY id'),
