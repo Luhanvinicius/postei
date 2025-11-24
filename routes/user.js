@@ -885,6 +885,26 @@ router.get('/published', async (req, res) => {
   });
 });
 
+// API: Obter dados de vídeos publicados (para filtro)
+router.get('/published-videos-data', async (req, res) => {
+  const userId = req.user.id;
+  const { published } = require('../database');
+  
+  // Buscar vídeos publicados (pode ser async no PostgreSQL)
+  let userPublished = [];
+  try {
+    if (published.findByUserId.constructor.name === 'AsyncFunction') {
+      userPublished = await published.findByUserId(userId);
+    } else {
+      userPublished = published.findByUserId(userId);
+    }
+  } catch (err) {
+    userPublished = published.findByUserId(userId);
+  }
+  
+  res.json({ success: true, videos: userPublished });
+});
+
 // Página de perfil
 router.get('/profile', async (req, res) => {
   const userId = req.user.id;
