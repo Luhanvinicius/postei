@@ -46,11 +46,30 @@ if (!ffprobePath) {
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-if (!GEMINI_API_KEY) {
-  console.warn('⚠️  GEMINI_API_KEY não configurada');
-}
+// VALIDAÇÃO DO MÓDULO GEMINI
+let genAI = null;
+let geminiModuleAvailable = false;
 
-const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
+try {
+  // Verificar se o módulo está instalado
+  const geminiModule = require('@google/generative-ai');
+  geminiModuleAvailable = !!geminiModule;
+  console.log('✅ Módulo @google/generative-ai está instalado');
+  
+  if (GEMINI_API_KEY) {
+    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    console.log('✅ Gemini API inicializada com sucesso');
+  } else {
+    console.warn('⚠️  GEMINI_API_KEY não configurada');
+  }
+} catch (err) {
+  console.error('❌ ERRO: Módulo @google/generative-ai NÃO está instalado!');
+  console.error('   Erro:', err.message);
+  console.error('   Stack:', err.stack);
+  console.error('   SOLUÇÃO: Execute "npm install @google/generative-ai"');
+  geminiModuleAvailable = false;
+  genAI = null;
+}
 
 // Função para garantir que FFmpeg está configurado
 function ensureFFmpegConfigured() {
@@ -284,13 +303,22 @@ async function generateContentWithGemini(videoPath, videoName) {
   const videoStats = fs.statSync(videoPath);
   console.log(`📊 Tamanho do vídeo: ${(videoStats.size / (1024 * 1024)).toFixed(2)} MB`);
   
+  // VALIDAÇÃO DO GEMINI
+  if (!geminiModuleAvailable) {
+    console.error('❌ Módulo @google/generative-ai não está instalado!');
+    console.error('   Execute: npm install @google/generative-ai');
+    throw new Error('Módulo Gemini não está instalado. Execute: npm install @google/generative-ai');
+  }
+  
+  if (!GEMINI_API_KEY) {
+    console.error('❌ GEMINI_API_KEY não configurada!');
+    console.error('   Configure a variável de ambiente GEMINI_API_KEY');
+    throw new Error('GEMINI_API_KEY não configurada');
+  }
+  
   if (!genAI) {
-    console.error('❌ Gemini não está configurado! Verifique GEMINI_API_KEY no .env');
-    return {
-      title: videoName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
-      description: '#shorts',
-      thumbnail_path: null
-    };
+    console.error('❌ Gemini não está inicializado!');
+    throw new Error('Gemini não está inicializado');
   }
 
   try {
@@ -441,33 +469,65 @@ async function generateContentWithGemini(videoPath, videoName) {
     console.log(`📸 Total de frames: ${validFrameData.length}`);
     console.log(`🎬 Modelo: gemini-2.0-flash (Vision)`);
     
-    // Prompt mais simples e direto - força análise visual
-    const prompt = `Analise as ${validFrameData.length} imagem(ns) acima que são frames reais de um vídeo do YouTube Shorts.
+    // PROMPT ULTRA ESPECÍFICO - FORÇA ANÁLISE VISUAL DETALHADA
+    const prompt = `Você está recebendo ${validFrameData.length} imagem(ns) REAL(IS) extraída(s) de um vídeo do YouTube Shorts.
 
-O QUE FAZER:
-1. OLHE ATENTAMENTE para cada imagem
-2. DESCREVA o que você VÊ: pessoas, objetos, ações, cenários, emoções
-3. CRIE um título ESPECÍFICO baseado APENAS no conteúdo visual que você vê
-4. Seja CRIATIVO e FOQUE EM REDES SOCIAIS - títulos que despertam curiosidade
+═══════════════════════════════════════════════════════════════
+⚠️ INSTRUÇÕES OBRIGATÓRIAS - SIGA EXATAMENTE:
+═══════════════════════════════════════════════════════════════
 
-IMPORTANTE:
-- O título DEVE ser baseado no que você VÊ nas imagens
-- Use emojis relevantes ao conteúdo visual
-- Seja ESPECÍFICO - não use fórmulas genéricas
-- Cada vídeo precisa de um título ÚNICO baseado no seu conteúdo visual
+PASSO 1: ANÁLISE VISUAL DETALHADA (OBRIGATÓRIO)
+Para CADA imagem acima, descreva EXATAMENTE o que você vê:
+- Quem aparece? (descreva pessoas, personagens, atores - cor de pele, roupas, idade aproximada)
+- O que estão fazendo? (ações específicas: falando, gesticulando, trabalhando, etc.)
+- Onde estão? (cenário: sala, escritório, rua, estúdio, etc.)
+- Qual é o contexto? (reunião, aula, entrevista, vlog, tutorial, etc.)
+- Qual é a emoção/atmosfera? (sério, engraçado, dramático, educativo, etc.)
 
-NÃO USE:
+PASSO 2: CRIAR TÍTULO ESPECÍFICO BASEADO NO QUE VOCÊ VÊ
+Baseado APENAS na sua análise visual acima, crie um título que:
+- Descreva ESPECIFICAMENTE o conteúdo visual (não genérico!)
+- Seja criativo e chamativo para redes sociais
+- Use emojis relevantes ao conteúdo REAL que você vê
+- Tenha entre 30-60 caracteres
+
+EXEMPLOS DE TÍTULOS ESPECÍFICOS (baseados em análise visual):
+- Se vê pessoas em reunião: "O momento mais tenso da reunião! 😰"
+- Se vê alguém explicando algo: "Como [tema específico] funciona na prática! 💡"
+- Se vê uma cena engraçada: "A reação mais inesperada que você vai ver! 😂"
+- Se vê um tutorial: "Passo a passo que ninguém te ensinou! 🎯"
+
+PASSO 3: CRIAR DESCRIÇÃO DETALHADA
+Crie uma descrição de 2-3 linhas que:
+- Descreva o conteúdo visual do vídeo
+- Inclua hashtags relevantes (#shorts, #viral, etc.)
+- Seja específica baseada no que você VÊ nas imagens
+
+═══════════════════════════════════════════════════════════════
+❌ PROIBIÇÕES ABSOLUTAS:
+═══════════════════════════════════════════════════════════════
+
+NUNCA use:
+- "A cena mais icônica de [palavra genérica]"
 - "Por que [palavra] está viralizando?"
-- "Você não vai acreditar"
-- Títulos genéricos ou baseados apenas no nome do arquivo
+- Títulos baseados apenas no nome do arquivo
+- Títulos genéricos que não descrevem o conteúdo visual
+- Descrições vazias ou apenas "#shorts"
 
-Nome do arquivo (apenas referência, NÃO use no título): ${videoName}
+Se você usar qualquer título genérico, sua resposta será REJEITADA.
 
-Responda APENAS em JSON válido (sem markdown):
+═══════════════════════════════════════════════════════════════
+FORMATO DE RESPOSTA (OBRIGATÓRIO):
+═══════════════════════════════════════════════════════════════
+
+Responda APENAS em JSON válido (sem markdown, sem código):
+
 {
-    "title": "título específico baseado no conteúdo visual das imagens acima",
-    "description": "#shorts descrição do conteúdo com hashtags relevantes"
-}`;
+    "title": "título ESPECÍFICO baseado no conteúdo visual que você VÊ nas imagens acima",
+    "description": "Descrição detalhada de 2-3 linhas do conteúdo visual com hashtags relevantes como #shorts #viral"
+}
+
+Nome do arquivo (NÃO use no título, apenas referência): ${videoName}`;
 
     console.log(`📝 Prompt: ${prompt.length} caracteres`);
     console.log(`📤 Enviando ${validFrameData.length} frame(s) + prompt para Gemini Vision...`);
@@ -521,10 +581,42 @@ Responda APENAS em JSON válido (sem markdown):
           console.log('📦 JSON parseado completo:', JSON.stringify(content, null, 2));
           
           title = content.title || null;
-          description = content.description || content.desc || '#shorts';
+          description = content.description || content.desc || null;
           
           console.log(`✅ Título extraído: "${title}"`);
           console.log(`✅ Descrição extraída: "${description}"`);
+          
+          // VALIDAÇÃO: Rejeitar títulos genéricos
+          if (title) {
+            const titleLower = title.toLowerCase().trim();
+            const genericPatterns = [
+              /cena mais icônica/i,
+              /por que.*viralizando/i,
+              /está viralizando/i,
+              /você não vai acreditar/i
+            ];
+            
+            const isGeneric = genericPatterns.some(pattern => pattern.test(titleLower));
+            
+            if (isGeneric) {
+              console.error(`❌ TÍTULO GENÉRICO REJEITADO: "${title}"`);
+              console.error(`   O Gemini não analisou os frames corretamente!`);
+              title = null; // Forçar nova tentativa ou fallback
+            } else {
+              console.log(`✅ Título parece específico: "${title}"`);
+            }
+          }
+          
+          // VALIDAÇÃO: Garantir que descrição não é apenas "#shorts"
+          if (!description || description.trim() === '#shorts' || description.trim().length < 10) {
+            console.warn('⚠️  Descrição está vazia ou muito genérica, gerando descrição baseada no título...');
+            if (title) {
+              description = `${title}\n\n#shorts #viral #youtube`;
+            } else {
+              description = '#shorts #viral #youtube';
+            }
+            console.log(`✅ Descrição gerada: "${description}"`);
+          }
           
           // Validação mínima - apenas verificar se não está vazio
           if (!title || title.trim().length < 3) {
@@ -537,7 +629,6 @@ Responda APENAS em JSON válido (sem markdown):
               console.log(`✅ Título extraído do texto: "${title}"`);
             }
           } else {
-            // Aceitar o título se não for vazio - confiar no Gemini
             console.log(`✅ Título aceito: "${title}"`);
           }
         } catch (parseError) {
@@ -596,10 +687,16 @@ Responda APENAS em JSON válido (sem markdown):
       console.warn(`⚠️  Usando fallback: "${title}"`);
     }
     
-    // Garantir que description não está vazia
-    if (!description || description.trim().length === 0) {
-      console.warn('⚠️  Descrição está vazia, usando padrão...');
-      description = '#shorts';
+    // Garantir que description não está vazia ou muito genérica
+    if (!description || description.trim().length === 0 || description.trim() === '#shorts') {
+      console.warn('⚠️  Descrição está vazia ou muito genérica, gerando descrição baseada no título...');
+      if (title && title.trim().length > 0) {
+        // Criar descrição baseada no título
+        description = `${title}\n\n#shorts #viral #youtube #trending`;
+      } else {
+        description = '#shorts #viral #youtube #trending';
+      }
+      console.log(`✅ Descrição gerada: "${description}"`);
     }
     
     console.log(`\n✅ ===== RESULTADO FINAL =====`);

@@ -68,6 +68,79 @@ router.post('/test-login', async (req, res) => {
   }
 });
 
+// Rota de teste para validar módulo Gemini
+router.get('/gemini-check', (req, res) => {
+  try {
+    const checks = {
+      moduleInstalled: false,
+      moduleError: null,
+      apiKeyConfigured: false,
+      apiKeyValue: null,
+      genAIInitialized: false,
+      genAIError: null,
+      environment: process.env.NODE_ENV || 'development',
+      isRender: !!process.env.RENDER,
+      isVercel: !!process.env.VERCEL
+    };
+    
+    // Verificar se o módulo está instalado
+    try {
+      const geminiModule = require('@google/generative-ai');
+      checks.moduleInstalled = !!geminiModule;
+      console.log('✅ Módulo @google/generative-ai está instalado');
+    } catch (err) {
+      checks.moduleInstalled = false;
+      checks.moduleError = err.message;
+      console.error('❌ Módulo @google/generative-ai NÃO está instalado:', err.message);
+    }
+    
+    // Verificar API Key
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    checks.apiKeyConfigured = !!GEMINI_API_KEY;
+    if (GEMINI_API_KEY) {
+      checks.apiKeyValue = GEMINI_API_KEY.substring(0, 10) + '...' + GEMINI_API_KEY.substring(GEMINI_API_KEY.length - 4);
+    }
+    
+    // Tentar inicializar Gemini
+    if (checks.moduleInstalled && checks.apiKeyConfigured) {
+      try {
+        const { GoogleGenerativeAI } = require('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        checks.genAIInitialized = !!genAI;
+        console.log('✅ Gemini API inicializada com sucesso');
+      } catch (err) {
+        checks.genAIInitialized = false;
+        checks.genAIError = err.message;
+        console.error('❌ Erro ao inicializar Gemini:', err.message);
+      }
+    }
+    
+    // Status geral
+    const allOk = checks.moduleInstalled && checks.apiKeyConfigured && checks.genAIInitialized;
+    
+    res.json({
+      success: allOk,
+      checks: checks,
+      message: allOk 
+        ? '✅ Gemini está configurado corretamente!' 
+        : '❌ Gemini não está configurado corretamente. Verifique os erros acima.',
+      instructions: !checks.moduleInstalled 
+        ? 'Execute: npm install @google/generative-ai'
+        : !checks.apiKeyConfigured
+        ? 'Configure a variável de ambiente GEMINI_API_KEY'
+        : !checks.genAIInitialized
+        ? 'Erro ao inicializar Gemini. Verifique a API key.'
+        : null
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
 // Rota de teste para Gemini - geração de conteúdo com frames
 router.get('/gemini-frames', (req, res) => {
   res.render('test-gemini-frames');
