@@ -230,19 +230,41 @@
             const files = Array.from(e.target.files);
             const videoExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv'];
             
+            // Extrair pasta base do primeiro arquivo (webkitRelativePath contém o caminho relativo)
+            let baseFolder = null;
+            if (files.length > 0 && files[0].webkitRelativePath) {
+                // webkitRelativePath é algo como "videos/Filmes e Séries (13).mp4"
+                // Extrair a pasta base (tudo antes do último "/")
+                const relativePath = files[0].webkitRelativePath;
+                const lastSlash = relativePath.lastIndexOf('/');
+                if (lastSlash > 0) {
+                    // Tentar obter o caminho real da pasta
+                    // Como não temos acesso ao caminho absoluto via File API, vamos usar apenas o nome do arquivo
+                    // e deixar o servidor resolver usando a pasta padrão
+                    baseFolder = relativePath.substring(0, lastSlash);
+                }
+            }
+            
             // Filtrar apenas vídeos
             const videos = files
                 .filter(file => {
                     const ext = '.' + file.name.split('.').pop().toLowerCase();
                     return videoExtensions.includes(ext);
                 })
-                .map(file => ({
-                    name: file.name,
-                    path: file.webkitRelativePath ? file.webkitRelativePath : file.name,
-                    size: file.size,
-                    sizeMB: (file.size / (1024 * 1024)).toFixed(2),
-                    file: file // Guardar o arquivo para uso posterior
-                }));
+                .map(file => {
+                    // Se temos webkitRelativePath, usar apenas o nome do arquivo
+                    // O servidor vai resolver usando a pasta padrão
+                    // Se não, usar o nome do arquivo diretamente
+                    const videoName = file.name;
+                    return {
+                        name: videoName,
+                        // Usar apenas o nome do arquivo - o servidor vai resolver usando a pasta padrão
+                        path: videoName,
+                        size: file.size,
+                        sizeMB: (file.size / (1024 * 1024)).toFixed(2),
+                        file: file // Guardar o arquivo para uso posterior
+                    };
+                });
 
             if (videos.length === 0) {
                 alert('Nenhum vídeo encontrado nesta pasta.');
