@@ -110,8 +110,8 @@
                                                     <% } %>
                                                 </td>
                                                 <td>
-                                                    <button class="btn btn-sm btn-danger" onclick="deleteVideo(<%= video.id %>)">
-                                                        <i class="bi bi-trash me-1"></i>Deletar
+                                                    <button class="btn btn-sm btn-danger" onclick="deleteVideoFiles(<%= video.id %>)">
+                                                        <i class="bi bi-trash me-1"></i>Deletar Arquivo
                                                     </button>
                                                 </td>
                                             </tr>
@@ -132,8 +132,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        async function deleteVideo(videoId) {
-            if (!confirm('Tem certeza que deseja deletar este vídeo? Esta ação não pode ser desfeita.')) return;
+        async function deleteVideoFiles(videoId) {
+            if (!confirm('Tem certeza que deseja deletar o arquivo físico deste vídeo?\n\nO registro permanecerá no banco de dados, mas o arquivo MP4 será removido do servidor.')) return;
             
             try {
                 const response = await fetch(`/admin/videos/${videoId}`, {
@@ -142,13 +142,13 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('Vídeo deletado com sucesso!');
+                    alert(data.message || 'Arquivos deletados com sucesso! O registro foi mantido no banco.');
                     location.reload();
                 } else {
                     alert('Erro: ' + data.error);
                 }
             } catch (error) {
-                alert('Erro ao deletar vídeo');
+                alert('Erro ao deletar arquivos');
                 console.error(error);
             }
         }

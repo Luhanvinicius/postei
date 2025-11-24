@@ -353,7 +353,7 @@ router.get('/videos', async (req, res) => {
   }
 });
 
-// API: Deletar vídeo publicado
+// API: Deletar arquivo físico do vídeo (mantém registro no banco)
 router.delete('/videos/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -375,18 +375,33 @@ router.delete('/videos/:id', async (req, res) => {
       return res.json({ success: false, error: 'Vídeo não encontrado' });
     }
     
-    // Deletar arquivo físico se existir
+    // Deletar apenas arquivos físicos (mantém registro no banco)
     const fs = require('fs-extra');
     const path = require('path');
+    let deletedFiles = [];
     
+    // Deletar vídeo da pasta posted se existir
     if (video.video_path) {
       const postedPath = path.join(__dirname, '../posted', `user_${video.user_id}`, path.basename(video.video_path));
       if (fs.existsSync(postedPath)) {
         try {
           await fs.remove(postedPath);
-          console.log(`🗑️  Vídeo deletado: ${postedPath}`);
+          deletedFiles.push('vídeo');
+          console.log(`🗑️  Arquivo de vídeo deletado: ${postedPath}`);
         } catch (deleteError) {
-          console.warn(`⚠️  Erro ao deletar arquivo: ${deleteError.message}`);
+          console.warn(`⚠️  Erro ao deletar arquivo de vídeo: ${deleteError.message}`);
+        }
+      }
+      
+      // Também verificar e deletar da pasta videos se ainda existir
+      const videosPath = path.join(__dirname, '../videos', path.basename(video.video_path));
+      if (fs.existsSync(videosPath)) {
+        try {
+          await fs.remove(videosPath);
+          deletedFiles.push('vídeo (pasta videos)');
+          console.log(`🗑️  Arquivo de vídeo deletado da pasta videos: ${videosPath}`);
+        } catch (deleteError) {
+          console.warn(`⚠️  Erro ao deletar vídeo da pasta videos: ${deleteError.message}`);
         }
       }
     }
@@ -396,6 +411,7 @@ router.delete('/videos/:id', async (req, res) => {
       if (fs.existsSync(video.thumbnail_path)) {
         try {
           await fs.remove(video.thumbnail_path);
+          deletedFiles.push('thumbnail');
           console.log(`🗑️  Thumbnail deletado: ${video.thumbnail_path}`);
         } catch (deleteError) {
           console.warn(`⚠️  Erro ao deletar thumbnail: ${deleteError.message}`);
@@ -403,28 +419,21 @@ router.delete('/videos/:id', async (req, res) => {
       }
     }
     
-    // Deletar do banco de dados
-    let deleted;
-    try {
-      if (published.delete.constructor.name === 'AsyncFunction') {
-        deleted = await published.delete(id);
-      } else {
-        deleted = published.delete(id);
-      }
-    } catch (dbError) {
-      console.error('Erro ao deletar do banco:', dbError);
-      return res.json({ success: false, error: 'Erro ao deletar vídeo do banco de dados' });
-    }
+    // NÃO deletar do banco de dados - manter registro como "vídeo postado"
+    console.log(`✅ Arquivos físicos deletados para vídeo ID ${id}. Registro mantido no banco.`);
     
-    if (!deleted) {
-      return res.json({ success: false, error: 'Vídeo não foi deletado do banco de dados' });
-    }
+    const message = deletedFiles.length > 0 
+      ? `Arquivos deletados: ${deletedFiles.join(', ')}. Registro mantido no banco.`
+      : 'Nenhum arquivo físico encontrado para deletar.';
     
-    console.log(`✅ Vídeo deletado: ID ${id}`);
-    res.json({ success: true, message: 'Vídeo deletado com sucesso' });
+    res.json({ 
+      success: true, 
+      message: message,
+      deletedFiles: deletedFiles
+    });
   } catch (error) {
-    console.error('Erro ao deletar vídeo:', error);
-    res.json({ success: false, error: 'Erro ao deletar vídeo: ' + error.message });
+    console.error('Erro ao deletar arquivos do vídeo:', error);
+    res.json({ success: false, error: 'Erro ao deletar arquivos: ' + error.message });
   }
 });
 
