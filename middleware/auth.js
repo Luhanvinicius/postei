@@ -26,34 +26,34 @@ const requireAuth = (req, res, next) => {
   
   // Verificar se o pagamento está pendente (exceto para admins e rotas de pagamento)
   if (req.user.role !== 'admin' && req.user.payment_status === 'pending') {
-    // Permitir acesso às rotas de pagamento
+    // Permitir acesso às rotas de pagamento (checkout, pending, webhook)
     if (req.path.startsWith('/payment/') || req.path.startsWith('/auth/logout')) {
       return next();
     }
     
-    // Verificar se há fatura pendente
+    // Se não for rota de pagamento, verificar se há fatura pendente
+    // Se houver, redirecionar para página de pagamento pendente
+    // Se não houver, permitir acesso ao checkout para criar nova fatura
     const { invoices } = require('../database');
     let pendingInvoice;
     try {
       if (invoices.findByUserId.constructor.name === 'AsyncFunction') {
-        invoices.findByUserId(req.user.id).then(userInvoices => {
-          pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
-          if (pendingInvoice) {
-            return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
-          } else {
-            return res.redirect('/#planos');
-          }
-        }).catch(() => {
-          return res.redirect('/#planos');
-        });
-        return; // Retornar aqui para não continuar
+        const userInvoices = await invoices.findByUserId(req.user.id);
+        pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+        if (pendingInvoice) {
+          return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
+        } else {
+          // Se não tem fatura pendente, permitir acesso (pode ir para checkout)
+          return next();
+        }
       } else {
         const userInvoices = invoices.findByUserId(req.user.id);
         pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
         if (pendingInvoice) {
           return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
         } else {
-          return res.redirect('/#planos');
+          // Se não tem fatura pendente, permitir acesso (pode ir para checkout)
+          return next();
         }
       }
     } catch (err) {
@@ -62,7 +62,8 @@ const requireAuth = (req, res, next) => {
       if (pendingInvoice) {
         return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
       } else {
-        return res.redirect('/#planos');
+        // Se não tem fatura pendente, permitir acesso (pode ir para checkout)
+        return next();
       }
     }
   }
