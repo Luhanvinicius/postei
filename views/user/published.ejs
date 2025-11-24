@@ -37,53 +37,54 @@
                 <div class="card">
                     <div class="card-body">
                         <% if (videos && videos.length > 0) { %>
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Vídeo</th>
-                                            <th>Título</th>
-                                            <th>Publicado em</th>
-                                            <th>Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <% videos.forEach(video => { %>
-                                            <tr>
-                                                <td>
-                                                    <% if (video.video_id) { %>
-                                                        <img src="https://img.youtube.com/vi/<%= video.video_id %>/maxresdefault.jpg" 
-                                                             alt="Thumbnail" 
-                                                             class="img-thumbnail" 
-                                                             style="width: 160px; height: 90px; object-fit: cover; cursor: pointer;"
-                                                             onerror="this.src='https://img.youtube.com/vi/<%= video.video_id %>/hqdefault.jpg';"
-                                                             onclick="window.open('<%= video.video_url %>', '_blank')">
-                                                    <% } else { %>
-                                                        <span class="text-muted">Sem miniatura</span>
-                                                    <% } %>
-                                                </td>
-                                                <td>
-                                                    <strong><%= video.title %></strong>
-                                                    <% if (video.description) { %>
-                                                        <br><small class="text-muted"><%= video.description.substring(0, 100) %><% if (video.description.length > 100) { %>...<% } %></small>
-                                                    <% } %>
-                                                </td>
-                                                <td>
-                                                    <%= new Date(video.published_at).toLocaleString('pt-BR') %>
-                                                </td>
-                                                <td>
-                                                    <a href="<%= video.video_url %>" 
-                                                       target="_blank" class="btn btn-sm btn-success">
-                                                        ▶ Ver no YouTube
-                                                    </a>
-                                                </td>
-                                            </tr>
-                                        <% }); %>
-                                    </tbody>
-                                </table>
+                            <div class="row">
+                                <% videos.forEach(video => { %>
+                                    <div class="col-md-6 col-lg-4 mb-4">
+                                        <div class="card h-100">
+                                            <% if (video.video_id) { %>
+                                                <a href="<%= video.video_url %>" target="_blank" style="text-decoration: none;">
+                                                    <img src="https://img.youtube.com/vi/<%= video.video_id %>/maxresdefault.jpg" 
+                                                         alt="Thumbnail" 
+                                                         class="card-img-top" 
+                                                         style="width: 100%; height: 200px; object-fit: cover; cursor: pointer;"
+                                                         onerror="this.src='https://img.youtube.com/vi/<%= video.video_id %>/hqdefault.jpg';">
+                                                </a>
+                                            <% } else { %>
+                                                <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center" style="height: 200px;">
+                                                    <span class="text-white">Sem miniatura</span>
+                                                </div>
+                                            <% } %>
+                                            <div class="card-body">
+                                                <h5 class="card-title"><%= video.title %></h5>
+                                                <% if (video.description) { %>
+                                                    <p class="card-text text-muted small">
+                                                        <%= video.description.substring(0, 150) %><% if (video.description.length > 150) { %>...<% } %>
+                                                    </p>
+                                                <% } %>
+                                                <p class="card-text">
+                                                    <small class="text-muted">
+                                                        📅 <%= new Date(video.published_at).toLocaleString('pt-BR') %>
+                                                    </small>
+                                                </p>
+                                            </div>
+                                            <div class="card-footer">
+                                                <a href="<%= video.video_url %>" 
+                                                   target="_blank" 
+                                                   class="btn btn-success btn-sm w-100">
+                                                    ▶ Ver no YouTube
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <% }); %>
                             </div>
                         <% } else { %>
-                            <p class="text-muted">Nenhum vídeo publicado ainda.</p>
+                            <div class="text-center py-5">
+                                <div class="mb-3">
+                                    <span style="font-size: 64px;">✅</span>
+                                </div>
+                                <p class="text-muted fs-5">Nenhum vídeo publicado ainda.</p>
+                            </div>
                         <% } %>
                     </div>
                 </div>
