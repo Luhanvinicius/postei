@@ -414,47 +414,65 @@ async function generateContentWithGemini(videoPath, videoName) {
           
           // Continuar apenas se tiver frames válidos
           if (validFrameData.length > 0) {
-            // Prompt focado em redes sociais - igual bot antigo
-            prompt = `Você está vendo frames reais de um vídeo do YouTube Shorts.
+            // Prompt REFORMULADO - foco total na análise visual
+            prompt = `ANÁLISE VISUAL OBRIGATÓRIA - Você está vendo ${validFrameData.length} frame(s) REAL(is) de um vídeo do YouTube Shorts.
 
+═══════════════════════════════════════════════════════════════
+INSTRUÇÕES CRÍTICAS - LEIA COM ATENÇÃO:
+═══════════════════════════════════════════════════════════════
+
+1. OLHE ATENTAMENTE para CADA frame acima
+2. DESCREVA EXATAMENTE o que você VÊ:
+   - Quem aparece? (pessoa, personagem, ator)
+   - O que está acontecendo? (ação, cena, situação)
+   - Qual é o contexto? (filme, série, tutorial, etc.)
+   - Qual é a emoção/cenário? (ação, drama, comédia, suspense)
+
+3. CRIE um título ESPECÍFICO baseado APENAS no que você VÊ:
+   - NÃO use fórmulas genéricas
+   - NÃO use "Por que X está viralizando?"
+   - NÃO use "Você não vai acreditar"
+   - SEJA ESPECÍFICO sobre o conteúdo visual
+
+4. EXEMPLOS DE TÍTULOS CORRETOS (baseados no que você vê):
+   - Se vê um personagem específico: "A cena mais icônica de [personagem]! 🎬"
+   - Se vê uma ação: "Como [ação específica] foi filmada! 🎥"
+   - Se vê uma cena emocional: "O momento que mudou tudo! 💔"
+   - Se vê um tutorial: "Aprenda [técnica específica] em 30 segundos! 🎓"
+   - Se vê algo engraçado: "A reação mais inesperada! 😂"
+   - Se vê um produto: "Este [produto] vai surpreender você! 🛍️"
+
+5. PROIBIÇÕES ABSOLUTAS:
+   ❌ "Por que [palavra] está viralizando?"
+   ❌ "Você não vai acreditar"
+   ❌ "Isso vai mudar tudo"
+   ❌ Qualquer título genérico que não descreva o conteúdo visual
+   ❌ Títulos baseados apenas no nome do arquivo
+
+═══════════════════════════════════════════════════════════════
 SUA TAREFA:
-Analise ATENTAMENTE o que você VÊ nas imagens acima e crie um título e descrição COMPLETAMENTE ÚNICOS baseados APENAS no conteúdo visual que você observa.
+═══════════════════════════════════════════════════════════════
 
-IMPORTANTE:
-- Você TEM LIBERDADE TOTAL para criar títulos criativos e chamativos
-- Foque em criar títulos que funcionem bem em redes sociais (curiosidade, emoção, impacto)
-- Cada vídeo é ÚNICO - crie algo específico baseado no que você REALMENTE vê
-- Use emojis relevantes ao conteúdo visual
-- Seja ESPECÍFICO sobre o que aparece nas imagens
+1. Analise CADA frame individualmente
+2. Identifique o CONTEÚDO PRINCIPAL que aparece
+3. Crie um título ESPECÍFICO e CRIATIVO baseado no que você REALMENTE vê
+4. Use emojis relevantes ao conteúdo visual
+5. Seja ORIGINAL - cada vídeo é único!
 
-O QUE FAZER:
-✅ Analise CADA frame - o que você REALMENTE vê?
-✅ Identifique o CONTEÚDO PRINCIPAL do vídeo
-✅ Crie um título que desperte CURIOSIDADE e seja ESPECÍFICO ao conteúdo
-✅ Use linguagem natural e envolvente para redes sociais
-✅ Seja CRIATIVO e ORIGINAL
+Nome do arquivo (apenas para referência, NÃO use no título): ${videoName}
 
-EXEMPLOS (baseado no que você vê):
-- Se vê uma pessoa fazendo algo interessante: "Como [pessoa] faz [ação] de forma incrível! 🤯"
-- Se vê uma cena emocionante: "Isso aconteceu e você não vai acreditar! 😱"
-- Se vê algo educativo: "Aprenda [técnica] em segundos! 🎓"
-- Se vê algo engraçado: "Isso é mais engraçado do que parece! 😂"
-- Se vê um produto/objeto: "Você precisa conhecer isso! 🛍️"
-- Se vê uma cena de ação: "A cena mais épica que você vai ver! 💥"
+═══════════════════════════════════════════════════════════════
+FORMATO DE RESPOSTA (OBRIGATÓRIO):
+═══════════════════════════════════════════════════════════════
 
-⚠️ NÃO USE:
-- Títulos genéricos como "Por que [palavra] está viralizando?"
-- Títulos que não descrevem o conteúdo visual
-- Fórmulas repetitivas
+Responda APENAS em JSON válido (sem markdown, sem código, sem explicações):
 
-Informações técnicas:
-- Nome do arquivo: ${videoName}
-
-Responda APENAS em formato JSON (sem markdown, sem código):
 {
-    "title": "título criativo e específico baseado no conteúdo visual que você vê, focado em redes sociais",
-    "description": "#shorts #viral descrição detalhada com hashtags relevantes ao conteúdo visual"
-}`;
+    "title": "título específico e criativo baseado EXCLUSIVAMENTE no conteúdo visual que você vê nos frames acima",
+    "description": "#shorts descrição detalhada do conteúdo visual com hashtags relevantes"
+}
+
+IMPORTANTE: O título DEVE descrever o que você VÊ nas imagens, não o nome do arquivo!`;
 
         console.log('🤖 Enviando frames para análise do Gemini...');
         console.log(`   Modelo: gemini-2.0-flash`);
@@ -507,21 +525,40 @@ Responda APENAS em formato JSON (sem markdown, sem código):
               console.log('📝 JSON encontrado:', jsonStr.substring(0, 200));
               
               const content = JSON.parse(jsonStr);
-              title = content.title || content.title || null;
+              console.log('📦 JSON parseado completo:', JSON.stringify(content, null, 2));
+              
+              title = content.title || null;
               description = content.description || content.desc || '#shorts';
               
-              console.log(`✅ Título extraído: ${title}`);
-              console.log(`✅ Descrição extraída: ${description.substring(0, 50)}...`);
+              console.log(`✅ Título extraído do JSON: "${title}"`);
+              console.log(`   - Tamanho: ${title ? title.length : 0} caracteres`);
+              console.log(`   - Contém "viralizando"? ${title ? title.toLowerCase().includes('viralizando') : false}`);
+              console.log(`   - Contém "por que"? ${title ? title.toLowerCase().includes('por que') : false}`);
+              console.log(`✅ Descrição extraída: "${description}"`);
               
-              // Validar se título foi extraído
-              if (!title || title.length < 3) {
+              // Validar se título foi extraído e não é genérico
+              if (!title || title.trim().length < 3) {
                 console.warn('⚠️  Título extraído está vazio ou muito curto, tentando extrair do texto...');
+                console.warn(`   Título atual: "${title}"`);
                 // Tentar extrair título do texto da resposta
                 const titleMatch = response.match(/["']title["']\s*:\s*["']([^"']+)["']/i) || 
                                   response.match(/title["']?\s*:\s*["']([^"']+)["']/i);
                 if (titleMatch) {
                   title = titleMatch[1];
-                  console.log(`✅ Título extraído do texto: ${title}`);
+                  console.log(`✅ Título extraído do texto: "${title}"`);
+                } else {
+                  console.error('❌ Não foi possível extrair título do texto');
+                }
+              } else {
+                // Verificar se o título parece ser baseado no nome do arquivo
+                const fileNameLower = videoName.toLowerCase().replace(/\.[^/.]+$/, '');
+                const titleLower = title.toLowerCase();
+                if (titleLower.includes(fileNameLower) && fileNameLower.length > 5) {
+                  console.warn(`⚠️  ATENÇÃO: Título parece ser baseado no nome do arquivo, não no conteúdo visual!`);
+                  console.warn(`   Nome do arquivo: "${fileNameLower}"`);
+                  console.warn(`   Título: "${titleLower}"`);
+                } else {
+                  console.log(`✅ Título parece ser baseado no conteúdo visual (não apenas no nome do arquivo)`);
                 }
               }
             } catch (parseError) {
@@ -630,18 +667,55 @@ Responda APENAS em formato JSON:
         }
       }
 
-      // Validar se não é genérico
+      // Validar se não é genérico - VALIDAÇÃO MAIS RIGOROSA
       if (title) {
         const titleLower = title.toLowerCase();
-        const isGeneric = genericPatterns.some(pattern => titleLower.includes(pattern));
         
-        if (!isGeneric) {
+        // Padrões genéricos a rejeitar
+        const genericPatterns = [
+          'por que',
+          'viralizando',
+          'viral',
+          'você não vai acreditar',
+          'não vai acreditar',
+          'isso vai mudar',
+          'você precisa ver',
+          'isso é incrível', // muito genérico
+          'você precisa saber' // muito genérico
+        ];
+        
+        // Verificar se contém padrões genéricos
+        const containsGeneric = genericPatterns.some(pattern => titleLower.includes(pattern));
+        
+        // Verificar se o título contém apenas o nome do arquivo (sem análise visual)
+        const fileNameWords = videoName.toLowerCase().replace(/\.[^/.]+$/, '').split(/[\s_\-()]+/).filter(w => w.length > 2);
+        const titleWords = titleLower.split(/[\s\-_()]+/).filter(w => w.length > 2);
+        const isJustFileName = fileNameWords.length > 0 && fileNameWords.every(word => titleWords.includes(word));
+        
+        // Verificar se é muito curto (menos de 15 caracteres geralmente é genérico)
+        const isTooShort = title.length < 15;
+        
+        if (!containsGeneric && !isJustFileName && !isTooShort) {
+          console.log(`✅ Título aprovado: "${title}"`);
+          console.log(`   - Não contém padrões genéricos`);
+          console.log(`   - Não é apenas nome do arquivo`);
+          console.log(`   - Tamanho adequado (${title.length} caracteres)`);
           break; // Título OK
         }
         
         if (attempt < 2) {
-          console.log(`⚠️  Título genérico detectado, tentando novamente...`);
+          console.log(`⚠️  Título rejeitado na tentativa ${attempt + 1}/3:`);
+          if (containsGeneric) console.log(`   - Contém padrões genéricos`);
+          if (isJustFileName) console.log(`   - É apenas nome do arquivo`);
+          if (isTooShort) console.log(`   - Muito curto (${title.length} caracteres)`);
+          console.log(`   - Título rejeitado: "${title}"`);
+          console.log(`   - Tentando novamente...`);
+        } else {
+          console.warn(`⚠️  Título genérico após 3 tentativas, mas aceitando: "${title}"`);
+          break; // Aceitar mesmo sendo genérico após 3 tentativas
         }
+      } else {
+        console.warn(`⚠️  Título vazio na tentativa ${attempt + 1}`);
       }
     }
 
