@@ -175,15 +175,32 @@ router.post('/authenticate', async (req, res) => {
     const authResult = await authenticateYouTube(userId, dbConfig.config_path);
     
     if (authResult.success) {
-      // Atualizar no banco
-      configs.updateAuth(
-        userId,
-        true,
-        authResult.channelId,
-        authResult.channelName,
-        authResult.refreshToken || dbConfig.refresh_token,
-        authResult.accessToken || dbConfig.access_token
-      );
+      // Atualizar no banco (pode ser async no PostgreSQL)
+      try {
+        if (configs.updateAuth.constructor.name === 'AsyncFunction') {
+          await configs.updateAuth(
+            userId,
+            true,
+            authResult.channelId,
+            authResult.channelName,
+            authResult.refreshToken || dbConfig.refresh_token,
+            authResult.accessToken || dbConfig.access_token
+          );
+        } else {
+          configs.updateAuth(
+            userId,
+            true,
+            authResult.channelId,
+            authResult.channelName,
+            authResult.refreshToken || dbConfig.refresh_token,
+            authResult.accessToken || dbConfig.access_token
+          );
+        }
+        console.log('✅ Autenticação salva no banco com sucesso!');
+      } catch (updateError) {
+        console.error('❌ Erro ao salvar no banco:', updateError);
+        return res.json({ success: false, error: 'Erro ao salvar autenticação: ' + updateError.message });
+      }
 
       res.json({ 
         success: true, 
