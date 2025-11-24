@@ -227,19 +227,13 @@ router.post('/register', async (req, res) => {
       payment_status: 'pending'
     };
 
-    // Salvar sessão antes de redirecionar
-    req.session.save((err) => {
-      if (err) {
-        console.error('❌ Erro ao salvar sessão no registro:', err);
-        return res.render('auth/register', { error: 'Erro ao criar sessão. Tente novamente.', plan: plan || null });
-      }
-      
-      console.log('✅ Sessão criada no registro');
-      console.log('🔀 Redirecionando para checkout:', `/payment/checkout/${plan}`);
-      
-      // Redirecionar para checkout com o plano selecionado
-      res.redirect(`/payment/checkout/${plan}`);
-    });
+    console.log('✅ Usuário criado:', createdUser.username);
+    console.log('📝 Payment Status:', 'pending');
+    console.log('🔀 Redirecionando para checkout:', `/payment/checkout/${plan}`);
+    
+    // Redirecionar para checkout com o plano selecionado
+    // A sessão será salva automaticamente pelo express-session
+    res.redirect(`/payment/checkout/${plan}`);
   } catch (error) {
     console.error('Erro no registro:', error);
     res.render('auth/register', { error: 'Erro ao criar conta: ' + error.message, plan: plan || null });
