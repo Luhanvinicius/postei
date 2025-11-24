@@ -592,7 +592,14 @@ module.exports = {
   users: userQueries,
   configs: configQueries,
   schedules: scheduleQueries,
-  published: publishedQueries,
+  published: {
+    findByUserId: publishedQueries.findByUserId,
+    create: publishedQueries.create,
+    findByVideoId: publishedQueries.findByVideoId,
+    findById: publishedQueries.findById,
+    delete: publishedQueries.delete,
+    findAll: publishedQueries.findAll
+  },
   plans: planQueries,
   subscriptions: subscriptionQueries,
   invoices: invoiceQueries
