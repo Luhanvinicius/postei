@@ -79,8 +79,44 @@ router.post('/login', async (req, res) => {
       
       console.log('✅ Sessão criada com sucesso');
       
-      // Redirecionar
-      const redirectUrl = user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
+      // Verificar payment_status e redirecionar adequadamente
+      let redirectUrl;
+      
+      if (user.role === 'admin') {
+        // Admin sempre vai para dashboard
+        redirectUrl = '/admin/dashboard';
+      } else if (paymentStatus === 'pending') {
+        // Usuário com pagamento pendente - verificar se tem fatura
+        const { invoices } = require('../database');
+        let pendingInvoice = null;
+        
+        try {
+          let userInvoices;
+          if (invoices.findByUserId.constructor.name === 'AsyncFunction') {
+            userInvoices = await invoices.findByUserId(user.id);
+          } else {
+            userInvoices = invoices.findByUserId(user.id);
+          }
+          
+          pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+        } catch (err) {
+          console.error('Erro ao buscar faturas no login:', err);
+        }
+        
+        if (pendingInvoice) {
+          // Se tem fatura pendente, ir para página de pagamento pendente
+          redirectUrl = `/payment/pending?invoice=${pendingInvoice.id}`;
+          console.log('🔀 Usuário com pagamento pendente - redirecionando para:', redirectUrl);
+        } else {
+          // Se não tem fatura, ir para home para escolher plano
+          redirectUrl = '/#planos';
+          console.log('🔀 Usuário sem fatura - redirecionando para escolher plano');
+        }
+      } else {
+        // Usuário com pagamento confirmado - ir para dashboard
+        redirectUrl = '/user/dashboard';
+      }
+      
       console.log('🔀 Redirecionando para:', redirectUrl);
       res.redirect(redirectUrl);
     });
