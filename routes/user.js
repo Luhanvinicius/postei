@@ -478,9 +478,13 @@ router.post('/videos/scan', async (req, res) => {
 
 // API: Gerar conteúdo com IA
 router.post('/videos/generate', async (req, res) => {
-  // Timeout de 5 minutos
-  req.setTimeout(300000); // 5 minutos
+  // Timeout de 10 minutos (Render pode ter timeout menor, então vamos processar rápido)
+  req.setTimeout(600000); // 10 minutos
     
+  // Configurar headers para evitar timeout do Render
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Keep-Alive', 'timeout=600');
+  
   try {
     let { videoPath } = req.body;
     

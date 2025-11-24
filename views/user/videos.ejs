@@ -597,13 +597,35 @@
 
                 btn.textContent = '⏳ Gerando conteúdo...';
                 
-                const response = await fetch('/user/videos/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ videoPath })
-                });
-
-                const data = await response.json();
+                // Timeout de 10 minutos (600 segundos)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 600000);
+                
+                try {
+                    const response = await fetch('/user/videos/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ videoPath }),
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    // Verificar se a resposta é JSON
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        const text = await response.text();
+                        console.error('❌ Resposta não é JSON:', text.substring(0, 200));
+                        throw new Error(`Erro do servidor (${response.status}): ${text.substring(0, 100)}`);
+                    }
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('❌ Erro HTTP:', response.status, errorText);
+                        throw new Error(`Erro ${response.status}: ${errorText.substring(0, 200)}`);
+                    }
+                    
+                    const data = await response.json();
                 btn.disabled = false;
                 btn.textContent = '🤖 Gerar com IA';
 

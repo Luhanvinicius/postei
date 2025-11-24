@@ -270,9 +270,19 @@ async function extractThumbnail(videoPath, outputPath = null) {
 
 // Gerar conteúdo com Gemini
 async function generateContentWithGemini(videoPath, videoName) {
+  const startTime = Date.now();
   console.log('🔑 Verificando configuração do Gemini...');
   console.log('   GEMINI_API_KEY existe?', !!GEMINI_API_KEY);
   console.log('   genAI inicializado?', !!genAI);
+  
+  // Verificar se o vídeo existe antes de processar
+  if (!fs.existsSync(videoPath)) {
+    console.error(`❌ Vídeo não encontrado: ${videoPath}`);
+    throw new Error(`Vídeo não encontrado: ${videoPath}`);
+  }
+  
+  const videoStats = fs.statSync(videoPath);
+  console.log(`📊 Tamanho do vídeo: ${(videoStats.size / (1024 * 1024)).toFixed(2)} MB`);
   
   if (!genAI) {
     console.error('❌ Gemini não está configurado! Verifique GEMINI_API_KEY no .env');
@@ -732,6 +742,10 @@ Responda APENAS em formato JSON:
       thumbnail_path: finalThumbnailPath  // Mesmo nome do bot antigo
     };
     
+    const endTime = Date.now();
+    const duration = ((endTime - startTime) / 1000).toFixed(2);
+    
+    console.log(`\n⏱️  Tempo total de processamento: ${duration} segundos`);
     console.log('📦 Resultado final:', JSON.stringify(result, null, 2));
     console.log('📸 Thumbnail path no resultado:', result.thumbnail_path);
     console.log('📸 Thumbnail path existe?', result.thumbnail_path ? fs.existsSync(result.thumbnail_path) : false);
