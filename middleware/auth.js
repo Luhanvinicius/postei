@@ -38,7 +38,7 @@ const requireAuth = async (req, res, next) => {
     console.log('   BaseUrl:', baseUrl);
     console.log('   User:', req.user.username);
     
-    // PRIMEIRO: Sempre permitir acesso a rotas de pagamento
+    // PRIMEIRO: Sempre permitir acesso a rotas de pagamento e autenticação
     // Verificar de múltiplas formas para garantir que funciona
     // Quando a rota é registrada como /payment, o req.path pode ser /checkout/:planSlug
     // Mas req.originalUrl ou req.baseUrl terá /payment
@@ -49,11 +49,16 @@ const requireAuth = async (req, res, next) => {
       baseUrl.includes('payment') ||
       path.startsWith('/checkout/') ||  // Rota relativa dentro do router /payment
       path.startsWith('/pending') ||   // Rota relativa dentro do router /payment
-      path.startsWith('/webhook/') ||  // Rota relativa dentro do router /payment
-      path.startsWith('/auth/logout');
+      path.startsWith('/webhook/');    // Rota relativa dentro do router /payment
     
-    if (isPaymentRoute) {
-      console.log('✅ PERMITINDO acesso à rota de pagamento');
+    const isAuthRoute = 
+      path.startsWith('/auth/') || 
+      originalUrl.includes('/auth/') || 
+      baseUrl === '/auth' ||
+      baseUrl.includes('auth');
+    
+    if (isPaymentRoute || isAuthRoute) {
+      console.log('✅ PERMITINDO acesso à rota:', isPaymentRoute ? 'pagamento' : 'autenticação');
       console.log('   Path:', path, '| OriginalUrl:', originalUrl, '| BaseUrl:', baseUrl);
       return next();
     }
