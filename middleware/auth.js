@@ -29,6 +29,7 @@ const requireAuth = async (req, res, next) => {
     // SEMPRE permitir acesso às rotas de pagamento (checkout, pending, webhook)
     // Isso permite que o usuário complete o pagamento ou crie nova fatura
     if (req.path.startsWith('/payment/') || req.path.startsWith('/auth/logout')) {
+      console.log('✅ Permitindo acesso à rota de pagamento:', req.path);
       return next();
     }
     
@@ -57,10 +58,12 @@ const requireAuth = async (req, res, next) => {
     }
     
     if (pendingInvoice) {
+      console.log('🔀 Redirecionando para fatura pendente:', pendingInvoice.id);
       return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
     } else {
       // Se não tem fatura pendente, redirecionar para home para escolher plano
       // Mas NÃO bloquear se estiver tentando acessar checkout (já permitido acima)
+      console.log('🔀 Usuário sem fatura - redirecionando para planos');
       return res.redirect('/#planos');
     }
   }

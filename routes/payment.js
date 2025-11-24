@@ -55,6 +55,9 @@ router.get('/pending', requireAuth, async (req, res) => {
 // Página de checkout
 router.get('/checkout/:planSlug', requireAuth, async (req, res) => {
   try {
+    console.log('🔍 Acessando checkout:', req.params.planSlug);
+    console.log('👤 Usuário:', req.user.username, 'Payment Status:', req.user.payment_status);
+    
     const { planSlug } = req.params;
     const userId = req.user.id;
 
@@ -71,15 +74,19 @@ router.get('/checkout/:planSlug', requireAuth, async (req, res) => {
     }
 
     if (!plan) {
+      console.error('❌ Plano não encontrado:', planSlug);
       return res.redirect('/?error=plano_nao_encontrado');
     }
 
+    console.log('✅ Plano encontrado:', plan.name);
+    console.log('📄 Renderizando checkout...');
+    
     res.render('payment/checkout', {
       user: req.user,
       plan: plan
     });
   } catch (error) {
-    console.error('Erro ao carregar checkout:', error);
+    console.error('❌ Erro ao carregar checkout:', error);
     res.redirect('/?error=erro_carregar_checkout');
   }
 });
