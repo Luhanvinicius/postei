@@ -63,21 +63,34 @@ router.get('/dashboard', async (req, res) => {
 });
 
 // Página de vincular contas
-router.get('/accounts', (req, res) => {
+router.get('/accounts', async (req, res) => {
   const userId = req.user.id;
   
-  // Buscar configuração do banco
-  const dbConfig = configs.findByUserId(userId);
+  // Buscar configuração do banco (pode ser async no PostgreSQL)
+  let dbConfig;
+  try {
+    if (configs.findByUserId.constructor.name === 'AsyncFunction') {
+      dbConfig = await configs.findByUserId(userId);
+    } else {
+      dbConfig = configs.findByUserId(userId);
+    }
+  } catch (err) {
+    dbConfig = configs.findByUserId(userId);
+  }
   
   let userConfig = null;
   if (dbConfig) {
+    // Verificar se o arquivo realmente existe
+    const fileExists = dbConfig.config_path ? fs.existsSync(dbConfig.config_path) : false;
+    
     userConfig = {
       configPath: dbConfig.config_path,
       uploadedAt: dbConfig.uploaded_at,
       channelId: dbConfig.channel_id,
       channelName: dbConfig.channel_name,
       isAuthenticated: dbConfig.is_authenticated === 1,
-      authenticatedAt: dbConfig.authenticated_at
+      authenticatedAt: dbConfig.authenticated_at,
+      fileExists: fileExists
     };
   }
 
@@ -133,9 +146,29 @@ router.post('/authenticate', async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const dbConfig = configs.findByUserId(userId);
+    // Buscar configuração (pode ser async no PostgreSQL)
+    let dbConfig;
+    try {
+      if (configs.findByUserId.constructor.name === 'AsyncFunction') {
+        dbConfig = await configs.findByUserId(userId);
+      } else {
+        dbConfig = configs.findByUserId(userId);
+      }
+    } catch (err) {
+      dbConfig = configs.findByUserId(userId);
+    }
+    
     if (!dbConfig || !dbConfig.config_path) {
       return res.json({ success: false, error: 'Configure primeiro seu arquivo de credenciais' });
+    }
+
+    // Verificar se o arquivo existe
+    if (!fs.existsSync(dbConfig.config_path)) {
+      console.error('❌ Arquivo de credenciais não encontrado no caminho:', dbConfig.config_path);
+      return res.json({ 
+        success: false, 
+        error: 'Arquivo de credenciais não encontrado. Por favor, faça upload novamente do arquivo client_secrets.json' 
+      });
     }
 
     const { authenticateYouTube } = require('../services/youtube-auth');
