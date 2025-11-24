@@ -31,9 +31,10 @@ if (isVercel || hasPostgresUrl) {
   try {
     Database = require('better-sqlite3');
   } catch (err) {
-    console.error('❌ better-sqlite3 não encontrado. Instale com: npm install better-sqlite3');
-    console.error('   Ou configure DATABASE_URL para usar PostgreSQL');
-    throw new Error('better-sqlite3 não está instalado. Execute: npm install better-sqlite3');
+    console.error('❌ better-sqlite3 não encontrado.');
+    console.error('   Para desenvolvimento local: npm install better-sqlite3');
+    console.error('   Para produção (Render/Vercel): Configure DATABASE_URL para usar PostgreSQL');
+    throw new Error('better-sqlite3 não está instalado. Para desenvolvimento local, execute: npm install better-sqlite3. Para produção, configure DATABASE_URL.');
   }
   const path = require('path');
   const fs = require('fs-extra');
