@@ -208,6 +208,10 @@ class AsaasService {
 
     try {
       const response = await this.client.get(`/payments/${paymentId}/pixQrCode`);
+      
+      // Log detalhado da resposta
+      console.log('📋 Resposta completa do Asaas para QR Code:', JSON.stringify(response.data, null, 2));
+      console.log('📋 Chaves disponíveis na resposta:', Object.keys(response.data || {}));
 
       return {
         success: true,
@@ -255,6 +259,33 @@ class AsaasService {
       dueDate: payment?.dueDate || payment?.due_date,
       customerId: payment?.customer || payment?.customerId
     };
+  }
+
+  /**
+   * Cancelar assinatura no Asaas
+   */
+  async cancelSubscription(subscriptionId) {
+    if (!this.isConfigured()) {
+      return {
+        success: false,
+        error: 'Asaas não está configurado'
+      };
+    }
+
+    try {
+      const response = await this.client.delete(`/subscriptions/${subscriptionId}`);
+      console.log('✅ Assinatura cancelada no Asaas:', subscriptionId);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('❌ Erro ao cancelar assinatura no Asaas:', error.response?.data || error.message);
+      return {
+        success: false,
+        error: error.response?.data?.errors || error.message
+      };
+    }
   }
 }
 

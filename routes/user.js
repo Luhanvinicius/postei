@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs-extra');
 const router = express.Router();
+const { requireAuth } = require('../middleware/auth');
 const { configs, schedules } = require('../database');
 
 const USER_CONFIGS_DIR = path.join(__dirname, '../user_configs');
@@ -50,6 +51,27 @@ router.get('/dashboard', async (req, res) => {
     return publishedDate.getTime() === today.getTime();
   }).length;
 
+  // Verificar se tem fatura pendente
+  const { invoices } = require('../database');
+  let pendingInvoice = null;
+  try {
+    let userInvoices;
+    if (invoices && invoices.findByUserId) {
+      const isAsync = invoices.findByUserId.constructor && invoices.findByUserId.constructor.name === 'AsyncFunction';
+      if (isAsync) {
+        userInvoices = await invoices.findByUserId(userId);
+      } else {
+        userInvoices = invoices.findByUserId(userId);
+      }
+    }
+    
+    if (userInvoices && Array.isArray(userInvoices)) {
+      pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+    }
+  } catch (err) {
+    console.error('Erro ao buscar faturas no dashboard:', err);
+  }
+
   res.render('user/dashboard', {
     user: req.user,
     stats: {
@@ -58,6 +80,7 @@ router.get('/dashboard', async (req, res) => {
       pendingScheduled,
       publishedToday
     },
+    pendingInvoice: pendingInvoice,
     query: req.query
   });
 });
@@ -395,8 +418,30 @@ router.get('/test-gemini', (req, res) => {
   res.render('test-gemini');
 });
 
-router.get('/videos', (req, res) => {
+router.get('/videos', async (req, res) => {
   const userId = req.user.id;
+  
+  // Verificar se o usuário tem plano ativo
+  if (req.user.payment_status !== 'paid' && req.user.role !== 'admin') {
+    // Buscar planos disponíveis para mostrar na tela de bloqueio
+    const { plans: planDB } = require('../database');
+    let allPlans = [];
+    try {
+      if (planDB.findAll.constructor.name === 'AsyncFunction') {
+        allPlans = await planDB.findAll();
+      } else {
+        allPlans = planDB.findAll();
+      }
+    } catch (err) {
+      allPlans = planDB.findAll();
+    }
+    
+    return res.render('user/videos-locked', {
+      user: req.user,
+      plans: allPlans
+    });
+  }
+  
   const dbConfig = configs.findByUserId(userId);
   
   res.render('user/videos', {
@@ -1057,6 +1102,27 @@ router.get('/published', async (req, res) => {
   });
 });
 
+// Página de escolher planos
+router.get('/plans', async (req, res) => {
+  const { plans: planDB } = require('../database');
+  
+  let allPlans = [];
+  try {
+    if (planDB.findAll.constructor.name === 'AsyncFunction') {
+      allPlans = await planDB.findAll();
+    } else {
+      allPlans = planDB.findAll();
+    }
+  } catch (err) {
+    allPlans = planDB.findAll();
+  }
+  
+  res.render('user/plans', {
+    user: req.user,
+    plans: allPlans
+  });
+});
+
 // Página de perfil
 router.get('/profile', async (req, res) => {
   const userId = req.user.id;
@@ -1107,10 +1173,20 @@ router.get('/profile', async (req, res) => {
       ? new Date(subscription.current_period_end).toLocaleDateString('pt-BR')
       : null;
     
+    // Mapear billing_period para português
+    let billingText = 'mensal'; // padrão
+    if (subscription.billing_period) {
+      if (subscription.billing_period === 'yearly' || subscription.billing_period === 'annual') {
+        billingText = 'anual';
+      } else if (subscription.billing_period === 'monthly') {
+        billingText = 'mensal';
+      }
+    }
+    
     planData = {
       name: subscription.plan_name || 'Sem Plano',
       price: subscription.price ? `R$ ${parseFloat(subscription.price).toFixed(2)}` : 'R$ 0,00',
-      billing: 'mensal',
+      billing: billingText,
       status: subscription.status || 'inactive',
       nextBilling: nextBilling || 'N/A',
       maxVideos: subscription.max_videos,
@@ -1196,6 +1272,111 @@ router.post('/profile/change-password', async (req, res) => {
   } catch (error) {
     console.error('Erro ao alterar senha:', error);
     res.json({ success: false, error: 'Erro ao alterar senha: ' + error.message });
+  }
+});
+
+// Cancelar assinatura
+router.post('/subscription/cancel', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Buscar assinatura ativa do usuário
+    const { subscriptions } = require('../database');
+    let subscription = null;
+    try {
+      if (subscriptions.findByUserId.constructor && subscriptions.findByUserId.constructor.name === 'AsyncFunction') {
+        subscription = await subscriptions.findByUserId(userId);
+      } else {
+        subscription = subscriptions.findByUserId(userId);
+      }
+    } catch (err) {
+      subscription = subscriptions.findByUserId(userId);
+    }
+    
+    if (!subscription) {
+      return res.json({ success: false, error: 'Nenhuma assinatura ativa encontrada' });
+    }
+    
+    if (subscription.status !== 'active') {
+      return res.json({ success: false, error: 'A assinatura já está cancelada ou inativa' });
+    }
+    
+    // Cancelar no Asaas se tiver asaas_subscription_id
+    if (subscription.asaas_subscription_id && !subscription.asaas_subscription_id.startsWith('dev_')) {
+      const asaasService = require('../services/asaas-service');
+      if (asaasService.isConfigured()) {
+        try {
+          const cancelResult = await asaasService.cancelSubscription(subscription.asaas_subscription_id);
+          if (!cancelResult.success) {
+            console.warn('⚠️ Erro ao cancelar no Asaas, mas continuando cancelamento local:', cancelResult.error);
+          } else {
+            console.log('✅ Assinatura cancelada no Asaas');
+          }
+        } catch (err) {
+          console.warn('⚠️ Erro ao cancelar no Asaas, mas continuando cancelamento local:', err.message);
+        }
+      }
+    }
+    
+    // Atualizar status da assinatura para 'canceled'
+    const canceledAt = new Date().toISOString();
+    try {
+      if (subscriptions.updateStatus.constructor && subscriptions.updateStatus.constructor.name === 'AsyncFunction') {
+        await subscriptions.updateStatus(subscription.id, 'canceled');
+      } else {
+        subscriptions.updateStatus(subscription.id, 'canceled');
+      }
+    } catch (err) {
+      subscriptions.updateStatus(subscription.id, 'canceled');
+    }
+    
+    // Atualizar canceled_at no banco (SQL direto)
+    const { db } = require('../database');
+    try {
+      if (db.prepare) {
+        // SQLite
+        db.prepare('UPDATE subscriptions SET canceled_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+          .run(canceledAt, subscription.id);
+      } else {
+        // PostgreSQL
+        await db.query('UPDATE subscriptions SET canceled_at = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', 
+          [canceledAt, subscription.id]);
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar canceled_at:', err);
+    }
+    
+    // Atualizar payment_status do usuário para 'pending' (não pago)
+    const { users } = require('../database');
+    try {
+      if (users.updatePaymentStatus.constructor && users.updatePaymentStatus.constructor.name === 'AsyncFunction') {
+        await users.updatePaymentStatus(userId, 'pending');
+      } else {
+        users.updatePaymentStatus(userId, 'pending');
+      }
+    } catch (err) {
+      users.updatePaymentStatus(userId, 'pending');
+    }
+    
+    // Atualizar sessão
+    if (req.session && req.session.user) {
+      req.session.user.payment_status = 'pending';
+      req.session.save((err) => {
+        if (err) {
+          console.error('Erro ao salvar sessão:', err);
+        }
+      });
+    }
+    
+    console.log(`✅ Assinatura cancelada para usuário: ${req.user.username}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Assinatura cancelada com sucesso! Você ainda terá acesso até o final do período pago.' 
+    });
+  } catch (error) {
+    console.error('Erro ao cancelar assinatura:', error);
+    res.json({ success: false, error: 'Erro ao cancelar assinatura: ' + error.message });
   }
 });
 

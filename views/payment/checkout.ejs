@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkout - <%= plan.name %> - YouTube Automation</title>
+    <title>Checkout - <%= plan.name %> - postei.pro</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
-            <a class="navbar-brand" href="/">📹 YouTube Automation</a>
+            <a class="navbar-brand" href="/"><span class="text-gradient">postei.pro</span></a>
         </div>
     </nav>
 
@@ -78,8 +78,31 @@
                                     <input type="text" class="form-control" name="state" maxlength="2" placeholder="SP">
                                 </div>
                             </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Método de Pagamento *</label>
+                                <div class="row">
+                                    <div class="col-md-4 mb-2">
+                                        <input type="radio" class="btn-check" name="paymentMethod" id="pix" value="PIX" checked>
+                                        <label class="btn btn-outline-primary w-100" for="pix">
+                                            <i class="bi bi-qr-code me-2"></i>PIX
+                                        </label>
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <input type="radio" class="btn-check" name="paymentMethod" id="boleto" value="BOLETO">
+                                        <label class="btn btn-outline-primary w-100" for="boleto">
+                                            <i class="bi bi-receipt me-2"></i>Boleto
+                                        </label>
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <input type="radio" class="btn-check" name="paymentMethod" id="creditCard" value="CREDIT_CARD">
+                                        <label class="btn btn-outline-primary w-100" for="creditCard">
+                                            <i class="bi bi-credit-card me-2"></i>Cartão
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
                             <button type="submit" class="btn btn-primary btn-lg w-100">
-                                <i class="bi bi-credit-card me-2"></i>Gerar PIX e Finalizar
+                                <i class="bi bi-credit-card me-2"></i>Gerar Pagamento e Finalizar
                             </button>
                         </form>
                     </div>
@@ -130,43 +153,102 @@
     <script>
         document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('📝 Formulário submetido');
+            
             const formData = new FormData(e.target);
+            const paymentMethod = formData.get('paymentMethod') || 'PIX';
+            
+            console.log('💳 Método de pagamento selecionado:', paymentMethod);
+            
             const submitBtn = e.target.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.innerHTML;
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processando...';
 
             try {
+                // Converter FormData para JSON para incluir paymentMethod
+                const formDataObj = {};
+                formData.forEach((value, key) => {
+                    formDataObj[key] = value;
+                });
+                formDataObj.paymentMethod = paymentMethod;
+                
+                console.log('📤 Enviando dados do checkout:', formDataObj);
+                
                 const response = await fetch(`/payment/checkout/<%= plan.slug %>`, {
                     method: 'POST',
-                    body: formData
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formDataObj)
                 });
+                
+                console.log('📥 Resposta recebida:', response.status, response.statusText);
+                
+                // Verificar tipo de conteúdo
+                const contentType = response.headers.get('content-type');
+                console.log('📄 Content-Type:', contentType);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ Erro HTTP:', response.status, errorText);
+                    throw new Error(`Erro ${response.status}: ${errorText.substring(0, 100)}`);
+                }
+                
+                // Verificar se é JSON
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('❌ Resposta não é JSON:', text.substring(0, 200));
+                    throw new Error('Resposta do servidor não é JSON. Verifique o console para mais detalhes.');
+                }
+                
                 const data = await response.json();
+                console.log('✅ Dados recebidos:', data);
 
                 if (data.success) {
-                    // Mostrar QR Code PIX
+                    // Mostrar QR Code PIX se disponível
                     if (data.pixQrCode) {
                         document.getElementById('pixQrCode').innerHTML = `<img src="${data.pixQrCode}" alt="QR Code PIX" class="img-fluid" style="max-width: 300px;">`;
                         document.getElementById('pixCopyPaste').value = data.pixCopyPaste;
                         document.getElementById('pixSection').style.display = 'block';
                         submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>PIX Gerado!';
-                        
-                        // Redirecionar para página de pagamento pendente após 2 segundos
-                        if (data.invoiceId) {
-                            setTimeout(() => {
-                                window.location.href = `/payment/pending?invoice=${data.invoiceId}`;
-                            }, 2000);
-                        }
+                    } else {
+                        submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Fatura Criada!';
+                    }
+                    
+                    // Redirecionar para página de pagamento pendente após 1 segundo
+                    if (data.invoiceId) {
+                        setTimeout(() => {
+                            window.location.href = `/payment/pending?invoice=${data.invoiceId}`;
+                        }, 1000);
+                    } else {
+                        // Se não tiver invoiceId, redirecionar mesmo assim
+                        setTimeout(() => {
+                            window.location.href = `/payment/pending`;
+                        }, 1000);
                     }
                 } else {
-                    alert('Erro: ' + data.error);
+                    console.error('❌ Erro na resposta:', data.error);
+                    alert('Erro: ' + (data.error || 'Erro desconhecido'));
                     submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="bi bi-credit-card me-2"></i>Gerar PIX e Finalizar';
+                    submitBtn.innerHTML = '<i class="bi bi-credit-card me-2"></i>Gerar Pagamento e Finalizar';
                 }
             } catch (error) {
-                alert('Erro ao processar pagamento');
+                console.error('❌ Erro ao processar checkout:', error);
+                console.error('❌ Stack:', error.stack);
+                alert('Erro ao processar pagamento: ' + error.message);
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="bi bi-credit-card me-2"></i>Gerar PIX e Finalizar';
+                submitBtn.innerHTML = '<i class="bi bi-credit-card me-2"></i>Gerar Pagamento e Finalizar';
+                // Não resetar o formulário - manter os dados preenchidos
             }
+        });
+        
+        // Prevenir reset do formulário
+        document.getElementById('checkoutForm').addEventListener('reset', (e) => {
+            console.log('⚠️  Tentativa de reset do formulário bloqueada');
+            e.preventDefault();
         });
 
         function copyPix() {

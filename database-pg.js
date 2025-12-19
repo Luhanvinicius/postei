@@ -187,10 +187,30 @@ async function initDatabase() {
         pix_copy_paste TEXT,
         due_date DATE,
         paid_at TIMESTAMP,
+        customer_name VARCHAR(255),
+        customer_cpf VARCHAR(20),
+        customer_phone VARCHAR(20),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
+    // Adicionar colunas de dados do cliente se não existirem (migração)
+    try {
+      await client.query('ALTER TABLE invoices ADD COLUMN IF NOT EXISTS customer_name VARCHAR(255)');
+    } catch (e) {
+      // Coluna já existe, ignorar erro
+    }
+    try {
+      await client.query('ALTER TABLE invoices ADD COLUMN IF NOT EXISTS customer_cpf VARCHAR(20)');
+    } catch (e) {
+      // Coluna já existe, ignorar erro
+    }
+    try {
+      await client.query('ALTER TABLE invoices ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(20)');
+    } catch (e) {
+      // Coluna já existe, ignorar erro
+    }
 
     // Inserir planos padrão se não existirem
     const plansCheck = await client.query('SELECT COUNT(*) FROM plans');
@@ -481,7 +501,7 @@ const planQueries = {
 const subscriptionQueries = {
   findByUserId: async (userId) => {
     const result = await pool.query(`
-      SELECT s.*, p.name as plan_name, p.slug as plan_slug, p.price, p.max_videos, p.max_channels
+      SELECT s.*, p.name as plan_name, p.slug as plan_slug, p.price, p.max_videos, p.max_channels, p.billing_period, p.id as plan_id
       FROM subscriptions s
       JOIN plans p ON s.plan_id = p.id
       WHERE s.user_id = $1
@@ -533,12 +553,12 @@ const invoiceQueries = {
     return result.rows;
   },
   
-  create: async (userId, planId, subscriptionId, amount, asaasInvoiceId, invoiceNumber, dueDate, pixQrCode = null, pixCopyPaste = null) => {
+  create: async (userId, planId, subscriptionId, amount, asaasInvoiceId, invoiceNumber, dueDate, pixQrCode = null, pixCopyPaste = null, paymentMethod = 'PIX', customerName = null, customerCpf = null, customerPhone = null) => {
     const result = await pool.query(`
-      INSERT INTO invoices (user_id, subscription_id, plan_id, amount, asaas_invoice_id, invoice_number, due_date, pix_qr_code, pix_copy_paste, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
+      INSERT INTO invoices (user_id, subscription_id, plan_id, amount, asaas_invoice_id, invoice_number, due_date, pix_qr_code, pix_copy_paste, payment_method, customer_name, customer_cpf, customer_phone, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'pending')
       RETURNING id
-    `, [userId, subscriptionId, planId, amount, asaasInvoiceId, invoiceNumber, dueDate, pixQrCode, pixCopyPaste]);
+    `, [userId, subscriptionId, planId, amount, asaasInvoiceId, invoiceNumber, dueDate, pixQrCode, pixCopyPaste, paymentMethod, customerName, customerCpf, customerPhone]);
     return result.rows[0].id;
   },
   

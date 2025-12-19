@@ -5,54 +5,9 @@ const { users } = require('../database');
 
 // Login
 router.get('/login', async (req, res) => {
-  // Se já está autenticado, verificar status de pagamento
-  if (req.session && req.session.user) {
-    const user = req.session.user;
-    
-    // Admin sempre vai para dashboard
-    if (user.role === 'admin') {
-      return res.redirect('/admin/dashboard');
-    }
-    
-    // Usuário com pagamento confirmado vai para dashboard
-    if (user.payment_status === 'paid') {
-      return res.redirect('/user/dashboard');
-    }
-    
-    // Usuário com pagamento pendente - verificar se tem fatura
-    if (user.payment_status === 'pending') {
-      const { invoices } = require('../database');
-      let pendingInvoice = null;
-      
-      try {
-        let userInvoices;
-        if (invoices && invoices.findByUserId) {
-          const isAsync = invoices.findByUserId.constructor && invoices.findByUserId.constructor.name === 'AsyncFunction';
-          if (isAsync) {
-            userInvoices = await invoices.findByUserId(user.id);
-          } else {
-            userInvoices = invoices.findByUserId(user.id);
-          }
-        }
-        
-        if (userInvoices && Array.isArray(userInvoices)) {
-          pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
-        }
-      } catch (err) {
-        console.error('Erro ao buscar faturas no login:', err);
-      }
-      
-      if (pendingInvoice) {
-        return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
-      } else {
-        // Se não tem fatura, pode ver a home para escolher plano
-        return res.redirect('/#planos');
-      }
-    }
-  }
-  
-  // Se não está autenticado, mostrar página de login
-  res.render('auth/login', { error: null });
+  // Sempre mostrar página de login quando acessada diretamente
+  // O usuário pode fazer logout se já estiver autenticado
+  res.render('auth/login', { error: null, isAuthenticated: !!(req.session && req.session.user) });
 });
 
 router.post('/login', async (req, res) => {
@@ -119,11 +74,13 @@ router.post('/login', async (req, res) => {
     if (user.role === 'admin') {
       // Admin sempre vai para dashboard
       redirectUrl = '/admin/dashboard';
-    } else if (paymentStatus === 'pending') {
-      // Usuário com pagamento pendente - verificar se tem fatura
+    } else {
+      // Todos os usuários (com ou sem pagamento) vão para dashboard
+      // O dashboard mostrará aviso se payment_status for 'pending'
       const { invoices } = require('../database');
       let pendingInvoice = null;
       
+      // Verificar se tem fatura pendente para mostrar no dashboard
       try {
         let userInvoices;
         if (invoices && invoices.findByUserId) {
@@ -142,18 +99,15 @@ router.post('/login', async (req, res) => {
         console.error('Erro ao buscar faturas no login:', err);
       }
       
-      if (pendingInvoice) {
+      if (pendingInvoice && paymentStatus === 'pending') {
         // Se tem fatura pendente, ir para página de pagamento pendente
         redirectUrl = `/payment/pending?invoice=${pendingInvoice.id}`;
-        console.log('🔀 Usuário com pagamento pendente - redirecionando para:', redirectUrl);
+        console.log('🔀 Usuário com fatura pendente - redirecionando para pagamento');
       } else {
-        // Se não tem fatura, ir para home para escolher plano
-        redirectUrl = '/#planos';
-        console.log('🔀 Usuário sem fatura - redirecionando para escolher plano');
+        // Ir para dashboard (com ou sem plano ativo)
+        redirectUrl = '/user/dashboard';
+        console.log('🔀 Redirecionando para dashboard');
       }
-    } else {
-      // Usuário com pagamento confirmado - ir para dashboard
-      redirectUrl = '/user/dashboard';
     }
     
     // Criar sessão
@@ -313,8 +267,20 @@ router.post('/register', async (req, res) => {
     console.log('📝 Payment Status:', 'pending');
     console.log('🔀 Redirecionando para checkout:', `/payment/checkout/${plan}`);
     
+    // Salvar sessão antes de redirecionar
+    await new Promise((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) {
+          console.error('❌ Erro ao salvar sessão:', err);
+          reject(err);
+        } else {
+          console.log('✅ Sessão salva com sucesso');
+          resolve();
+        }
+      });
+    });
+    
     // Redirecionar para checkout com o plano selecionado
-    // A sessão será salva automaticamente pelo express-session
     res.redirect(`/payment/checkout/${plan}`);
   } catch (error) {
     console.error('Erro no registro:', error);

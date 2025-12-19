@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pagamento Pendente - YouTube Automation</title>
+    <title>Pagamento Pendente - postei.pro</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
-            <a class="navbar-brand" href="/">📹 YouTube Automation</a>
+            <a class="navbar-brand" href="/"><span class="text-gradient">postei.pro</span></a>
         </div>
     </nav>
 
@@ -40,12 +40,31 @@
                                 </a>
                             </div>
 
-                            <% if (invoice.pix_qr_code) { %>
+                            <% 
+                            const paymentMethod = invoice.payment_method || 'PIX';
+                            %>
+                            
+                            <% if (paymentMethod === 'PIX' && invoice.pix_copy_paste) { %>
                                 <div class="mt-4">
-                                    <h5>PIX Gerado</h5>
+                                    <h5><i class="bi bi-qr-code me-2"></i>PIX Gerado</h5>
+                                    <% if (invoice.pix_qr_code && invoice.pix_qr_code.trim() !== '') { %>
                                     <div class="mb-3">
-                                        <img src="<%= invoice.pix_qr_code %>" alt="QR Code PIX" class="img-fluid" style="max-width: 300px;">
+                                        <p class="text-muted mb-2">Escaneie o QR Code com o app do seu banco:</p>
+                                        <img src="<%= invoice.pix_qr_code %>" 
+                                             alt="QR Code PIX" 
+                                             class="img-fluid border rounded p-2" 
+                                             style="max-width: 300px; background: white;"
+                                             onerror="console.error('Erro ao carregar QR Code:', this.src.substring(0, 50)); this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                        <div style="display: none; color: red; font-size: 0.9em;">
+                                            ⚠️ Erro ao carregar QR Code. Use a chave PIX abaixo.
+                                        </div>
                                     </div>
+                                    <% } else { %>
+                                    <div class="alert alert-info mb-3">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        QR Code não disponível. Use a chave PIX abaixo para copiar e colar.
+                                    </div>
+                                    <% } %>
                                     <div class="mb-3">
                                         <label class="form-label">Chave PIX (Copiar e Colar):</label>
                                         <div class="input-group">
@@ -56,17 +75,77 @@
                                         </div>
                                     </div>
                                 </div>
+                            <% } else if (paymentMethod === 'BOLETO' && invoice.pix_copy_paste) { %>
+                                <div class="mt-4">
+                                    <h5><i class="bi bi-receipt me-2"></i>Boleto Gerado</h5>
+                                    <div class="alert alert-info">
+                                        <p class="mb-2"><strong>Código de Barras:</strong></p>
+                                        <div class="input-group mb-3">
+                                            <input type="text" class="form-control font-monospace" id="barcode" value="<%= invoice.pix_copy_paste %>" readonly>
+                                            <button class="btn btn-outline-secondary" type="button" onclick="copyBarcode()">
+                                                <i class="bi bi-clipboard"></i> Copiar
+                                            </button>
+                                        </div>
+                                        <p class="mb-0"><small>Copie o código de barras e pague em qualquer banco, lotérica ou aplicativo de pagamento.</small></p>
+                                    </div>
+                                </div>
+                            <% } else if (paymentMethod === 'CREDIT_CARD') { %>
+                                <div class="mt-4">
+                                    <h5><i class="bi bi-credit-card me-2"></i>Pagamento com Cartão</h5>
+                                    <div class="alert alert-info">
+                                        <% if (invoice.pix_copy_paste) { %>
+                                            <p class="mb-2">Clique no link abaixo para finalizar o pagamento com cartão:</p>
+                                            <a href="<%= invoice.pix_copy_paste %>" target="_blank" class="btn btn-primary">
+                                                <i class="bi bi-credit-card me-2"></i>Finalizar Pagamento com Cartão
+                                            </a>
+                                        <% } else { %>
+                                            <p class="mb-0">O link de pagamento será gerado em breve. Aguarde alguns instantes e atualize a página.</p>
+                                        <% } %>
+                                    </div>
+                                </div>
+                            <% } else if (invoice.pix_copy_paste && invoice.pix_copy_paste.includes('MODO DESENVOLVIMENTO')) { %>
+                                <div class="mt-4">
+                                    <div class="alert alert-warning">
+                                        <h5><i class="bi bi-exclamation-triangle me-2"></i>Modo Desenvolvimento</h5>
+                                        <p class="mb-2">
+                                            O sistema de pagamento (Asaas) não está configurado. Esta é uma fatura de teste.
+                                        </p>
+                                        <p class="mb-0">
+                                            <strong>Para testar pagamentos reais:</strong> Configure a variável de ambiente <code>ASAAS_API_KEY</code> no arquivo <code>.env</code>
+                                        </p>
+                                    </div>
+                                    <div class="alert alert-info">
+                                        <p class="mb-0">
+                                            <strong>Em desenvolvimento:</strong> Você pode simular o pagamento manualmente atualizando o status da fatura no banco de dados ou através do painel admin.
+                                        </p>
+                                    </div>
+                                </div>
                             <% } %>
                         <% } else { %>
                             <div class="alert alert-warning">
                                 <p>Nenhuma fatura pendente encontrada.</p>
-                                <a href="/#planos" class="btn btn-primary">Escolher Plano</a>
+                                <a href="/user/plans" class="btn btn-primary">Escolher Plano</a>
                             </div>
                         <% } %>
 
                         <hr class="my-4">
 
                         <div class="d-flex justify-content-center gap-2">
+                            <% if (invoice && invoice.status === 'pending' && (!invoice.asaas_invoice_id || invoice.asaas_invoice_id.startsWith('dev_'))) { %>
+                            <button class="btn btn-primary" onclick="showRegenerateModal(<%= invoice.id %>)" id="regenerateBtn">
+                                <i class="bi bi-arrow-clockwise me-2"></i>Gerar Pagamento no Asaas
+                            </button>
+                            <% } %>
+                            <% if (invoice && invoice.status === 'pending' && invoice.asaas_invoice_id && !invoice.asaas_invoice_id.startsWith('dev_')) { %>
+                            <button class="btn btn-info" onclick="checkPaymentStatus(<%= invoice.id %>)" id="checkStatusBtn">
+                                <i class="bi bi-search me-2"></i>Verificar Status no Asaas
+                            </button>
+                            <% } %>
+                            <% if (invoice && invoice.status === 'pending') { %>
+                            <button class="btn btn-success" onclick="validateInvoice(<%= invoice.id %>)" id="validateBtn">
+                                <i class="bi bi-check-circle me-2"></i>Validar Pagamento (Teste)
+                            </button>
+                            <% } %>
                             <button class="btn btn-outline-secondary" onclick="location.reload()">
                                 <i class="bi bi-arrow-clockwise me-2"></i>Atualizar Status
                             </button>
@@ -82,19 +161,375 @@
         </div>
     </main>
 
+    <!-- Modal para coletar dados obrigatórios do Asaas -->
+    <div class="modal fade" id="regenerateModal" tabindex="-1" aria-labelledby="regenerateModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="regenerateModalLabel">Dados para Gerar Pagamento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Para gerar o pagamento no Asaas, precisamos dos seguintes dados obrigatórios:</p>
+                    <form id="regenerateForm">
+                        <div class="mb-3">
+                            <label for="customerName" class="form-label">Nome Completo <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="customerName" name="name" required placeholder="Ex: João Silva">
+                        </div>
+                        <div class="mb-3">
+                            <label for="customerCpf" class="form-label">CPF/CNPJ <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="customerCpf" name="cpfCnpj" required placeholder="000.000.000-00" maxlength="18">
+                        </div>
+                        <div class="mb-3">
+                            <label for="customerPhone" class="form-label">Telefone (Opcional)</label>
+                            <input type="text" class="form-control" id="customerPhone" name="phone" placeholder="(00) 00000-0000" maxlength="15">
+                        </div>
+                        <input type="hidden" id="invoiceIdInput" name="invoiceId">
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="submitRegeneratePayment()" id="submitRegenerateBtn">
+                        <i class="bi bi-arrow-clockwise me-2"></i>Gerar Pagamento
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function copyPix() {
             const input = document.getElementById('pixCopyPaste');
-            input.select();
-            document.execCommand('copy');
-            alert('Chave PIX copiada!');
+            if (input) {
+                input.select();
+                document.execCommand('copy');
+                alert('Chave PIX copiada!');
+            }
         }
 
-        // Atualizar status automaticamente a cada 30 segundos
+        function copyBarcode() {
+            const input = document.getElementById('barcode');
+            if (input) {
+                input.select();
+                document.execCommand('copy');
+                alert('Código de barras copiado!');
+            }
+        }
+
+        // Verificar se a fatura já está paga ao carregar a página
+        <% if (invoice && invoice.status === 'paid') { %>
+            console.log('✅ Fatura já está paga, redirecionando para o dashboard...');
+            setTimeout(() => {
+                window.location.href = '/user/dashboard?payment=confirmed';
+            }, 1000);
+        <% } %>
+        
+        // Atualizar status automaticamente a cada 30 segundos (apenas se ainda estiver pendente)
+        <% if (!invoice || invoice.status !== 'paid') { %>
         setInterval(() => {
-            location.reload();
+            // Verificar status antes de recarregar
+            if (invoiceData && invoiceData.id) {
+                fetch(`/payment/check/${invoiceData.id}`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.newStatus === 'paid') {
+                        window.location.href = '/user/dashboard?payment=confirmed';
+                    } else {
+                        location.reload();
+                    }
+                })
+                .catch(() => {
+                    location.reload();
+                });
+            } else {
+                location.reload();
+            }
         }, 30000);
+        <% } %>
+        
+        // Dados da fatura para uso no JavaScript
+        const invoiceData = {
+            id: <%= invoice ? invoice.id : 'null' %>,
+            status: <% if (invoice && invoice.status) { %>'<%= invoice.status %>'<% } else { %>'pending'<% } %>,
+            customerName: <% if (invoice && invoice.customer_name) { %>'<%= invoice.customer_name.replace(/'/g, "\\'") %>'<% } else { %>null<% } %>,
+            customerCpf: <% if (invoice && invoice.customer_cpf) { %>'<%= invoice.customer_cpf.replace(/'/g, "\\'") %>'<% } else { %>null<% } %>,
+            customerPhone: <% if (invoice && invoice.customer_phone) { %>'<%= invoice.customer_phone.replace(/'/g, "\\'") %>'<% } else { %>null<% } %>
+        };
+        
+        // Debug: verificar dados da fatura
+        console.log('Dados da fatura:', invoiceData);
+        console.log('Tem nome?', invoiceData.customerName);
+        console.log('Tem CPF?', invoiceData.customerCpf);
+        
+        // Mostrar modal para coletar dados antes de regenerar pagamento
+        function showRegenerateModal(invoiceId) {
+            document.getElementById('invoiceIdInput').value = invoiceId;
+            
+            // Se já tem dados salvos na fatura, tentar regenerar diretamente sem modal
+            if (invoiceData.customerName && invoiceData.customerCpf && invoiceData.customerName !== 'null' && invoiceData.customerCpf !== 'null') {
+                console.log('Usando dados salvos da fatura:', invoiceData);
+                if (confirm('Deseja gerar o pagamento desta fatura no Asaas usando os dados já salvos? Isso criará um novo pagamento com QR Code PIX/Boleto/Cartão real.')) {
+                    regeneratePaymentDirectly(invoiceId, invoiceData.customerName, invoiceData.customerCpf, invoiceData.customerPhone);
+                }
+            } else {
+                console.log('Não tem dados salvos, mostrando modal');
+                // Se não tem dados, mostrar modal para coletar
+                document.getElementById('regenerateForm').reset();
+                const modal = new bootstrap.Modal(document.getElementById('regenerateModal'));
+                modal.show();
+            }
+        }
+        
+        // Regenerar pagamento diretamente com dados salvos
+        async function regeneratePaymentDirectly(invoiceId, name, cpfCnpj, phone) {
+            if (!confirm('Deseja gerar o pagamento desta fatura no Asaas? Isso criará um novo pagamento com QR Code PIX/Boleto/Cartão real.')) {
+                return;
+            }
+            
+            const btn = document.getElementById('regenerateBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Gerando...';
+            }
+            
+            try {
+                const response = await fetch(`/payment/regenerate/${invoiceId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        cpfCnpj: cpfCnpj,
+                        phone: phone || null
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ Pagamento gerado com sucesso no Asaas! Recarregando página...');
+                    location.reload();
+                } else {
+                    alert('Erro: ' + data.error);
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i>Gerar Pagamento no Asaas';
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao regenerar pagamento:', error);
+                alert('Erro ao regenerar pagamento: ' + error.message);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i>Gerar Pagamento no Asaas';
+                }
+            }
+        }
+        
+        // Submeter formulário para regenerar pagamento
+        async function submitRegeneratePayment() {
+            const form = document.getElementById('regenerateForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            const invoiceId = document.getElementById('invoiceIdInput').value;
+            const name = document.getElementById('customerName').value.trim();
+            const cpfCnpj = document.getElementById('customerCpf').value.replace(/\D/g, ''); // Remove formatação
+            const phone = document.getElementById('customerPhone').value.replace(/\D/g, ''); // Remove formatação
+            
+            // Validar CPF/CNPJ básico
+            if (cpfCnpj.length !== 11 && cpfCnpj.length !== 14) {
+                alert('CPF deve ter 11 dígitos ou CNPJ deve ter 14 dígitos');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submitRegenerateBtn');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Gerando...';
+            
+            try {
+                const response = await fetch(`/payment/regenerate/${invoiceId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        cpfCnpj: cpfCnpj,
+                        phone: phone || null
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Fechar modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('regenerateModal'));
+                    modal.hide();
+                    
+                    alert('✅ Pagamento gerado com sucesso no Asaas! Recarregando página...');
+                    location.reload();
+                } else {
+                    alert('Erro: ' + data.error);
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            } catch (error) {
+                console.error('Erro ao regenerar pagamento:', error);
+                alert('Erro ao regenerar pagamento: ' + error.message);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        }
+        
+        // Máscara para CPF/CNPJ
+        document.addEventListener('DOMContentLoaded', function() {
+            const cpfInput = document.getElementById('customerCpf');
+            if (cpfInput) {
+                cpfInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/\D/g, '');
+                    if (value.length <= 11) {
+                        // CPF: 000.000.000-00
+                        value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                        value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                        value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                    } else {
+                        // CNPJ: 00.000.000/0000-00
+                        value = value.replace(/^(\d{2})(\d)/, '$1.$2');
+                        value = value.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+                        value = value.replace(/\.(\d{3})(\d)/, '.$1/$2');
+                        value = value.replace(/(\d{4})(\d)/, '$1-$2');
+                    }
+                    e.target.value = value;
+                });
+            }
+            
+            // Máscara para telefone
+            const phoneInput = document.getElementById('customerPhone');
+            if (phoneInput) {
+                phoneInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/\D/g, '');
+                    if (value.length <= 10) {
+                        // (00) 0000-0000
+                        value = value.replace(/(\d{2})(\d)/, '($1) $2');
+                        value = value.replace(/(\d{4})(\d)/, '$1-$2');
+                    } else {
+                        // (00) 00000-0000
+                        value = value.replace(/(\d{2})(\d)/, '($1) $2');
+                        value = value.replace(/(\d{5})(\d)/, '$1-$2');
+                    }
+                    e.target.value = value;
+                });
+            }
+        });
+        
+        // Verificar status do pagamento no Asaas
+        async function checkPaymentStatus(invoiceId) {
+            const btn = document.getElementById('checkStatusBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verificando...';
+            }
+            
+            try {
+                const response = await fetch(`/payment/check/${invoiceId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.newStatus && data.newStatus !== data.oldStatus) {
+                        if (data.newStatus === 'paid') {
+                            // Se o pagamento foi confirmado, redirecionar para o dashboard
+                            alert('✅ Pagamento confirmado! Redirecionando para o dashboard...');
+                            window.location.href = '/user/dashboard?payment=confirmed';
+                        } else {
+                            alert('✅ Status atualizado! Status anterior: ' + data.oldStatus + ' → Novo status: ' + data.newStatus);
+                            location.reload();
+                        }
+                    } else {
+                        // Verificar se o status atual já é 'paid'
+                        if (data.status === 'paid') {
+                            alert('✅ Pagamento já foi confirmado! Redirecionando para o dashboard...');
+                            window.location.href = '/user/dashboard?payment=confirmed';
+                        } else {
+                            alert('ℹ️ Status já está atualizado. Status atual: ' + data.status);
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.innerHTML = '<i class="bi bi-search me-2"></i>Verificar Status no Asaas';
+                            }
+                        }
+                    }
+                } else {
+                    alert('Erro: ' + data.error);
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-search me-2"></i>Verificar Status no Asaas';
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao verificar status:', error);
+                alert('Erro ao verificar status: ' + error.message);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-search me-2"></i>Verificar Status no Asaas';
+                }
+            }
+        }
+        
+        // Validar fatura manualmente
+        async function validateInvoice(invoiceId) {
+            if (!confirm('Deseja validar esta fatura como paga? (Apenas para desenvolvimento/teste)')) {
+                return;
+            }
+            
+            const btn = document.getElementById('validateBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Validando...';
+            }
+            
+            try {
+                const response = await fetch(`/payment/validate/${invoiceId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ Fatura validada com sucesso! Redirecionando para o dashboard...');
+                    window.location.href = '/user/dashboard';
+                } else {
+                    alert('Erro: ' + data.error);
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Validar Pagamento (Teste)';
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao validar fatura:', error);
+                alert('Erro ao validar fatura: ' + error.message);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Validar Pagamento (Teste)';
+                }
+            }
+        }
     </script>
 </body>
 </html>

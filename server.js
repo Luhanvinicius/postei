@@ -152,23 +152,20 @@ app.use((req, res, next) => {
 
 // Rotas públicas
 app.get('/', async (req, res) => {
-  // Se já está autenticado, verificar status de pagamento
+  // Se já está autenticado, redirecionar para dashboard apropriado
   if (req.user) {
     // Admin sempre vai para dashboard
     if (req.user.role === 'admin') {
       return res.redirect('/admin/dashboard');
     }
     
-    // Usuário com pagamento confirmado vai para dashboard
-    if (req.user.payment_status === 'paid') {
-      return res.redirect('/user/dashboard');
-    }
+    // Todos os usuários (com ou sem pagamento) vão para dashboard
+    // O dashboard mostrará aviso se payment_status for 'pending'
+    const { invoices } = require('./database');
+    let pendingInvoice = null;
     
-    // Usuário com pagamento pendente - verificar se tem fatura pendente
+    // Verificar se tem fatura pendente
     if (req.user.payment_status === 'pending') {
-      const { invoices } = require('./database');
-      let pendingInvoice = null;
-      
       try {
         let userInvoices;
         if (invoices.findByUserId.constructor.name === 'AsyncFunction') {
@@ -177,7 +174,9 @@ app.get('/', async (req, res) => {
           userInvoices = invoices.findByUserId(req.user.id);
         }
         
-        pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+        if (userInvoices && Array.isArray(userInvoices)) {
+          pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+        }
       } catch (err) {
         console.error('Erro ao buscar faturas na home:', err);
       }
@@ -186,12 +185,31 @@ app.get('/', async (req, res) => {
         // Se tem fatura pendente, redirecionar para página de pagamento
         return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
       }
-      // Se não tem fatura, pode ver a home para escolher plano
     }
+    
+    // Ir para dashboard (com ou sem plano ativo)
+    return res.redirect('/user/dashboard');
   }
   
-  // Mostrar página inicial (com planos)
-  res.render('index');
+  // Mostrar página inicial (com planos) apenas para visitantes não autenticados
+  // Buscar planos para exibir na página inicial
+  const { plans } = require('./database');
+  let allPlans = [];
+  try {
+    if (plans && plans.findAll) {
+      const isAsync = plans.findAll.constructor && plans.findAll.constructor.name === 'AsyncFunction';
+      if (isAsync) {
+        allPlans = await plans.findAll();
+      } else {
+        allPlans = plans.findAll();
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao buscar planos para página inicial:', err);
+    allPlans = [];
+  }
+  
+  res.render('index', { plans: allPlans });
 });
 
 // Redirecionar /login para /auth/login (compatibilidade)

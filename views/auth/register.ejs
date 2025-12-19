@@ -3,65 +3,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrar - YouTube Automation</title>
+    <title>Registrar - postei.pro</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
-            <a class="navbar-brand" href="/">📹 YouTube Automation</a>
+            <a class="navbar-brand" href="/">
+                <span class="text-gradient">postei.pro</span>
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/">Voltar</a>
+            </div>
         </div>
     </nav>
 
-    <main class="container mt-4">
-        <div class="row justify-content-center">
-            <div class="col-md-6 col-lg-4">
-                <div class="card shadow">
+    <main class="container">
+        <div class="row justify-content-center align-items-center" style="min-height: 80vh;">
+            <div class="col-md-6 col-lg-5">
+                <div class="card animate-fade-in">
                     <div class="card-body p-5">
-                        <h2 class="card-title text-center mb-4">📝 Criar Conta</h2>
-                        
+                        <div class="text-center mb-4">
+                            <div class="mb-3">
+                                <i class="bi bi-person-plus" style="font-size: 3rem; background: var(--gradient-accent); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;"></i>
+                            </div>
+                            <h2 class="text-gradient mb-2">Criar Conta</h2>
+                            <p class="text-secondary">Comece a automatizar seus vídeos agora</p>
+                        </div>
+
                         <% if (typeof error !== 'undefined' && error) { %>
-                            <div class="alert alert-danger"><%= error %></div>
+                            <div class="alert alert-danger">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <%= error %>
+                            </div>
                         <% } %>
 
                         <% if (plan) { %>
-                            <div class="alert alert-info">
-                                <strong>Plano Selecionado:</strong> 
-                                <%= plan === 'basico' ? 'Básico (R$ 29/mês)' : plan === 'profissional' ? 'Profissional (R$ 79/mês)' : 'Enterprise (R$ 199/mês)' %>
+                            <div class="alert alert-info mb-4">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-check-circle-fill me-2" style="font-size: 1.5rem;"></i>
+                                    <div>
+                                        <strong>Plano Selecionado:</strong> 
+                                        <%= plan === 'basico' ? 'Semanal (R$ 29/semana)' : plan === 'profissional' ? 'Mensal (R$ 79/mês)' : plan === 'enterprise' ? 'Anual (R$ 199/ano)' : plan %>
+                                    </div>
+                                </div>
                             </div>
                         <% } else { %>
-                            <div class="alert alert-warning">
+                            <div class="alert alert-warning mb-4">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
                                 <strong>Atenção:</strong> Você precisa selecionar um plano primeiro.
-                                <a href="/#planos">Ver Planos</a>
+                                <a href="/#pricing" class="alert-link">Ver Planos</a>
                             </div>
                         <% } %>
 
-                        <form action="/auth/register" method="POST">
+                        <form action="/auth/register" method="POST" id="registerForm">
                             <% if (plan) { %>
-                                <input type="hidden" name="plan" value="<%= plan %>">
+                                <input type="hidden" name="plan" value="<%= plan %>" id="planInput">
                             <% } %>
                             <div class="mb-3">
                                 <label for="username" class="form-label">Usuário</label>
-                                <input type="text" class="form-control" id="username" name="username" required>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-transparent border-end-0" style="border-color: rgba(255, 255, 255, 0.1);">
+                                        <i class="bi bi-person"></i>
+                                    </span>
+                                    <input type="text" class="form-control border-start-0" id="username" name="username" required placeholder="Escolha um nome de usuário">
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label for="email" class="form-label">Email</label>
-                                <input type="email" class="form-control" id="email" name="email" required>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-transparent border-end-0" style="border-color: rgba(255, 255, 255, 0.1);">
+                                        <i class="bi bi-envelope"></i>
+                                    </span>
+                                    <input type="email" class="form-control border-start-0" id="email" name="email" required placeholder="seu@email.com">
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label for="password" class="form-label">Senha</label>
-                                <input type="password" class="form-control" id="password" name="password" required>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-transparent border-end-0" style="border-color: rgba(255, 255, 255, 0.1);">
+                                        <i class="bi bi-lock"></i>
+                                    </span>
+                                    <input type="password" class="form-control border-start-0" id="password" name="password" required placeholder="Mínimo 6 caracteres">
+                                </div>
                             </div>
-                            <div class="mb-3">
+                            <div class="mb-4">
                                 <label for="confirmPassword" class="form-label">Confirmar Senha</label>
-                                <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-transparent border-end-0" style="border-color: rgba(255, 255, 255, 0.1);">
+                                        <i class="bi bi-lock-fill"></i>
+                                    </span>
+                                    <input type="password" class="form-control border-start-0" id="confirmPassword" name="confirmPassword" required placeholder="Digite a senha novamente">
+                                </div>
                             </div>
-                            <button type="submit" class="btn btn-primary w-100" <%= !plan ? 'disabled' : '' %>>Criar Conta e Continuar para Pagamento</button>
+                            <button type="submit" class="btn btn-gradient w-100 mb-3" id="submitBtn" <%= !plan ? 'disabled' : '' %>>
+                                <span id="btnText">Criar Conta e Continuar para Pagamento</span>
+                                <span id="btnSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                            </button>
                         </form>
 
-                        <div class="text-center mt-3">
-                            <a href="/auth/login">Já tem conta? Faça login</a>
+                        <div class="text-center">
+                            <p class="text-secondary mb-0">
+                                Já tem uma conta? 
+                                <a href="/auth/login" class="text-gradient">Fazer login</a>
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -70,6 +120,41 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('registerForm')?.addEventListener('submit', function(e) {
+            const form = this;
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('btnText');
+            const btnSpinner = document.getElementById('btnSpinner');
+            const planInput = document.getElementById('planInput');
+            
+            // Verificar se o plano está presente
+            if (!planInput || !planInput.value) {
+                e.preventDefault();
+                alert('Por favor, selecione um plano primeiro.');
+                return false;
+            }
+            
+            // Verificar se as senhas coincidem
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (password !== confirmPassword) {
+                e.preventDefault();
+                alert('As senhas não coincidem!');
+                return false;
+            }
+            
+            // Mostrar loading
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                if (btnText) btnText.textContent = 'Criando conta...';
+                if (btnSpinner) btnSpinner.classList.remove('d-none');
+            }
+            
+            // Permitir o submit normal do formulário
+            return true;
+        });
+    </script>
 </body>
 </html>
-

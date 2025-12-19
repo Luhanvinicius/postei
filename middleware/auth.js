@@ -63,15 +63,28 @@ const requireAuth = async (req, res, next) => {
       return next();
     }
     
+    // Permitir acesso ao dashboard e página de planos
+    const isDashboardRoute = 
+      path.startsWith('/user/dashboard') ||
+      path.startsWith('/user/plans') ||
+      path.startsWith('/user/profile') ||
+      originalUrl.includes('/user/dashboard') ||
+      originalUrl.includes('/user/plans') ||
+      originalUrl.includes('/user/profile');
+    
+    if (isDashboardRoute) {
+      console.log('✅ PERMITINDO acesso ao dashboard/perfil/planos');
+      return next();
+    }
+    
     // Permitir acesso à home (/) para escolher plano
     if (path === '/' || path === '') {
       console.log('✅ PERMITINDO acesso à home');
       return next();
     }
     
-    // Para outras rotas protegidas, verificar se há fatura pendente
-    // Se houver, redirecionar para página de pagamento pendente
-    // Se não houver, redirecionar para home para escolher plano
+    // Para outras rotas que precisam de plano ativo (vídeos, agendamento, etc)
+    // Verificar se há fatura pendente
     const { invoices } = require('../database');
     let pendingInvoice = null;
     
@@ -93,15 +106,21 @@ const requireAuth = async (req, res, next) => {
       console.error('Erro ao buscar faturas:', err);
     }
     
-    if (pendingInvoice) {
-      console.log('🔀 Redirecionando para fatura pendente:', pendingInvoice.id);
-      return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
-    } else {
-      // Se não tem fatura pendente, redirecionar para home para escolher plano
-      // Mas NÃO bloquear se estiver tentando acessar checkout (já permitido acima)
-      console.log('🔀 Usuário sem fatura - redirecionando para planos');
-      return res.redirect('/#planos');
+    // Bloquear funcionalidades que precisam de plano ativo
+    // Mas mostrar mensagem amigável no dashboard
+    console.log('⚠️  Usuário sem plano ativo tentando acessar:', path);
+    // Não redirecionar, apenas permitir acesso (o dashboard mostrará aviso)
+    // Mas para funcionalidades específicas, retornar erro JSON
+    if (req.path.startsWith('/api/') || req.path.includes('/videos/') || req.path.includes('/schedule')) {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Plano inativo. Adquira um plano para usar esta funcionalidade.',
+        requiresPlan: true
+      });
     }
+    
+    // Para outras rotas, permitir acesso (mostrará aviso no dashboard)
+    return next();
   }
   
   next();

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escolher Plano - postei.pro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+    </style>
+</head>
+<body>
+    <%- include('../partials/navbar') %>
+
+    <main class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 class="mb-2">📦 Escolha Seu Plano</h1>
+                <p class="text-muted">Selecione o plano que melhor se adequa às suas necessidades</p>
+            </div>
+        </div>
+
+        <div class="row g-4 justify-content-center">
+            <% plans.forEach((plan, index) => { %>
+            <div class="col-lg-4 col-md-6">
+                <div class="pricing-card <%= index === 1 ? 'featured' : '' %>">
+                    <% if (index === 1) { %>
+                    <div class="badge bg-primary mb-2" style="background: linear-gradient(135deg, #8b2be2 0%, #9333ea 50%, #ec4899 100%) !important;">Mais Popular</div>
+                    <% } %>
+                    <h3 class="fw-bold mb-3"><%= plan.name %></h3>
+                    <% 
+                    // Mapear billing_period para português
+                    let billingText = '/mês'; // padrão
+                    if (plan.billing_period) {
+                        if (plan.billing_period === 'weekly' || plan.billing_period === 'semanal') {
+                            billingText = '/semana';
+                        } else if (plan.billing_period === 'yearly' || plan.billing_period === 'annual' || plan.billing_period === 'anual') {
+                            billingText = '/ano';
+                        } else if (plan.billing_period === 'monthly' || plan.billing_period === 'mensal') {
+                            billingText = '/mês';
+                        }
+                    }
+                    %>
+                    <div class="price mb-3">R$ <%= parseFloat(plan.price).toFixed(2) %><span class="fs-6"><%= billingText %></span></div>
+                    <ul class="list-unstyled mb-4 text-start">
+                        <% 
+                        let features = [];
+                        try {
+                            features = JSON.parse(plan.features || '[]');
+                        } catch (e) {
+                            features = plan.features ? plan.features.split(',') : [];
+                        }
+                        features.forEach(feature => { %>
+                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i><%= feature %></li>
+                        <% }); %>
+                        <% if (plan.max_videos) { %>
+                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i>Até <%= plan.max_videos %> vídeos/mês</li>
+                        <% } else { %>
+                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i>Vídeos ilimitados</li>
+                        <% } %>
+                        <% if (plan.max_channels) { %>
+                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i>Até <%= plan.max_channels %> canal(is)</li>
+                        <% } else { %>
+                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i>Canais ilimitados</li>
+                        <% } %>
+                    </ul>
+                    <a href="/payment/checkout/<%= plan.slug %>" class="btn btn-gradient w-100" style="text-decoration: none; color: white;">Escolher Plano</a>
+                </div>
+            </div>
+            <% }); %>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+

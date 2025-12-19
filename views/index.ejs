@@ -3,314 +3,291 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YouTube Automation - Automação de Vídeos com IA</title>
+    <title>postei.pro - Automação de Vídeos no YouTube com IA</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
     <style>
-        :root {
-            /* Paleta de cores baseada na logo POSTEI AUTOMAÇÕES */
-            --dark-purple: #2D0041;
-            --purple: #8b2be2;
-            --vibrant-purple: #9333ea;
-            --pink: #ec4899;
-            --magenta: #f472b6;
-            --light-purple: #a855f7;
-            
-            --primary-color: var(--vibrant-purple);
-            --secondary-color: var(--pink);
-            --gradient: linear-gradient(135deg, var(--purple) 0%, var(--vibrant-purple) 50%, var(--pink) 100%);
-            --gradient-dark: linear-gradient(135deg, var(--dark-purple) 0%, var(--purple) 100%);
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--dark-purple);
-        }
-        
-        .navbar {
-            background: rgba(45, 0, 65, 0.95) !important;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-        
-        .navbar-brand {
-            font-size: 1.5rem;
-            font-weight: bold;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        
         .hero-section {
-            background: var(--dark-purple);
-            color: white;
-            padding: 80px 0 100px;
-            text-align: center;
             position: relative;
-            min-height: 600px;
-            display: flex;
-            align-items: center;
+            overflow: hidden;
         }
         
-        .hero-content {
-            position: relative;
-            z-index: 1;
-        }
-        
-        .hero-logo {
-            max-width: 400px;
+        .hero-particles {
+            position: absolute;
             width: 100%;
-            height: auto;
-            display: block;
-            margin: 0 auto 3rem;
-        }
-        
-        .hero-section h1 {
-            font-size: 3rem;
-            font-weight: 700;
-            margin-bottom: 1.5rem;
-            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-        }
-        
-        .hero-section .lead {
-            font-size: 1.3rem;
-            margin-bottom: 2.5rem;
-            opacity: 0.95;
-            font-weight: 300;
-        }
-        
-        .feature-card {
-            border: 2px solid rgba(139, 43, 226, 0.1);
-            border-radius: 15px;
-            padding: 2rem;
             height: 100%;
-            transition: all 0.3s;
-            background: white;
+            top: 0;
+            left: 0;
+            z-index: 0;
         }
         
-        .feature-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--vibrant-purple);
-            box-shadow: 0 10px 30px rgba(139, 43, 226, 0.2);
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: float 15s infinite;
+            opacity: 0.6;
         }
         
-        .feature-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0) translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.6;
+            }
+            90% {
+                opacity: 0.6;
+            }
+            100% {
+                transform: translateY(-100vh) translateX(100px);
+                opacity: 0;
+            }
         }
         
         .pricing-card {
-            border: 2px solid rgba(139, 43, 226, 0.2);
-            border-radius: 15px;
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-lg);
             padding: 2.5rem;
             text-align: center;
-            transition: all 0.3s;
+            transition: var(--transition-normal);
             height: 100%;
-            background: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .pricing-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--gradient-accent);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: var(--transition-normal);
+        }
+        
+        .pricing-card:hover::before {
+            transform: scaleX(1);
         }
         
         .pricing-card:hover {
-            border-color: var(--vibrant-purple);
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(139, 43, 226, 0.3);
+            transform: translateY(-10px);
+            border-color: var(--primary);
+            box-shadow: var(--shadow-lg), var(--shadow-glow);
         }
         
         .pricing-card.featured {
-            border-color: var(--vibrant-purple);
-            border-width: 3px;
-            background: linear-gradient(135deg, rgba(139, 43, 226, 0.05) 0%, rgba(236, 72, 153, 0.05) 100%);
+            border-color: var(--primary);
+            border-width: 2px;
             transform: scale(1.05);
         }
         
-        .pricing-card.featured:hover {
-            transform: scale(1.05) translateY(-5px);
+        .pricing-card.featured::after {
+            content: '⭐ MAIS POPULAR';
+            position: absolute;
+            top: 20px;
+            right: -35px;
+            background: var(--gradient-accent);
+            color: var(--text-primary);
+            padding: 5px 40px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            transform: rotate(45deg);
+            box-shadow: var(--shadow-md);
         }
         
         .price {
+            font-size: 3.5rem;
+            font-weight: 900;
+            background: var(--gradient-accent);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 1.5rem 0;
+        }
+        
+        .price .period {
+            font-size: 1.25rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 2rem 0;
+            text-align: left;
+        }
+        
+        .feature-list li {
+            padding: 0.75rem 0;
+            color: var(--text-secondary);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .feature-list li i {
+            color: var(--accent);
+            margin-right: 0.75rem;
+            font-size: 1.25rem;
+        }
+        
+        .section-title {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+        
+        .section-title h2 {
             font-size: 3rem;
-            font-weight: bold;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            margin-bottom: 1rem;
         }
         
-        .btn-gradient {
-            background: var(--gradient);
-            border: none;
-            color: white;
-            padding: 12px 30px;
-            border-radius: 25px;
+        .section-title p {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .ai-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid var(--accent);
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-md);
+            color: var(--accent);
             font-weight: 600;
-            transition: all 0.3s;
-            box-shadow: 0 5px 15px rgba(139, 43, 226, 0.3);
-        }
-        
-        .btn-gradient:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(139, 43, 226, 0.4);
-            color: white;
-        }
-        
-        .btn-light:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.3) !important;
-        }
-        
-        .section {
-            padding: 100px 0;
-            background: white;
-        }
-        
-        .about-section {
-            background: #f9fafb;
-        }
-        
-        h2.display-4 {
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        
-        .nav-link {
-            color: rgba(255, 255, 255, 0.9) !important;
-            transition: color 0.3s;
-        }
-        
-        .nav-link:hover {
-            color: var(--magenta) !important;
-        }
-        
-        footer {
-            background: var(--dark-purple) !important;
-        }
-        
-        .badge.bg-primary {
-            background: var(--gradient) !important;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
         }
     </style>
 </head>
 <body>
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
+    <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="/">
-                POSTEI AUTOMAÇÕES
+            <a class="navbar-brand" href="/">
+                <span class="text-gradient">postei.pro</span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="#sobre">Sobre</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#planos">Planos</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/auth/login">Login</a>
-                    </li>
-                </ul>
+                <div class="navbar-nav ms-auto">
+                    <a class="nav-link" href="#features">Recursos</a>
+                    <a class="nav-link" href="#pricing">Planos</a>
+                    <a class="nav-link" href="/auth/login">Login</a>
+                    <a class="nav-link btn btn-primary ms-2" href="/auth/register">Começar Agora</a>
+                </div>
             </div>
         </div>
     </nav>
 
     <!-- Hero Section -->
-    <section class="hero-section">
-        <div class="container hero-content">
-            <img src="/images/logo.png" alt="POSTEI AUTOMAÇÕES" class="hero-logo" onerror="this.onerror=null; this.src='/images/logo.svg';">
-            <h1>Automatize Seus Vídeos no YouTube</h1>
-            <p class="lead">Use Inteligência Artificial para gerar títulos, descrições e thumbnails automaticamente</p>
-            <a href="#planos" class="btn btn-light btn-lg px-5 py-3" style="background: white; color: var(--vibrant-purple); font-weight: 600; border-radius: 30px; box-shadow: 0 5px 20px rgba(0,0,0,0.2);">Adquira Já Seu Plano</a>
+    <section class="hero-section" id="home">
+        <div class="hero-particles" id="particles"></div>
+        <div class="container">
+            <div class="hero-content animate-fade-in">
+                <div class="ai-badge mx-auto">
+                    <i class="bi bi-cpu"></i>
+                    <span>Powered by AI</span>
+                </div>
+                <h1 class="hero-title">
+                    Automatize seus vídeos no<br>
+                    <span class="text-gradient">YouTube com IA</span>
+                </h1>
+                <p class="hero-subtitle">
+                    Crie, agende e publique vídeos automaticamente. Gere títulos, descrições e thumbnails com inteligência artificial.
+                    Economize horas de trabalho e foque no que realmente importa.
+                </p>
+                <div class="d-flex gap-3 justify-content-center flex-wrap">
+                    <a href="/auth/register" class="btn btn-gradient btn-lg">
+                        <i class="bi bi-rocket-takeoff me-2"></i>
+                        Começar Grátis
+                    </a>
+                    <a href="#features" class="btn btn-outline-primary btn-lg">
+                        <i class="bi bi-play-circle me-2"></i>
+                        Ver Como Funciona
+                    </a>
+                </div>
+            </div>
         </div>
     </section>
 
     <!-- Features Section -->
-    <section class="section">
+    <section id="features" class="py-5">
         <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="display-4 fw-bold">Recursos Incríveis</h2>
-                <p class="text-muted">Tudo que você precisa para automatizar seu canal</p>
+            <div class="section-title">
+                <h2>Recursos Poderosos</h2>
+                <p>Tudo que você precisa para automatizar seu canal do YouTube</p>
             </div>
             <div class="row g-4">
                 <div class="col-md-4">
-                    <div class="card feature-card">
-                        <div class="feature-icon">🤖</div>
-                        <h4>IA Generativa</h4>
-                        <p class="text-muted">Gere títulos e descrições únicos baseados no conteúdo real do vídeo usando Google Gemini</p>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="bi bi-robot"></i>
+                        </div>
+                        <h4>IA Avançada</h4>
+                        <p>Geração automática de títulos, descrições e tags otimizadas para SEO usando inteligência artificial de última geração.</p>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card feature-card">
-                        <div class="feature-icon">📸</div>
-                        <h4>Thumbnails Automáticos</h4>
-                        <p class="text-muted">A IA escolhe o melhor frame do vídeo para criar thumbnails atraentes automaticamente</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card feature-card">
-                        <div class="feature-icon">📅</div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="bi bi-calendar-check"></i>
+                        </div>
                         <h4>Agendamento Inteligente</h4>
-                        <p class="text-muted">Agende seus vídeos para publicação automática em horários estratégicos</p>
+                        <p>Programe seus vídeos para serem publicados automaticamente nos melhores horários para seu público.</p>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card feature-card">
-                        <div class="feature-icon">⚡</div>
-                        <h4>Publicação Instantânea</h4>
-                        <p class="text-muted">Publique seus vídeos diretamente no YouTube com um clique</p>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="bi bi-image"></i>
+                        </div>
+                        <h4>Thumbnails Automáticos</h4>
+                        <p>Criação automática de thumbnails atraentes e otimizados para aumentar o CTR dos seus vídeos.</p>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card feature-card">
-                        <div class="feature-icon">👥</div>
-                        <h4>Multi-Usuário</h4>
-                        <p class="text-muted">Cada usuário pode vincular seu próprio canal do YouTube</p>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="bi bi-graph-up-arrow"></i>
+                        </div>
+                        <h4>Análise de Performance</h4>
+                        <p>Acompanhe métricas detalhadas e otimize sua estratégia de conteúdo baseado em dados reais.</p>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card feature-card">
-                        <div class="feature-icon">📊</div>
-                        <h4>Dashboard Completo</h4>
-                        <p class="text-muted">Acompanhe seus vídeos publicados, agendados e estatísticas</p>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="bi bi-shield-check"></i>
+                        </div>
+                        <h4>Segurança Total</h4>
+                        <p>Seus dados e credenciais são protegidos com criptografia de ponta e autenticação segura.</p>
                     </div>
                 </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- About Section -->
-    <section id="sobre" class="section about-section">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-lg-6">
-                    <h2 class="display-5 fw-bold mb-4">Quem Somos</h2>
-                    <p class="lead mb-4">
-                        Somos uma plataforma inovadora de automação para criadores de conteúdo no YouTube.
-                    </p>
-                    <p class="mb-4">
-                        Nossa missão é simplificar o processo de criação e publicação de vídeos, permitindo que você se concentre no que realmente importa: criar conteúdo de qualidade.
-                    </p>
-                    <p class="mb-4">
-                        Utilizamos as mais avançadas tecnologias de Inteligência Artificial, incluindo o Google Gemini, para gerar títulos, descrições e thumbnails que realmente representam o conteúdo do seu vídeo.
-                    </p>
-                    <ul class="list-unstyled">
-                        <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> Tecnologia de ponta em IA</li>
-                        <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> Interface intuitiva e fácil de usar</li>
-                        <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> Suporte completo ao YouTube API</li>
-                        <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> Segurança e privacidade garantidas</li>
-                    </ul>
-                </div>
-                <div class="col-lg-6 text-center">
-                    <div class="p-5">
-                        <i class="bi bi-youtube" style="font-size: 10rem; color: #ff0000;"></i>
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="bi bi-lightning-charge"></i>
+                        </div>
+                        <h4>Velocidade Extrema</h4>
+                        <p>Processamento rápido e eficiente. Publique múltiplos vídeos simultaneamente sem travamentos.</p>
                     </div>
                 </div>
             </div>
@@ -318,91 +295,183 @@
     </section>
 
     <!-- Pricing Section -->
-    <section id="planos" class="section">
+    <section id="pricing" class="py-5" style="background: rgba(255, 255, 255, 0.02);">
         <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="display-4 fw-bold">Escolha Seu Plano</h2>
-                <p class="text-muted">Planos flexíveis para atender suas necessidades</p>
+            <div class="section-title">
+                <h2>Escolha Seu Plano</h2>
+                <p>Planos flexíveis para atender suas necessidades</p>
             </div>
             <div class="row g-4 justify-content-center">
-                <!-- Plano Básico -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="pricing-card">
-                        <h3 class="fw-bold mb-3">Básico</h3>
-                        <div class="price mb-3">R$ 29<span class="fs-6">/mês</span></div>
-                        <ul class="list-unstyled mb-4">
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Até 50 vídeos/mês</li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Geração de conteúdo com IA</li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Thumbnails automáticos</li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Agendamento de vídeos</li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> 1 canal do YouTube</li>
-                        </ul>
-                        <a href="/auth/register?plan=basico" class="btn btn-gradient w-100" style="text-decoration: none; color: white;">Escolher Plano</a>
+                <% if (typeof plans !== 'undefined' && plans) { %>
+                    <% plans.forEach((plan, index) => { %>
+                        <% 
+                        let billingText = '/mês';
+                        if (plan.billing_period === 'weekly' || plan.billing_period === 'semanal') {
+                            billingText = '/semana';
+                        } else if (plan.billing_period === 'yearly' || plan.billing_period === 'annual' || plan.billing_period === 'anual') {
+                            billingText = '/ano';
+                        } else if (plan.billing_period === 'monthly' || plan.billing_period === 'mensal') {
+                            billingText = '/mês';
+                        }
+                        %>
+                        <div class="col-lg-4 col-md-6">
+                            <div class="pricing-card <%= index === 1 ? 'featured' : '' %>">
+                                <h3 class="mb-3"><%= plan.name %></h3>
+                                <div class="price">
+                                    R$ <%= parseFloat(plan.price).toFixed(2) %>
+                                    <span class="period"><%= billingText %></span>
+                                </div>
+                                <ul class="feature-list">
+                                    <% 
+                                    let features = [];
+                                    try {
+                                        features = JSON.parse(plan.features || '[]');
+                                    } catch (e) {
+                                        features = plan.features ? plan.features.split(',') : [];
+                                    }
+                                    features.forEach(feature => { %>
+                                        <li><i class="bi bi-check-circle-fill"></i><%= feature %></li>
+                                    <% }); %>
+                                    <% if (plan.max_videos) { %>
+                                        <li><i class="bi bi-check-circle-fill"></i>Até <%= plan.max_videos %> vídeos/mês</li>
+                                    <% } else { %>
+                                        <li><i class="bi bi-check-circle-fill"></i>Vídeos ilimitados</li>
+                                    <% } %>
+                                    <% if (plan.max_channels) { %>
+                                        <li><i class="bi bi-check-circle-fill"></i>Até <%= plan.max_channels %> canal(is)</li>
+                                    <% } else { %>
+                                        <li><i class="bi bi-check-circle-fill"></i>Canais ilimitados</li>
+                                    <% } %>
+                                </ul>
+                                <a href="/payment/checkout/<%= plan.slug %>" class="btn btn-gradient w-100">
+                                    Escolher Plano
+                                </a>
+                            </div>
+                        </div>
+                    <% }); %>
+                <% } else { %>
+                    <!-- Planos padrão caso não venham do backend -->
+                    <div class="col-lg-4 col-md-6">
+                        <div class="pricing-card">
+                            <h3 class="mb-3">Semanal</h3>
+                            <div class="price">R$ 29.00<span class="period">/semana</span></div>
+                            <ul class="feature-list">
+                                <li><i class="bi bi-check-circle-fill"></i>Até 50 vídeos/mês</li>
+                                <li><i class="bi bi-check-circle-fill"></i>Geração de conteúdo com IA</li>
+                                <li><i class="bi bi-check-circle-fill"></i>Thumbnails automáticos</li>
+                                <li><i class="bi bi-check-circle-fill"></i>Agendamento de vídeos</li>
+                                <li><i class="bi bi-check-circle-fill"></i>1 canal do YouTube</li>
+                            </ul>
+                            <a href="/payment/checkout/basico" class="btn btn-gradient w-100">Escolher Plano</a>
+                        </div>
                     </div>
-                </div>
-
-                <!-- Plano Profissional (Featured) -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="pricing-card featured">
-                        <div class="badge bg-primary mb-2">Mais Popular</div>
-                        <h3 class="fw-bold mb-3">Profissional</h3>
-                        <div class="price mb-3">R$ 79<span class="fs-6">/mês</span></div>
-                        <ul class="list-unstyled mb-4">
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Até 200 vídeos/mês</li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Geração de conteúdo com IA</li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Thumbnails automáticos</li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Agendamento ilimitado</li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Até 3 canais do YouTube</li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Suporte prioritário</li>
-                        </ul>
-                        <a href="/auth/register?plan=profissional" class="btn btn-gradient w-100" style="text-decoration: none; color: white;">Escolher Plano</a>
+                    <div class="col-lg-4 col-md-6">
+                        <div class="pricing-card featured">
+                            <h3 class="mb-3">Mensal</h3>
+                            <div class="price">R$ 79.00<span class="period">/mês</span></div>
+                            <ul class="feature-list">
+                                <li><i class="bi bi-check-circle-fill"></i>Até 200 vídeos/mês</li>
+                                <li><i class="bi bi-check-circle-fill"></i>Geração de conteúdo com IA</li>
+                                <li><i class="bi bi-check-circle-fill"></i>Thumbnails automáticos</li>
+                                <li><i class="bi bi-check-circle-fill"></i>Agendamento ilimitado</li>
+                                <li><i class="bi bi-check-circle-fill"></i>Até 3 canais do YouTube</li>
+                                <li><i class="bi bi-check-circle-fill"></i>Suporte prioritário</li>
+                            </ul>
+                            <a href="/payment/checkout/profissional" class="btn btn-gradient w-100">Escolher Plano</a>
+                        </div>
                     </div>
-                </div>
-
-                <!-- Plano Enterprise -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="pricing-card">
-                        <h3 class="fw-bold mb-3">Enterprise</h3>
-                        <div class="price mb-3">R$ 199<span class="fs-6">/mês</span></div>
-                        <ul class="list-unstyled mb-4">
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Vídeos ilimitados</li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Geração de conteúdo com IA</li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Thumbnails automáticos</li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Agendamento ilimitado</li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Canais ilimitados</li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> Suporte 24/7</li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i> API personalizada</li>
-                        </ul>
-                        <a href="/auth/register?plan=enterprise" class="btn btn-gradient w-100" style="text-decoration: none; color: white;">Escolher Plano</a>
+                    <div class="col-lg-4 col-md-6">
+                        <div class="pricing-card">
+                            <h3 class="mb-3">Anual</h3>
+                            <div class="price">R$ 199.00<span class="period">/ano</span></div>
+                            <ul class="feature-list">
+                                <li><i class="bi bi-check-circle-fill"></i>Vídeos ilimitados</li>
+                                <li><i class="bi bi-check-circle-fill"></i>Geração de conteúdo com IA</li>
+                                <li><i class="bi bi-check-circle-fill"></i>Thumbnails automáticos</li>
+                                <li><i class="bi bi-check-circle-fill"></i>Agendamento ilimitado</li>
+                                <li><i class="bi bi-check-circle-fill"></i>Canais ilimitados</li>
+                                <li><i class="bi bi-check-circle-fill"></i>Suporte 24/7</li>
+                                <li><i class="bi bi-check-circle-fill"></i>API personalizada</li>
+                            </ul>
+                            <a href="/payment/checkout/enterprise" class="btn btn-gradient w-100">Escolher Plano</a>
+                        </div>
                     </div>
-                </div>
+                <% } %>
             </div>
         </div>
     </section>
 
     <!-- Footer -->
-    <footer class="bg-dark text-white py-4">
-        <div class="container text-center">
-            <p class="mb-0">&copy; 2025 YouTube Automation. Todos os direitos reservados.</p>
+    <footer class="py-5" style="background: var(--bg-dark); border-top: 1px solid rgba(255, 255, 255, 0.1);">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5 class="text-gradient mb-3">postei.pro</h5>
+                    <p class="text-secondary">Automatize seus vídeos no YouTube com inteligência artificial. Economize tempo e aumente sua produtividade.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <h6 class="mb-3">Links Rápidos</h6>
+                    <ul class="list-unstyled">
+                        <li><a href="#features" class="text-secondary">Recursos</a></li>
+                        <li><a href="#pricing" class="text-secondary">Planos</a></li>
+                        <li><a href="/auth/login" class="text-secondary">Login</a></li>
+                        <li><a href="/auth/register" class="text-secondary">Cadastro</a></li>
+                    </ul>
+                </div>
+            </div>
+            <hr class="my-4" style="border-color: rgba(255, 255, 255, 0.1);">
+            <div class="text-center text-secondary">
+                <p>&copy; 2025 postei.pro. Todos os direitos reservados.</p>
+            </div>
         </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Smooth scroll para âncoras
+        // Criar partículas animadas
+        function createParticles() {
+            const container = document.getElementById('particles');
+            if (!container) return;
+            
+            for (let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 15 + 's';
+                particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+                container.appendChild(particle);
+            }
+        }
+        
+        // Smooth scroll
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
+                const href = this.getAttribute('href');
+                if (href && href.length > 1 && href.startsWith('#')) {
+                    e.preventDefault();
+                    const target = document.querySelector(href);
+                    if (target) {
+                        target.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
                 }
             });
         });
+        
+        // Navbar scroll effect
+        window.addEventListener('scroll', function() {
+            const navbar = document.querySelector('.navbar');
+            if (window.scrollY > 50) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
+        });
+        
+        // Inicializar
+        createParticles();
     </script>
 </body>
 </html>
-

@@ -3,190 +3,315 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - YouTube Automation</title>
+    <title>Admin Dashboard - postei.pro</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            text-align: center;
+            transition: var(--transition-normal);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--gradient-accent);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .stat-number {
+            font-size: 3rem;
+            font-weight: 900;
+            background: var(--gradient-accent);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 1rem 0;
+            line-height: 1;
+        }
+        
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+        
+        .admin-table {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+        
+        .admin-table .table {
+            margin: 0;
+            color: var(--text-primary);
+        }
+        
+        .admin-table .table thead {
+            background: rgba(255, 0, 0, 0.1);
+        }
+        
+        .admin-table .table thead th {
+            color: var(--text-primary);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            padding: 1.25rem 1rem;
+            border: none;
+        }
+        
+        .admin-table .table tbody tr {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: var(--transition-fast);
+        }
+        
+        .admin-table .table tbody tr:hover {
+            background: var(--bg-card-hover);
+        }
+        
+        .admin-table .table tbody td {
+            padding: 1.25rem 1rem;
+            color: var(--text-primary);
+            border: none;
+            vertical-align: middle;
+        }
+        
+        .role-badge {
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .role-admin {
+            background: var(--gradient-primary);
+            color: var(--text-primary);
+        }
+        
+        .role-user {
+            background: rgba(0, 212, 255, 0.2);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">📹 YouTube Automation</a>
-            <div class="navbar-nav ms-auto d-flex align-items-center">
-                <a class="nav-link active" href="/admin/dashboard">Admin</a>
-                <a class="nav-link" href="/user/dashboard">Dashboard</a>
-                <a class="nav-link" href="/admin/invoices">Faturas</a>
-                <a class="nav-link" href="/admin/videos">Vídeos</a>
-                <%- include('../partials/profile-menu') %>
-            </div>
-        </div>
-    </nav>
+    <%- include('../partials/navbar') %>
 
-    <main class="container mt-4">
-<div class="row">
-    <div class="col-12">
-        <h1 class="mb-4">👑 Painel Administrativo</h1>
-    </div>
-</div>
-
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h2 class="text-primary"><%= totalUsers %></h2>
-                <p class="text-muted">Total de Usuários</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h2 class="text-success"><%= adminUsers %></h2>
-                <p class="text-muted">Administradores</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h2 class="text-info"><%= regularUsers %></h2>
-                <p class="text-muted">Usuários</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">👥 Gerenciar Usuários</h5>
-                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createUserModal">+ Novo Usuário</button>
-            </div>
-            <div class="card-body">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Usuário</th>
-                            <th>Email</th>
-                            <th>Role</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <% users.forEach(u => { %>
-                            <tr>
-                                <td><%= u.id %></td>
-                                <td><%= u.username %></td>
-                                <td><%= u.email %></td>
-                                <td>
-                                    <select class="form-select form-select-sm" style="width: auto; display: inline-block;" onchange="updateRole(<%= u.id %>, this.value)">
-                                        <option value="user" <%= u.role === 'user' ? 'selected' : '' %>>User</option>
-                                        <option value="admin" <%= u.role === 'admin' ? 'selected' : '' %>>Admin</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <button class="btn btn-sm btn-danger" onclick="deleteUser(<%= u.id %>)">Deletar</button>
-                                </td>
-                            </tr>
-                        <% }); %>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Criar Usuário -->
-<div class="modal fade" id="createUserModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Criar Novo Usuário</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="createUserForm">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Usuário</label>
-                        <input type="text" class="form-control" name="username" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-control" name="email" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Senha</label>
-                        <input type="password" class="form-control" name="password" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Role</label>
-                        <select class="form-select" name="role">
-                            <option value="user">User</option>
-                            <option value="admin">Admin</option>
-                        </select>
+    <main class="container mt-5 mb-5">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h1 class="mb-2">
+                            <i class="bi bi-shield-check me-2"></i>
+                            Painel Administrativo
+                        </h1>
+                        <p class="text-secondary mb-0">Gerencie usuários, faturas e conteúdo da plataforma</p>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Criar</button>
-                </div>
-            </form>
+            </div>
         </div>
-    </div>
-</div>
 
-<script>
-document.getElementById('createUserForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    
-    try {
-        const response = await fetch('/admin/users/create', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await response.json();
-        
-        if (data.success) {
-            alert('Usuário criado!');
-            location.reload();
-        } else {
-            alert('Erro: ' + data.error);
-        }
-    } catch (error) {
-        alert('Erro ao criar usuário');
-    }
-});
+        <!-- Cards de Estatísticas -->
+        <div class="row mb-5 g-4">
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-label">Total de Usuários</div>
+                    <div class="stat-number"><%= totalUsers %></div>
+                    <div class="mt-3">
+                        <i class="bi bi-people" style="font-size: 2rem; color: var(--accent); opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-label">Administradores</div>
+                    <div class="stat-number"><%= adminUsers %></div>
+                    <div class="mt-3">
+                        <i class="bi bi-shield-check" style="font-size: 2rem; color: var(--primary); opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-label">Usuários</div>
+                    <div class="stat-number"><%= regularUsers %></div>
+                    <div class="mt-3">
+                        <i class="bi bi-person" style="font-size: 2rem; color: var(--accent-purple); opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-async function deleteUser(userId) {
-    if (!confirm('Tem certeza que deseja deletar este usuário?')) return;
-    
-    try {
-        const response = await fetch(`/admin/users/${userId}`, {
-            method: 'DELETE'
-        });
-        const data = await response.json();
-        
-        if (data.success) {
-            alert('Usuário deletado!');
-            location.reload();
-        } else {
-            alert('Erro: ' + data.error);
-        }
-    } catch (error) {
-        alert('Erro ao deletar usuário');
-    }
-}
-</script>
+        <!-- Gerenciar Usuários -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card admin-table">
+                    <div class="card-header d-flex justify-content-between align-items-center" style="background: var(--bg-card); border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding: 1.5rem;">
+                        <h5 class="mb-0 d-flex align-items-center">
+                            <i class="bi bi-people me-2" style="color: var(--accent);"></i>
+                            Gerenciar Usuários
+                        </h5>
+                        <button class="btn btn-gradient btn-sm" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                            <i class="bi bi-plus-circle me-2"></i>
+                            Novo Usuário
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Usuário</th>
+                                        <th>Email</th>
+                                        <th>Role</th>
+                                        <th>Status Pagamento</th>
+                                        <th class="text-end">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% users.forEach(u => { %>
+                                        <tr>
+                                            <td>
+                                                <span class="badge" style="background: rgba(255, 255, 255, 0.1); color: var(--text-secondary);">
+                                                    #<%= u.id %>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <strong class="text-white"><%= u.username %></strong>
+                                            </td>
+                                            <td class="text-white"><%= u.email %></td>
+                                            <td>
+                                                <select class="form-select form-select-sm role-select" style="width: auto; display: inline-block; background: var(--bg-card-hover); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-primary);" onchange="updateRole(<%= u.id %>, this.value)">
+                                                    <option value="user" <%= u.role === 'user' ? 'selected' : '' %>>User</option>
+                                                    <option value="admin" <%= u.role === 'admin' ? 'selected' : '' %>>Admin</option>
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <% const paymentStatus = u.payment_status || 'pending'; %>
+                                                <% if (paymentStatus === 'paid') { %>
+                                                    <span class="badge badge-success">
+                                                        <i class="bi bi-check-circle me-1"></i>Pago
+                                                    </span>
+                                                <% } else { %>
+                                                    <span class="badge badge-warning">
+                                                        <i class="bi bi-clock me-1"></i>Pendente
+                                                    </span>
+                                                <% } %>
+                                            </td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-danger" onclick="deleteUser(<%= u.id %>)">
+                                                    <i class="bi bi-trash me-1"></i>
+                                                    Deletar
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <% }); %>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
+
+    <!-- Modal Criar Usuário -->
+    <div class="modal fade" id="createUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-person-plus me-2"></i>
+                        Criar Novo Usuário
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="createUserForm">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Usuário</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-transparent border-end-0" style="border-color: rgba(255, 255, 255, 0.1);">
+                                    <i class="bi bi-person"></i>
+                                </span>
+                                <input type="text" class="form-control border-start-0" name="username" required placeholder="Nome de usuário">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-transparent border-end-0" style="border-color: rgba(255, 255, 255, 0.1);">
+                                    <i class="bi bi-envelope"></i>
+                                </span>
+                                <input type="email" class="form-control border-start-0" name="email" required placeholder="email@exemplo.com">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Senha</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-transparent border-end-0" style="border-color: rgba(255, 255, 255, 0.1);">
+                                    <i class="bi bi-lock"></i>
+                                </span>
+                                <input type="password" class="form-control border-start-0" name="password" required placeholder="Mínimo 6 caracteres">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Role</label>
+                            <select class="form-select" name="role">
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-gradient">
+                            <i class="bi bi-check-circle me-2"></i>
+                            Criar Usuário
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.getElementById('createUserForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Criando...';
             
             try {
                 const response = await fetch('/admin/users/create', {
@@ -196,13 +321,17 @@ async function deleteUser(userId) {
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('Usuário criado!');
+                    alert('✅ Usuário criado com sucesso!');
                     location.reload();
                 } else {
-                    alert('Erro: ' + data.error);
+                    alert('❌ Erro: ' + data.error);
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
                 }
             } catch (error) {
-                alert('Erro ao criar usuário');
+                alert('❌ Erro ao criar usuário');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
             }
         });
 
@@ -218,20 +347,20 @@ async function deleteUser(userId) {
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('Role atualizado com sucesso!');
+                    alert('✅ Role atualizado com sucesso!');
                     location.reload();
                 } else {
-                    alert('Erro: ' + data.error);
-                    location.reload(); // Recarregar para reverter a mudança visual
+                    alert('❌ Erro: ' + data.error);
+                    location.reload();
                 }
             } catch (error) {
-                alert('Erro ao atualizar role');
+                alert('❌ Erro ao atualizar role');
                 location.reload();
             }
         }
 
         async function deleteUser(userId) {
-            if (!confirm('Tem certeza que deseja deletar este usuário?')) return;
+            if (!confirm('⚠️ Tem certeza que deseja deletar este usuário? Esta ação não pode ser desfeita.')) return;
             
             try {
                 const response = await fetch(`/admin/users/${userId}`, {
@@ -240,16 +369,15 @@ async function deleteUser(userId) {
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('Usuário deletado!');
+                    alert('✅ Usuário deletado com sucesso!');
                     location.reload();
                 } else {
-                    alert('Erro: ' + data.error);
+                    alert('❌ Erro: ' + data.error);
                 }
             } catch (error) {
-                alert('Erro ao deletar usuário');
+                alert('❌ Erro ao deletar usuário');
             }
         }
     </script>
 </body>
 </html>
-

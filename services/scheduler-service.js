@@ -12,13 +12,20 @@ async function processPendingAI() {
     // Buscar agendamentos que precisam de IA (10 min antes)
     let pendingVideos;
     try {
-      if (schedules.findNeedingAI.constructor.name === 'AsyncFunction') {
-        pendingVideos = await schedules.findNeedingAI();
+      if (schedules.findNeedingAI && typeof schedules.findNeedingAI === 'function') {
+        const isAsync = schedules.findNeedingAI.constructor && schedules.findNeedingAI.constructor.name === 'AsyncFunction';
+        if (isAsync) {
+          pendingVideos = await schedules.findNeedingAI();
+        } else {
+          pendingVideos = schedules.findNeedingAI();
+        }
       } else {
-        pendingVideos = schedules.findNeedingAI.all();
+        console.error('❌ schedules.findNeedingAI não é uma função');
+        return { processed: 0, errors: ['schedules.findNeedingAI não está disponível'] };
       }
     } catch (err) {
-      pendingVideos = schedules.findNeedingAI.all();
+      console.error('❌ Erro ao buscar agendamentos:', err);
+      return { processed: 0, errors: [err.message] };
     }
     
     if (!pendingVideos || pendingVideos.length === 0) {
@@ -48,13 +55,16 @@ async function processPendingAI() {
           
           // Atualizar agendamento com conteúdo fallback
           try {
-            if (schedules.updateContent.constructor.name === 'AsyncFunction') {
-              await schedules.updateContent(video.id, fallbackTitle, fallbackDescription, null);
-            } else {
-              schedules.updateContent.run(fallbackTitle, fallbackDescription, null, video.id);
+            if (schedules.updateContent && typeof schedules.updateContent === 'function') {
+              const isAsync = schedules.updateContent.constructor && schedules.updateContent.constructor.name === 'AsyncFunction';
+              if (isAsync) {
+                await schedules.updateContent(video.id, fallbackTitle, fallbackDescription, null);
+              } else {
+                schedules.updateContent(video.id, fallbackTitle, fallbackDescription, null);
+              }
             }
           } catch (updateErr) {
-            schedules.updateContent.run(fallbackTitle, fallbackDescription, null, video.id);
+            console.error('❌ Erro ao atualizar conteúdo fallback:', updateErr);
           }
           
           processed++;
@@ -68,13 +78,16 @@ async function processPendingAI() {
         const thumbnailPath = geminiResult.thumbnail_path || null;
         
         try {
-          if (schedules.updateContent.constructor.name === 'AsyncFunction') {
-            await schedules.updateContent(video.id, title, description, thumbnailPath);
-          } else {
-            schedules.updateContent.run(title, description, thumbnailPath, video.id);
+          if (schedules.updateContent && typeof schedules.updateContent === 'function') {
+            const isAsync = schedules.updateContent.constructor && schedules.updateContent.constructor.name === 'AsyncFunction';
+            if (isAsync) {
+              await schedules.updateContent(video.id, title, description, thumbnailPath);
+            } else {
+              schedules.updateContent(video.id, title, description, thumbnailPath);
+            }
           }
         } catch (updateErr) {
-          schedules.updateContent.run(title, description, thumbnailPath, video.id);
+          console.error('❌ Erro ao atualizar conteúdo:', updateErr);
         }
         
         processed++;
