@@ -302,8 +302,8 @@
                 <p>Planos flexíveis para atender suas necessidades</p>
             </div>
             <div class="row g-4 justify-content-center">
-                <% if (typeof plans !== 'undefined' && plans) { %>
-                    <% plans.forEach((plan, index) => { %>
+                <% if (typeof plans !== 'undefined' && plans && plans.length > 0) { %>
+                    <% plans.forEach(function(plan, index) { %>
                         <% 
                         var billingText = '/mês';
                         if (plan.billing_period === 'weekly' || plan.billing_period === 'semanal') {
@@ -330,9 +330,10 @@
                                         features = plan.features ? plan.features.split(',') : [];
                                     }
                                     if (features && features.length > 0) {
-                                        features.forEach(function(feature) { %>
+                                        for (var i = 0; i < features.length; i++) {
+                                            var feature = features[i]; %>
                                             <li><i class="bi bi-check-circle-fill"></i><%= feature %></li>
-                                        <% });
+                                        <% }
                                     }
                                     %>
                                     <% if (plan.max_videos) { %>

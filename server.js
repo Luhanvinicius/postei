@@ -204,23 +204,34 @@ app.get('/', async (req, res) => {
   
   // Mostrar página inicial (com planos) apenas para visitantes não autenticados
   // Buscar planos para exibir na página inicial
-  const { plans } = require('./database');
   let allPlans = [];
   try {
-    if (plans && plans.findAll) {
-      const isAsync = plans.findAll.constructor && plans.findAll.constructor.name === 'AsyncFunction';
-      if (isAsync) {
-        allPlans = await plans.findAll();
-      } else {
-        allPlans = plans.findAll();
+    // Aguardar banco estar pronto antes de buscar planos
+    if (!dbReady && dbInitPromise) {
+      await dbInitPromise;
+      dbReady = true;
+    }
+    
+    if (dbReady) {
+      const { plans } = require('./database');
+      if (plans && plans.findAll) {
+        const isAsync = plans.findAll.constructor && plans.findAll.constructor.name === 'AsyncFunction';
+        if (isAsync) {
+          allPlans = await plans.findAll();
+        } else {
+          allPlans = plans.findAll();
+        }
       }
     }
   } catch (err) {
     console.error('Erro ao buscar planos para página inicial:', err);
+    console.error('Stack:', err.stack);
+    // Continuar mesmo sem planos - página inicial ainda funciona
     allPlans = [];
   }
   
-  res.render('index', { plans: allPlans });
+  // Renderizar página inicial mesmo se não houver planos
+  res.render('index', { plans: allPlans || [] });
 });
 
 // Redirecionar /login para /auth/login (compatibilidade)
