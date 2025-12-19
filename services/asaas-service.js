@@ -10,7 +10,13 @@ const axios = require('axios');
 
 class AsaasService {
   constructor() {
-    this.apiKey = process.env.ASAAS_API_KEY || '';
+    // Aceitar chave com ou sem $ no início
+    let apiKey = process.env.ASAAS_API_KEY || '';
+    // Se não começar com $, adicionar (formato esperado pelo Asaas)
+    if (apiKey && !apiKey.startsWith('$')) {
+      apiKey = '$' + apiKey;
+    }
+    this.apiKey = apiKey;
     this.environment = process.env.ASAAS_ENVIRONMENT || 'sandbox';
     this.baseURL = this.environment === 'production' 
       ? 'https://api.asaas.com/v3'
