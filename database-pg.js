@@ -70,6 +70,7 @@ async function initDatabase() {
       idle: pool.idleCount,
       waiting: pool.waitingCount
     });
+    console.log('📍 Connection String (oculto):', connectionString ? connectionString.substring(0, 20) + '...' : 'NÃO CONFIGURADA');
     
     // Tentar conectar com timeout
     const connectPromise = pool.connect();
