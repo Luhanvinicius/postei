@@ -3,6 +3,7 @@ const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 const cookieParser = require('cookie-parser');
 const fileUpload = require('express-fileupload');
+const cors = require('cors');
 const path = require('path');
 const fs = require('fs-extra');
 require('dotenv').config();
@@ -79,7 +80,7 @@ const PORT = process.env.PORT || 3000;
 const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
 
 // Criar diretórios necessários (apenas em desenvolvimento)
-if (!isVercel) {
+if (!isVercel && !isRailway) {
   const dirs = [
     'uploads',
     'videos',
@@ -95,6 +96,15 @@ if (!isVercel) {
     fs.ensureDirSync(dir);
   });
 }
+
+// CORS - Permitir requisições do frontend
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || process.env.CORS_ORIGIN || '*', // Permitir qualquer origem em desenvolvimento
+  credentials: true, // Permitir cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+app.use(cors(corsOptions));
 
 // Middlewares
 app.use(express.json());
@@ -113,16 +123,16 @@ const sessionConfig = {
   name: 'youtube_automation_session', // Nome customizado
   rolling: true, // Renovar cookie a cada requisição
   cookie: {
-    secure: isVercel ? true : false, // HTTPS no Vercel, HTTP localmente
+    secure: (isVercel || isRailway) ? true : false, // HTTPS no Vercel/Railway, HTTP localmente
     httpOnly: true, // Cookie não acessível via JavaScript (segurança)
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
-    sameSite: isVercel ? 'none' : 'lax', // Necessário para HTTPS no Vercel
+    sameSite: (isVercel || isRailway) ? 'none' : 'lax', // Necessário para HTTPS no Vercel/Railway
     path: '/'
   }
 };
 
 // Usar file-store em desenvolvimento local (persistente)
-if (!isVercel) {
+if (!isVercel && !isRailway) {
   sessionConfig.store = new FileStore({
     path: path.join(__dirname, 'data', 'sessions'),
     ttl: 7 * 24 * 60 * 60, // 7 dias em segundos
@@ -287,7 +297,8 @@ app.use('/api', requireAuth, apiRoutes);
 
 // Iniciar servidor apenas se não estiver no Vercel
 // No Vercel, o app é exportado e o servidor é iniciado automaticamente
-if (!isVercel) {
+// No Railway, precisamos iniciar o servidor explicitamente
+if (!isVercel && !isRailway) {
   app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
     console.log(`📁 Ambiente: ${process.env.NODE_ENV || 'development'}`);
@@ -295,6 +306,16 @@ if (!isVercel) {
 
   // Iniciar scheduler apenas em desenvolvimento/local
   // No Vercel, use Vercel Cron Jobs (vercel.json)
+  require('./services/scheduler').start();
+} else if (isRailway) {
+  // No Railway, o servidor precisa ser iniciado explicitamente
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    console.log(`📁 Ambiente: ${process.env.NODE_ENV || 'production'}`);
+    console.log(`🌐 Railway Environment: ${process.env.RAILWAY_ENVIRONMENT || 'production'}`);
+  });
+  
+  // Iniciar scheduler no Railway também
   require('./services/scheduler').start();
   
   // Iniciar processamento periódico de agendamentos (gera conteúdo 10 min antes)
@@ -327,13 +348,13 @@ app.use((err, req, res, next) => {
   console.error('Method:', req.method);
   
   // Não expor detalhes do erro em produção
-  if (isVercel) {
+  if (isVercel || isRailway) {
     res.status(500).send('Internal Server Error');
   } else {
     res.status(500).send(`<pre>${err.stack}</pre>`);
   }
 });
 
-// Exportar app para Vercel
+// Exportar app para Vercel/Railway
 module.exports = app;
 
