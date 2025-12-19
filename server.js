@@ -128,7 +128,7 @@ app.use('/thumbnails', express.static(path.join(__dirname, 'thumbnails')));
 // Middleware para garantir que o banco está pronto
 app.use(async (req, res, next) => {
   // Rotas estáticas não precisam do banco
-  if (req.path.startsWith('/thumbnails') || req.path.startsWith('/images') || req.path.startsWith('/css') || req.path.startsWith('/js')) {
+  if (req.path.startsWith('/thumbnails') || req.path.startsWith('/images') || req.path.startsWith('/css') || req.path.startsWith('/js') || req.path.startsWith('/favicon')) {
     return next();
   }
 
@@ -136,16 +136,17 @@ app.use(async (req, res, next) => {
   if (!dbReady && dbInitPromise) {
     try {
       console.log('🔄 Aguardando inicialização do banco de dados...');
-      await dbInitPromise;
+      const result = await Promise.race([
+        dbInitPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout na inicialização do banco')), 10000))
+      ]);
       dbReady = true;
       console.log('✅ Banco de dados pronto!');
     } catch (err) {
       console.error('❌ Erro ao inicializar banco na requisição:', err);
       console.error('Stack:', err.stack);
-      // Retornar erro 503 se o banco não conseguir inicializar
-      if (isVercel) {
-        return res.status(503).send('Serviço temporariamente indisponível. Banco de dados não inicializado.');
-      }
+      // Não bloquear requisições, apenas logar o erro
+      // O banco pode estar inicializando em background
     }
   }
   
@@ -279,6 +280,21 @@ if (!isVercel) {
   
   console.log('✅ Processamento periódico de agendamentos iniciado (a cada 2 minutos)');
 }
+
+// Middleware de tratamento de erros global (deve ser o último)
+app.use((err, req, res, next) => {
+  console.error('❌ Erro não tratado:', err);
+  console.error('Stack:', err.stack);
+  console.error('URL:', req.url);
+  console.error('Method:', req.method);
+  
+  // Não expor detalhes do erro em produção
+  if (isVercel) {
+    res.status(500).send('Internal Server Error');
+  } else {
+    res.status(500).send(`<pre>${err.stack}</pre>`);
+  }
+});
 
 // Exportar app para Vercel
 module.exports = app;
