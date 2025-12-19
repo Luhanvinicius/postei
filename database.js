@@ -27,16 +27,27 @@ if (isVercel || isRailway || hasPostgresUrl) {
   
   module.exports = pgDb;
 } else {
-  // Usar SQLite localmente
-  console.log('📊 Usando SQLite (Desenvolvimento Local)');
+  // Usar SQLite localmente (apenas se better-sqlite3 estiver disponível)
+  console.log('📊 Tentando usar SQLite (Desenvolvimento Local)');
   
   let Database;
   try {
     Database = require('better-sqlite3');
   } catch (err) {
+    // Se better-sqlite3 não estiver disponível, tentar usar PostgreSQL se DATABASE_URL estiver configurada
+    if (process.env.DATABASE_URL || process.env.POSTGRES_URL) {
+      console.log('⚠️  better-sqlite3 não encontrado, mas DATABASE_URL está configurada. Usando PostgreSQL.');
+      const pgDb = require('./database-pg');
+      pgDb.initDatabase().catch(err => {
+        console.error('❌ Erro ao inicializar PostgreSQL:', err);
+      });
+      module.exports = pgDb;
+      return;
+    }
+    
     console.error('❌ better-sqlite3 não encontrado.');
     console.error('   Para desenvolvimento local: npm install better-sqlite3');
-    console.error('   Para produção (Render/Vercel): Configure DATABASE_URL para usar PostgreSQL');
+    console.error('   Para produção (Vercel/Railway): Configure DATABASE_URL para usar PostgreSQL');
     throw new Error('better-sqlite3 não está instalado. Para desenvolvimento local, execute: npm install better-sqlite3. Para produção, configure DATABASE_URL.');
   }
   const path = require('path');
