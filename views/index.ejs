@@ -305,7 +305,7 @@
                 <% if (typeof plans !== 'undefined' && plans) { %>
                     <% plans.forEach((plan, index) => { %>
                         <% 
-                        let billingText = '/mês';
+                        var billingText = '/mês';
                         if (plan.billing_period === 'weekly' || plan.billing_period === 'semanal') {
                             billingText = '/semana';
                         } else if (plan.billing_period === 'yearly' || plan.billing_period === 'annual' || plan.billing_period === 'anual') {
@@ -323,15 +323,18 @@
                                 </div>
                                 <ul class="feature-list">
                                     <% 
-                                    let features = [];
+                                    var features = [];
                                     try {
                                         features = JSON.parse(plan.features || '[]');
                                     } catch (e) {
                                         features = plan.features ? plan.features.split(',') : [];
                                     }
-                                    features.forEach(feature => { %>
-                                        <li><i class="bi bi-check-circle-fill"></i><%= feature %></li>
-                                    <% }); %>
+                                    if (features && features.length > 0) {
+                                        features.forEach(function(feature) { %>
+                                            <li><i class="bi bi-check-circle-fill"></i><%= feature %></li>
+                                        <% });
+                                    }
+                                    %>
                                     <% if (plan.max_videos) { %>
                                         <li><i class="bi bi-check-circle-fill"></i>Até <%= plan.max_videos %> vídeos/mês</li>
                                     <% } else { %>
