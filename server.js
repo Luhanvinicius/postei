@@ -166,17 +166,16 @@ app.use(async (req, res, next) => {
   if (!dbReady && dbInitPromise) {
     try {
       console.log('🔄 Aguardando inicialização do banco de dados...');
-      const result = await Promise.race([
+      await Promise.race([
         dbInitPromise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout na inicialização do banco')), 10000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout na inicialização do banco (10s)')), 10000))
       ]);
       dbReady = true;
       console.log('✅ Banco de dados pronto!');
     } catch (err) {
-      console.error('❌ Erro ao inicializar banco na requisição:', err);
-      console.error('Stack:', err.stack);
-      // Não bloquear requisições, apenas logar o erro
-      // O banco pode estar inicializando em background
+      console.error('❌ Erro ao inicializar banco na requisição:', err.message);
+      // Não bloquear requisições - tentar novamente na próxima
+      // Em produção, algumas rotas podem funcionar sem banco
     }
   }
   
