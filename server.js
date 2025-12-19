@@ -15,19 +15,26 @@ const { requireAuth, requireAdmin } = require('./middleware/auth');
 
 // Garantir que o banco está inicializado antes de processar requisições
 let dbReady = false;
+let dbInitPromise = null;
+
 if (db.initDatabase) {
-  db.initDatabase()
+  // Iniciar inicialização imediatamente
+  dbInitPromise = db.initDatabase()
     .then(() => {
       dbReady = true;
       console.log('✅ Banco de dados pronto');
+      return true;
     })
     .catch(err => {
       console.error('❌ Erro ao inicializar banco de dados:', err);
+      console.error('Stack:', err.stack);
       // Não bloquear o servidor, mas logar o erro
+      return false;
     });
 } else {
   // SQLite inicializa síncronamente
   dbReady = true;
+  dbInitPromise = Promise.resolve(true);
 }
 
 const authRoutes = require('./routes/auth');
@@ -125,19 +132,23 @@ app.use(async (req, res, next) => {
     return next();
   }
 
-  if (!dbReady && db.initDatabase) {
+  // Aguardar inicialização do banco se ainda não estiver pronto
+  if (!dbReady && dbInitPromise) {
     try {
-      console.log('🔄 Inicializando banco de dados na primeira requisição...');
-      await db.initDatabase();
+      console.log('🔄 Aguardando inicialização do banco de dados...');
+      await dbInitPromise;
       dbReady = true;
       console.log('✅ Banco de dados pronto!');
     } catch (err) {
       console.error('❌ Erro ao inicializar banco na requisição:', err);
       console.error('Stack:', err.stack);
-      // Não bloquear a requisição, apenas logar o erro
-      // O banco pode estar inicializando em background
+      // Retornar erro 503 se o banco não conseguir inicializar
+      if (isVercel) {
+        return res.status(503).send('Serviço temporariamente indisponível. Banco de dados não inicializado.');
+      }
     }
   }
+  
   next();
 });
 

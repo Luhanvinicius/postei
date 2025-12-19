@@ -65,7 +65,19 @@ async function initDatabase() {
   let client;
   try {
     console.log('🔄 Tentando conectar ao PostgreSQL...');
-    client = await pool.connect();
+    console.log('📍 Pool config:', {
+      max: pool.totalCount,
+      idle: pool.idleCount,
+      waiting: pool.waitingCount
+    });
+    
+    // Tentar conectar com timeout
+    const connectPromise = pool.connect();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout ao conectar ao PostgreSQL (10s)')), 10000)
+    );
+    
+    client = await Promise.race([connectPromise, timeoutPromise]);
     console.log('✅ Conexão com PostgreSQL estabelecida');
     // Tabela de usuários
     await client.query(`
