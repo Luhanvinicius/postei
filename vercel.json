@@ -1,20 +1,17 @@
 {
   "version": 2,
-  "buildCommand": null,
-  "outputDirectory": ".",
-  "framework": null,
-  "rewrites": [
+  "builds": [
     {
-      "source": "/(.*)",
-      "destination": "/server.js"
+      "src": "server.js",
+      "use": "@vercel/node"
     }
   ],
-  "functions": {
-    "server.js": {
-      "maxDuration": 300,
-      "memory": 1024
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/server.js"
     }
-  },
+  ],
   "env": {
     "NODE_ENV": "production"
   }
