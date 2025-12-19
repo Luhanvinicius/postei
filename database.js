@@ -1,14 +1,17 @@
-// Detectar se está no Vercel ou se DATABASE_URL está configurada
+// Detectar se está no Vercel, Railway ou se DATABASE_URL está configurada
 const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY;
 const hasPostgresUrl = !!(process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.PRISMA_DATABASE_URL);
 
-// Usar PostgreSQL se estiver no Vercel ou se DATABASE_URL estiver configurada
-if (isVercel || hasPostgresUrl) {
+// Usar PostgreSQL se estiver no Vercel, Railway ou se DATABASE_URL estiver configurada
+if (isVercel || isRailway || hasPostgresUrl) {
   const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.PRISMA_DATABASE_URL;
   const isLocalhost = dbUrl && (dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1'));
   
   if (isVercel) {
     console.log('📊 Usando PostgreSQL (Vercel/Produção)');
+  } else if (isRailway) {
+    console.log('📊 Usando PostgreSQL (Railway/Produção)');
   } else if (isLocalhost) {
     console.log('📊 Usando PostgreSQL (Local)');
   } else {
