@@ -636,9 +636,11 @@ function ensureInitialized() {
   return initPromise;
 }
 
-// Inicializar imediatamente (não esperar)
+// Inicializar imediatamente (não esperar) - apenas logar erros
+// No Vercel, a inicialização pode falhar na primeira vez, mas funcionar nas requisições
 ensureInitialized().catch(err => {
-  console.error('❌ Falha na inicialização do banco:', err);
+  console.error('❌ Falha na inicialização inicial do banco:', err.message);
+  console.error('⚠️ O banco será inicializado na primeira requisição');
 });
 
 module.exports = {

@@ -238,32 +238,49 @@ app.get('/', async (req, res, next) => {
   // Buscar planos para exibir na página inicial
   let allPlans = [];
   try {
-    // Aguardar banco estar pronto antes de buscar planos
+    // Aguardar banco estar pronto antes de buscar planos (com timeout)
     if (!dbReady && dbInitPromise) {
-      await dbInitPromise;
-      dbReady = true;
+      try {
+        await Promise.race([
+          dbInitPromise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+        dbReady = true;
+      } catch (timeoutErr) {
+        console.warn('⚠️ Timeout ao aguardar banco - renderizando sem planos');
+      }
     }
     
     if (dbReady) {
       const { plans } = require('./database');
       if (plans && plans.findAll) {
-        const isAsync = plans.findAll.constructor && plans.findAll.constructor.name === 'AsyncFunction';
-        if (isAsync) {
-          allPlans = await plans.findAll();
-        } else {
-          allPlans = plans.findAll();
+        try {
+          const isAsync = plans.findAll.constructor && plans.findAll.constructor.name === 'AsyncFunction';
+          if (isAsync) {
+            allPlans = await plans.findAll();
+          } else {
+            allPlans = plans.findAll();
+          }
+        } catch (dbErr) {
+          console.error('Erro ao buscar planos do banco:', dbErr.message);
+          allPlans = [];
         }
       }
     }
   } catch (err) {
-    console.error('Erro ao buscar planos para página inicial:', err);
-    console.error('Stack:', err.stack);
+    console.error('Erro ao buscar planos para página inicial:', err.message);
     // Continuar mesmo sem planos - página inicial ainda funciona
     allPlans = [];
   }
   
   // Renderizar página inicial mesmo se não houver planos
-  res.render('index', { plans: allPlans || [] });
+  try {
+    res.render('index', { plans: allPlans || [] });
+  } catch (renderErr) {
+    console.error('Erro ao renderizar index:', renderErr);
+    console.error('Stack:', renderErr.stack);
+    next(renderErr);
+  }
   } catch (err) {
     console.error('❌ Erro na rota principal (/):', err);
     console.error('Stack:', err.stack);
