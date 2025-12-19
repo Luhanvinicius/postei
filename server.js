@@ -8,10 +8,30 @@ const fs = require('fs-extra');
 require('dotenv').config();
 
 // Inicializar banco de dados ANTES de carregar rotas
-const db = require('./database');
+let db;
+try {
+  console.log('🔄 Carregando módulo de banco de dados...');
+  db = require('./database');
+  console.log('✅ Módulo de banco de dados carregado');
+} catch (err) {
+  console.error('❌ Erro ao carregar módulo de banco de dados:', err);
+  console.error('Stack:', err.stack);
+  throw err;
+}
 
 // Importar middlewares de autenticação
-const { requireAuth, requireAdmin } = require('./middleware/auth');
+let requireAuth, requireAdmin;
+try {
+  console.log('🔄 Carregando middlewares de autenticação...');
+  const authMiddleware = require('./middleware/auth');
+  requireAuth = authMiddleware.requireAuth;
+  requireAdmin = authMiddleware.requireAdmin;
+  console.log('✅ Middlewares de autenticação carregados');
+} catch (err) {
+  console.error('❌ Erro ao carregar middlewares de autenticação:', err);
+  console.error('Stack:', err.stack);
+  throw err;
+}
 
 // Garantir que o banco está inicializado antes de processar requisições
 let dbReady = false;
@@ -37,12 +57,22 @@ if (db.initDatabase) {
   dbInitPromise = Promise.resolve(true);
 }
 
-const authRoutes = require('./routes/auth');
-const adminRoutes = require('./routes/admin');
-const userRoutes = require('./routes/user');
-const apiRoutes = require('./routes/api');
-const testRoutes = require('./routes/test');
-const paymentRoutes = require('./routes/payment');
+// Carregar rotas com tratamento de erro
+let authRoutes, adminRoutes, userRoutes, apiRoutes, testRoutes, paymentRoutes;
+try {
+  console.log('🔄 Carregando rotas...');
+  authRoutes = require('./routes/auth');
+  adminRoutes = require('./routes/admin');
+  userRoutes = require('./routes/user');
+  apiRoutes = require('./routes/api');
+  testRoutes = require('./routes/test');
+  paymentRoutes = require('./routes/payment');
+  console.log('✅ Rotas carregadas');
+} catch (err) {
+  console.error('❌ Erro ao carregar rotas:', err);
+  console.error('Stack:', err.stack);
+  throw err;
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -163,7 +193,8 @@ app.use((req, res, next) => {
 });
 
 // Rotas públicas
-app.get('/', async (req, res) => {
+app.get('/', async (req, res, next) => {
+  try {
   // Se já está autenticado, redirecionar para dashboard apropriado
   if (req.user) {
     // Admin sempre vai para dashboard
@@ -233,6 +264,11 @@ app.get('/', async (req, res) => {
   
   // Renderizar página inicial mesmo se não houver planos
   res.render('index', { plans: allPlans || [] });
+  } catch (err) {
+    console.error('❌ Erro na rota principal (/):', err);
+    console.error('Stack:', err.stack);
+    next(err);
+  }
 });
 
 // Redirecionar /login para /auth/login (compatibilidade)
