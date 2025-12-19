@@ -1,4 +1,4 @@
-# Dependências
+  # Dependências
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -48,4 +48,7 @@ sessions/
 
 # Vercel
 .vercel
+
+# Railway
+.railway
 
