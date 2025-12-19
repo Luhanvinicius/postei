@@ -1,0 +1,30 @@
+[1mdiff --git a/vercel.json b/vercel.json[m
+[1mindex 6992c94..aa4adf3 100644[m
+[1m--- a/vercel.json[m
+[1m+++ b/vercel.json[m
+[36m@@ -1,18 +1,18 @@[m
+ {[m
+   "version": 2,[m
+[32m+[m[32m  "builds": [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "src": "server.js",[m
+[32m+[m[32m      "use": "@vercel/node"[m
+[32m+[m[32m    }[m
+[32m+[m[32m  ],[m
+   "routes": [[m
+     {[m
+       "src": "/(.*)",[m
+[31m-      "dest": "server.js"[m
+[32m+[m[32m      "dest": "/server.js"[m
+     }[m
+   ],[m
+   "env": {[m
+     "NODE_ENV": "production"[m
+[31m-  },[m
+[31m-  "functions": {[m
+[31m-    "server.js": {[m
+[31m-      "maxDuration": 300[m
+[31m-    }[m
+   }[m
+ }[m
+[31m-[m

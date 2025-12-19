@@ -237,49 +237,35 @@ app.get('/', async (req, res, next) => {
   // Buscar planos para exibir na página inicial
   let allPlans = [];
   try {
-    // Aguardar banco estar pronto antes de buscar planos (com timeout)
+    // Aguardar banco estar pronto antes de buscar planos
     if (!dbReady && dbInitPromise) {
       try {
-        await Promise.race([
-          dbInitPromise,
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-        ]);
+        await dbInitPromise;
         dbReady = true;
-      } catch (timeoutErr) {
-        console.warn('⚠️ Timeout ao aguardar banco - renderizando sem planos');
+      } catch (err) {
+        console.warn('⚠️ Banco não inicializado - renderizando sem planos');
       }
     }
     
     if (dbReady) {
       const { plans } = require('./database');
       if (plans && plans.findAll) {
-        try {
-          const isAsync = plans.findAll.constructor && plans.findAll.constructor.name === 'AsyncFunction';
-          if (isAsync) {
-            allPlans = await plans.findAll();
-          } else {
-            allPlans = plans.findAll();
-          }
-        } catch (dbErr) {
-          console.error('Erro ao buscar planos do banco:', dbErr.message);
-          allPlans = [];
+        const isAsync = plans.findAll.constructor && plans.findAll.constructor.name === 'AsyncFunction';
+        if (isAsync) {
+          allPlans = await plans.findAll();
+        } else {
+          allPlans = plans.findAll();
         }
       }
     }
   } catch (err) {
-    console.error('Erro ao buscar planos para página inicial:', err.message);
+    console.error('Erro ao buscar planos para página inicial:', err);
     // Continuar mesmo sem planos - página inicial ainda funciona
     allPlans = [];
   }
   
   // Renderizar página inicial mesmo se não houver planos
-  try {
-    res.render('index', { plans: allPlans || [] });
-  } catch (renderErr) {
-    console.error('Erro ao renderizar index:', renderErr);
-    console.error('Stack:', renderErr.stack);
-    next(renderErr);
-  }
+  res.render('index', { plans: allPlans || [] });
   } catch (err) {
     console.error('❌ Erro na rota principal (/):', err);
     console.error('Stack:', err.stack);
