@@ -21,11 +21,31 @@ if (!connectionString) {
     console.error('  Nenhuma variável de banco encontrada!');
   }
   console.error('');
+  
+  // Detectar plataforma
+  const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID;
+  const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+  
   console.error('🔧 SOLUÇÃO:');
-  console.error('  1. Vá em Vercel → Settings → Environment Variables');
-  console.error('  2. Adicione DATABASE_URL com a Connection String do seu banco');
-  console.error('  3. A Connection String está em: Storage → Seu Banco → Settings');
-  throw new Error('DATABASE_URL é obrigatória. Configure no Vercel: Settings → Environment Variables');
+  if (isRailway) {
+    console.error('  1. Vá em Railway → Seu Projeto → Variables');
+    console.error('  2. Clique em "New Variable"');
+    console.error('  3. Nome: DATABASE_URL');
+    console.error('  4. Valor: A Connection String do seu banco PostgreSQL');
+    console.error('  5. Para criar um banco PostgreSQL no Railway:');
+    console.error('     - Vá em "New" → "Database" → "Add PostgreSQL"');
+    console.error('     - Depois vá em "Variables" e copie o valor de DATABASE_URL');
+    throw new Error('DATABASE_URL é obrigatória. Configure no Railway: Variables → New Variable');
+  } else if (isVercel) {
+    console.error('  1. Vá em Vercel → Settings → Environment Variables');
+    console.error('  2. Adicione DATABASE_URL com a Connection String do seu banco');
+    console.error('  3. A Connection String está em: Storage → Seu Banco → Settings');
+    throw new Error('DATABASE_URL é obrigatória. Configure no Vercel: Settings → Environment Variables');
+  } else {
+    console.error('  1. Configure DATABASE_URL nas variáveis de ambiente');
+    console.error('  2. Formato: postgresql://usuario:senha@host:porta/database');
+    throw new Error('DATABASE_URL é obrigatória. Configure a variável de ambiente DATABASE_URL');
+  }
 }
 
 // Validar formato da URL
