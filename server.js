@@ -335,27 +335,45 @@ app.get('/', async (req, res, next) => {
         }
       }
       
-      if (dbReady && db) {
+      // Tentar buscar planos usando o módulo db já carregado
+      if (db && db.plans && db.plans.findAll) {
         try {
-          const { plans } = require('./database');
-          if (plans && plans.findAll) {
-            const isAsync = plans.findAll.constructor && plans.findAll.constructor.name === 'AsyncFunction';
-            if (isAsync) {
-              allPlans = await plans.findAll();
-            } else {
-              allPlans = plans.findAll();
+          console.log('📍 Tentando buscar planos do banco...');
+          // Garantir que o banco está inicializado antes de buscar
+          if (db.initDatabase && typeof db.initDatabase === 'function') {
+            try {
+              await db.initDatabase();
+              console.log('✅ Banco inicializado antes de buscar planos');
+            } catch (initErr) {
+              console.warn('⚠️ Erro ao inicializar banco antes de buscar planos:', initErr.message);
             }
-            console.log('📍 Planos encontrados:', allPlans.length);
+          }
+          
+          const isAsync = db.plans.findAll.constructor && db.plans.findAll.constructor.name === 'AsyncFunction';
+          if (isAsync) {
+            allPlans = await db.plans.findAll();
+          } else {
+            allPlans = db.plans.findAll();
+          }
+          console.log('✅ Planos encontrados:', allPlans ? allPlans.length : 0);
+          if (!Array.isArray(allPlans)) {
+            console.warn('⚠️ Planos não é um array, convertendo...');
+            allPlans = [];
           }
         } catch (planErr) {
-          console.error('Erro ao buscar planos:', planErr);
+          console.error('❌ Erro ao buscar planos:', planErr);
+          console.error('Stack:', planErr.stack);
+          console.error('Message:', planErr.message);
           allPlans = [];
         }
       } else {
-        console.warn('⚠️ Banco não está pronto, renderizando sem planos');
+        console.warn('⚠️ Módulo de planos não disponível, renderizando sem planos');
+        console.warn('   db:', !!db);
+        console.warn('   db.plans:', !!(db && db.plans));
+        console.warn('   db.plans.findAll:', !!(db && db.plans && db.plans.findAll));
       }
     } catch (err) {
-      console.error('Erro ao buscar planos para página inicial:', err);
+      console.error('❌ Erro ao buscar planos para página inicial:', err);
       console.error('Stack:', err.stack);
       // Continuar mesmo sem planos - página inicial ainda funciona
       allPlans = [];
@@ -370,6 +388,8 @@ app.get('/', async (req, res, next) => {
       console.error('❌ Erro ao renderizar página inicial:', renderErr);
       console.error('Stack:', renderErr.stack);
       console.error('Message:', renderErr.message);
+      console.error('Template:', 'index');
+      console.error('Data:', { plansCount: allPlans ? allPlans.length : 0 });
       // Se falhar ao renderizar, retornar página simples
       res.status(500).send(`
         <html>

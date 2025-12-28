@@ -1,29 +1,14 @@
-# Variáveis de Ambiente para Render - postei.pro
-# Copie e cole no Render: Environment → Add Environment Variable
-# ⚠️ IMPORTANTE: Remova as aspas duplas das URLs antes de colar!
-
 ASAAS_API_KEY=aact_hmlg_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OmFjOGQyZmYyLWExY2MtNDY0ZC04YzBlLThlMjBlYzM1YWE2NDo6JGFhY2hfMWJmYjE1YTMtMWZkZi00ZTk4LWEzNWEtNmI2ZTJiNjBmNzY3
-
 ASAAS_ENVIRONMENT=sandbox
-
 BASE_URL=https://postei.pro
-
 CORS_ORIGIN=https://postei.pro
-
 DATABASE_URL=postgres://8ef24adb75de8e9bb80012c01dacf72ee18e40c62e78b6cd5df15da79faf08a8:sk_BVLwPIuZCTcqLbczGxs1r@db.prisma.io:5432/postgres?sslmode=require
-
 FRONTEND_URL=https://postei.pro
-
 GEMINI_API_KEY=AIzaSyCd2F9N7En-T7uxbSQJRpOKzJcUW...
-
 NODE_ENV=production
-
 PORT=10000
-
 POSTGRES_URL=postgres://8ef24adb75de8e9bb80012c01dacf72ee18e40c62e78b6cd5df15da79faf08a8:sk_BVLwPIuZCTcqLbczGxs1r@db.prisma.io:5432/postgres?sslmode=require
-
 PRISMA_DATABASE_URL=prisma+postgres://accelerate.prisma-data.net/?api_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqd3RfaWQiOjEsInNlY3VyZV9rZXkiOiJza19CVkx3UEl1WkNUY3FMYmN6R3hzMXIiLCJhcGlfa2V5IjoiMDFLQVIyREJHODlXMzZZUTA5V1JSODFONUgiLCJ0ZW5hbnRfaWQiOiI4ZWYyNGFkYjc1ZGU4ZTliYjgwMDEyYzAxZGFjZjcyZWUxOGU0MGM2MmU3OGI2Y2Q1ZGYxNWRhNzlmYWYwOGE4IiwiaW50ZXJuYWxfc2VjcmV0IjoiMGJkNzFiYmEtYzhiMi00YWJjLWJhMTktY2Q2YzU4M2MwMjU3In0.9-IGE9UK2E3lB1u25x5DYgtECwnbC6CjnfXDdx7Xswo
-
 SESSION_SECRET=GERAR_UM_VALOR_ALEATORIO_AQUI_MINIMO_32_CARACTERES
-
 SETUP_SECRET=GERAR_UM_VALOR_ALEATORIO_AQUI
+
