@@ -325,9 +325,25 @@
                                     <% 
                                     var features = [];
                                     try {
-                                        features = JSON.parse(plan.features || '[]');
+                                        // Se já é um array, usar diretamente
+                                        if (Array.isArray(plan.features)) {
+                                            features = plan.features;
+                                        } 
+                                        // Se é uma string JSON, fazer parse
+                                        else if (typeof plan.features === 'string' && plan.features.trim().startsWith('[')) {
+                                            features = JSON.parse(plan.features);
+                                        }
+                                        // Se é uma string separada por vírgula, fazer split
+                                        else if (typeof plan.features === 'string') {
+                                            features = plan.features.split(',').map(function(f) { return f.trim(); });
+                                        }
+                                        // Se não tem features, usar array vazio
+                                        else {
+                                            features = [];
+                                        }
                                     } catch (e) {
-                                        features = plan.features ? plan.features.split(',') : [];
+                                        // Em caso de erro, usar array vazio
+                                        features = [];
                                     }
                                     if (features && features.length > 0) {
                                         for (var i = 0; i < features.length; i++) {
