@@ -450,5 +450,41 @@ app.get('/health', (req, res) => {
 });
 
 // Exportar app para Vercel/Railway
+console.log('✅ App Express configurado e pronto para exportar');
 module.exports = app;
+
+} catch (initError) {
+  // Se houver erro na inicialização, criar um app mínimo que retorna erro detalhado
+  console.error('❌ ERRO CRÍTICO na inicialização:', initError);
+  console.error('Stack:', initError.stack);
+  console.error('Message:', initError.message);
+  
+  const express = require('express');
+  const errorApp = express();
+  
+  errorApp.use(express.json());
+  errorApp.use(express.urlencoded({ extended: true }));
+  
+  // Rota de health check mesmo com erro
+  errorApp.get('/health', (req, res) => {
+    res.status(500).json({
+      status: 'error',
+      error: 'Server initialization failed',
+      message: initError.message,
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  errorApp.all('*', (req, res) => {
+    console.error('❌ Tentativa de acesso com app em estado de erro');
+    res.status(500).json({
+      error: 'Server initialization failed',
+      message: initError.message,
+      timestamp: new Date().toISOString(),
+      url: req.url
+    });
+  });
+  
+  module.exports = errorApp;
+}
 
