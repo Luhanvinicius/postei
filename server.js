@@ -78,6 +78,7 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3000;
 const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+const isRailway = process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.RAILWAY_ENVIRONMENT_NAME;
 
 // Criar diretórios necessários (apenas em desenvolvimento)
 if (!isVercel && !isRailway) {
