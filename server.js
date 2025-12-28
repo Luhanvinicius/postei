@@ -396,6 +396,7 @@ app.use((err, req, res, next) => {
   console.error('Stack:', err.stack);
   console.error('URL:', req.url);
   console.error('Method:', req.method);
+  console.error('Headers:', JSON.stringify(req.headers, null, 2));
   
   // Não expor detalhes do erro em produção
   if (isVercel || isRailway) {
@@ -403,6 +404,19 @@ app.use((err, req, res, next) => {
   } else {
     res.status(500).send(`<pre>${err.stack}</pre>`);
   }
+});
+
+// Rota de teste para verificar se o servidor está funcionando
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    isVercel: !!isVercel,
+    isRailway: !!isRailway,
+    dbReady: dbReady,
+    dbLoaded: !!db
+  });
 });
 
 // Exportar app para Vercel/Railway
