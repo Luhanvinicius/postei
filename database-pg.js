@@ -85,12 +85,15 @@ async function initDatabase() {
   let client;
   try {
     console.log('🔄 Tentando conectar ao PostgreSQL...');
+    console.log('📍 Ambiente:', process.env.VERCEL ? 'Vercel' : process.env.RAILWAY_ENVIRONMENT ? 'Railway' : 'Local');
     console.log('📍 Pool config:', {
       max: pool.totalCount,
       idle: pool.idleCount,
       waiting: pool.waitingCount
     });
     console.log('📍 Connection String (oculto):', connectionString ? connectionString.substring(0, 20) + '...' : 'NÃO CONFIGURADA');
+    console.log('📍 DATABASE_URL configurada:', !!process.env.DATABASE_URL);
+    console.log('📍 POSTGRES_URL configurada:', !!process.env.POSTGRES_URL);
     
     // Tentar conectar com timeout
     const connectPromise = pool.connect();

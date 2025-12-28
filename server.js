@@ -205,44 +205,44 @@ app.use((req, res, next) => {
 // Rotas públicas
 app.get('/', async (req, res, next) => {
   try {
-  // Se já está autenticado, redirecionar para dashboard apropriado
-  if (req.user) {
-    // Admin sempre vai para dashboard
-    if (req.user.role === 'admin') {
-      return res.redirect('/admin/dashboard');
-    }
-    
-    // Todos os usuários (com ou sem pagamento) vão para dashboard
-    // O dashboard mostrará aviso se payment_status for 'pending'
-    const { invoices } = require('./database');
-    let pendingInvoice = null;
-    
-    // Verificar se tem fatura pendente
-    if (req.user.payment_status === 'pending') {
-      try {
-        let userInvoices;
-        if (invoices.findByUserId.constructor.name === 'AsyncFunction') {
-          userInvoices = await invoices.findByUserId(req.user.id);
-        } else {
-          userInvoices = invoices.findByUserId(req.user.id);
-        }
-        
-        if (userInvoices && Array.isArray(userInvoices)) {
-          pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
-        }
-      } catch (err) {
-        console.error('Erro ao buscar faturas na home:', err);
+    // Se já está autenticado, redirecionar para dashboard apropriado
+    if (req.user) {
+      // Admin sempre vai para dashboard
+      if (req.user.role === 'admin') {
+        return res.redirect('/admin/dashboard');
       }
       
-      if (pendingInvoice) {
-        // Se tem fatura pendente, redirecionar para página de pagamento
-        return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
+      // Todos os usuários (com ou sem pagamento) vão para dashboard
+      // O dashboard mostrará aviso se payment_status for 'pending'
+      const { invoices } = require('./database');
+      let pendingInvoice = null;
+      
+      // Verificar se tem fatura pendente
+      if (req.user.payment_status === 'pending') {
+        try {
+          let userInvoices;
+          if (invoices.findByUserId.constructor.name === 'AsyncFunction') {
+            userInvoices = await invoices.findByUserId(req.user.id);
+          } else {
+            userInvoices = invoices.findByUserId(req.user.id);
+          }
+          
+          if (userInvoices && Array.isArray(userInvoices)) {
+            pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+          }
+        } catch (err) {
+          console.error('Erro ao buscar faturas na home:', err);
+        }
+        
+        if (pendingInvoice) {
+          // Se tem fatura pendente, redirecionar para página de pagamento
+          return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
+        }
       }
+      
+      // Ir para dashboard (com ou sem plano ativo)
+      return res.redirect('/user/dashboard');
     }
-    
-    // Ir para dashboard (com ou sem plano ativo)
-    return res.redirect('/user/dashboard');
-  }
   
   // Mostrar página inicial (com planos) apenas para visitantes não autenticados
   // Buscar planos para exibir na página inicial
@@ -275,8 +275,13 @@ app.get('/', async (req, res, next) => {
     allPlans = [];
   }
   
-  // Renderizar página inicial mesmo se não houver planos
-  res.render('index', { plans: allPlans || [] });
+    // Renderizar página inicial mesmo se não houver planos
+    res.render('index', { plans: allPlans || [] });
+  } catch (err) {
+    console.error('❌ Erro na rota principal:', err);
+    console.error('Stack:', err.stack);
+    next(err);
+  }
   } catch (err) {
     console.error('❌ Erro na rota principal (/):', err);
     console.error('Stack:', err.stack);

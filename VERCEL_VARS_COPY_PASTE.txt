@@ -1,0 +1,38 @@
+# ============================================
+# VARIÁVEIS DE AMBIENTE PARA O VERCEL
+# Copie e cole no Vercel: Settings → Environment Variables
+# ============================================
+
+# 🔴 OBRIGATÓRIAS
+
+DATABASE_URL=postgres://8ef24adb75de8e9bb80012c01dacf72ee18e40c62e78b6cd5df15da79faf08a8:sk_BVLwPIuZCTcqLbczGxs1r@db.prisma.io:5432/postgres?sslmode=require
+
+SESSION_SECRET=ALTERE_ESTE_VALOR_GERE_UM_SECRET_ALEATORIO_SEGURO
+
+# 🟡 IMPORTANTES
+
+ASAAS_API_KEY=aact_hmlg_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OmFjOGQyZmYyLWExY2MtNDY0ZC04YzBlLThlMjBlYzM1YWE2NDo6JGFhY2hfMWJmYjE1YTMtMWZkZi00ZTk4LWEzNWEtNmI2ZTJiNjBmNzY3
+
+ASAAS_ENVIRONMENT=sandbox
+
+GEMINI_API_KEY=SUA_CHAVE_GEMINI_AQUI
+
+# 🟢 OPCIONAIS (Configure com seu domínio Vercel)
+
+FRONTEND_URL=https://seu-dominio.vercel.app
+
+CORS_ORIGIN=https://seu-dominio.vercel.app
+
+BASE_URL=https://seu-dominio.vercel.app
+
+NODE_ENV=production
+
+# ============================================
+# INSTRUÇÕES:
+# 1. Substitua SESSION_SECRET por um valor aleatório seguro
+#    Execute: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# 2. Substitua "seu-dominio.vercel.app" pelo seu domínio real
+# 3. Configure GEMINI_API_KEY se usar funcionalidades de IA
+# 4. No Vercel, adicione cada variável separadamente
+# ============================================
+

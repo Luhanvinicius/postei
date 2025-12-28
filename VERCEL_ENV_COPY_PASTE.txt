@@ -1,0 +1,44 @@
+# COPIE E COLE ESTAS VARIÁVEIS NO VERCEL
+# Settings → Environment Variables → Add New
+
+# ============================================
+# 🔴 OBRIGATÓRIAS
+# ============================================
+
+DATABASE_URL=postgres://8ef24adb75de8e9bb80012c01dacf72ee18e40c62e78b6cd5df15da79faf08a8:sk_BVLwPIuZCTcqLbczGxs1r@db.prisma.io:5432/postgres?sslmode=require
+
+SESSION_SECRET=GERAR_UM_VALOR_ALEATORIO_AQUI_MINIMO_32_CARACTERES
+
+# ============================================
+# 🟡 IMPORTANTES (Substitua pela URL do seu site)
+# ============================================
+
+FRONTEND_URL=https://seu-dominio.vercel.app
+CORS_ORIGIN=https://seu-dominio.vercel.app
+BASE_URL=https://seu-dominio.vercel.app
+NODE_ENV=production
+
+# ============================================
+# 🟢 OPCIONAIS (Mas Recomendadas)
+# ============================================
+
+# Gemini API (para recursos de IA)
+GEMINI_API_KEY=sua_chave_gemini_aqui
+
+# Asaas (Pagamentos) - REMOVA O $ DO INÍCIO SE HOUVER
+ASAAS_API_KEY=aact_hmlg_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OmFjOGQyZmYyLWExY2MtNDY0ZC04YzBlLThlMjBlYzM1YWE2NDo6JGFhY2hfMWJmYjE1YTMtMWZkZi00ZTk4LWEzNWEtNmI2ZTJiNjBmNzY3
+ASAAS_ENVIRONMENT=sandbox
+
+# YouTube OAuth (Opcional)
+YOUTUBE_CLIENT_ID=
+YOUTUBE_CLIENT_SECRET=
+YOUTUBE_REDIRECT_URI=https://seu-dominio.vercel.app/user/auth/callback
+
+# ============================================
+# 📝 Variáveis Adicionais do PostgreSQL (Opcionais)
+# ============================================
+
+POSTGRES_URL=postgres://8ef24adb75de8e9bb80012c01dacf72ee18e40c62e78b6cd5df15da79faf08a8:sk_BVLwPIuZCTcqLbczGxs1r@db.prisma.io:5432/postgres?sslmode=require
+
+PRISMA_DATABASE_URL=prisma+postgres://accelerate.prisma-data.net/?api_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqd3RfaWQiOjEsInNlY3VyZV9rZXkiOiJza19CVkx3UEl1WkNUY3FMYmN6R3hzMXIiLCJhcGlfa2V5IjoiMDFLQVIyREJHODlXMzZZUTA5V1JSODFONUgiLCJ0ZW5hbnRfaWQiOiI4ZWYyNGFkYjc1ZGU4ZTliYjgwMDEyYzAxZGFjZjcyZWUxOGU0MGM2MmU3OGI2Y2Q1ZGYxNWRhNzlmYWYwOGE4IiwiaW50ZXJuYWxfc2VjcmV0IjoiMGJkNzFiYmEtYzhiMi00YWJjLWJhMTktY2Q2YzU4M2MwMjU3In0.9-IGE9UK2E3lB1u25x5DYgtECwnbC6CjnfXDdx7Xswo
+
