@@ -128,28 +128,20 @@ router.post('/login', async (req, res) => {
     console.log('📍 Session ID antes de salvar:', req.sessionID);
     
     // Salvar sessão explicitamente e redirecionar
-    return new Promise((resolve, reject) => {
-      req.session.save((err) => {
-        if (err) {
-          console.error('❌ Erro ao salvar sessão:', err);
-          console.error('Stack:', err.stack);
-          return res.render('auth/login', { error: 'Erro ao criar sessão. Tente novamente.' });
-        }
-        
-        console.log('✅ Sessão salva com sucesso');
-        console.log('📍 Session ID após salvar:', req.sessionID);
-        console.log('📍 Session user:', req.session.user);
-        console.log('🔀 Redirecionando para:', redirectUrl);
-        
-        // Garantir que o redirecionamento aconteça
-        try {
-          res.redirect(302, redirectUrl);
-        } catch (redirectErr) {
-          console.error('❌ Erro ao redirecionar:', redirectErr);
-          // Se falhar o redirect, tentar enviar resposta manual
-          res.status(302).setHeader('Location', redirectUrl).end();
-        }
-      });
+    req.session.save((err) => {
+      if (err) {
+        console.error('❌ Erro ao salvar sessão:', err);
+        console.error('Stack:', err.stack);
+        return res.render('auth/login', { error: 'Erro ao criar sessão. Tente novamente.' });
+      }
+      
+      console.log('✅ Sessão salva com sucesso');
+      console.log('📍 Session ID após salvar:', req.sessionID);
+      console.log('📍 Session user:', req.session.user);
+      console.log('🔀 Redirecionando para:', redirectUrl);
+      
+      // Garantir que o redirecionamento aconteça
+      res.redirect(redirectUrl);
     });
 
   } catch (error) {
