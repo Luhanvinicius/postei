@@ -51,3 +51,4 @@ Após configurar, faça um novo deploy e verifique os logs. Se ainda der erro, t
 2. Criar novamente copiando o valor diretamente
 3. Verificar se não há espaços extras
 
+

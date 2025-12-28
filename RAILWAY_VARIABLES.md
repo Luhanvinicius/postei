@@ -152,3 +152,4 @@ Para funcionalidades completas:
 - No Railway, se criou um PostgreSQL, a variável `DATABASE_URL` é criada automaticamente
 - Verifique se o banco está ativo no Railway
 
+

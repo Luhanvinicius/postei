@@ -190,7 +190,7 @@
                 <div class="navbar-nav ms-auto">
                     <a class="nav-link" href="#features">Recursos</a>
                     <a class="nav-link" href="#pricing">Planos</a>
-                    <a class="nav-link" href="/auth/login">Login</a>
+                        <a class="nav-link" href="/auth/login">Login</a>
                     <a class="nav-link btn btn-primary ms-2" href="/auth/register">Começar Agora</a>
                 </div>
             </div>
@@ -285,7 +285,7 @@
                     <div class="feature-card">
                         <div class="feature-icon">
                             <i class="bi bi-lightning-charge"></i>
-                        </div>
+                    </div>
                         <h4>Velocidade Extrema</h4>
                         <p>Processamento rápido e eficiente. Publique múltiplos vídeos simultaneamente sem travamentos.</p>
                     </div>
@@ -355,8 +355,8 @@
                     <% }); %>
                 <% } else { %>
                     <!-- Planos padrão caso não venham do backend -->
-                    <div class="col-lg-4 col-md-6">
-                        <div class="pricing-card">
+                <div class="col-lg-4 col-md-6">
+                    <div class="pricing-card">
                             <h3 class="mb-3">Semanal</h3>
                             <div class="price">R$ 29.00<span class="period">/semana</span></div>
                             <ul class="feature-list">
@@ -365,12 +365,12 @@
                                 <li><i class="bi bi-check-circle-fill"></i>Thumbnails automáticos</li>
                                 <li><i class="bi bi-check-circle-fill"></i>Agendamento de vídeos</li>
                                 <li><i class="bi bi-check-circle-fill"></i>1 canal do YouTube</li>
-                            </ul>
+                        </ul>
                             <a href="/payment/checkout/basico" class="btn btn-gradient w-100">Escolher Plano</a>
                         </div>
                     </div>
-                    <div class="col-lg-4 col-md-6">
-                        <div class="pricing-card featured">
+                <div class="col-lg-4 col-md-6">
+                    <div class="pricing-card featured">
                             <h3 class="mb-3">Mensal</h3>
                             <div class="price">R$ 79.00<span class="period">/mês</span></div>
                             <ul class="feature-list">
@@ -380,12 +380,12 @@
                                 <li><i class="bi bi-check-circle-fill"></i>Agendamento ilimitado</li>
                                 <li><i class="bi bi-check-circle-fill"></i>Até 3 canais do YouTube</li>
                                 <li><i class="bi bi-check-circle-fill"></i>Suporte prioritário</li>
-                            </ul>
+                        </ul>
                             <a href="/payment/checkout/profissional" class="btn btn-gradient w-100">Escolher Plano</a>
                         </div>
                     </div>
-                    <div class="col-lg-4 col-md-6">
-                        <div class="pricing-card">
+                <div class="col-lg-4 col-md-6">
+                    <div class="pricing-card">
                             <h3 class="mb-3">Anual</h3>
                             <div class="price">R$ 199.00<span class="period">/ano</span></div>
                             <ul class="feature-list">
@@ -396,7 +396,7 @@
                                 <li><i class="bi bi-check-circle-fill"></i>Canais ilimitados</li>
                                 <li><i class="bi bi-check-circle-fill"></i>Suporte 24/7</li>
                                 <li><i class="bi bi-check-circle-fill"></i>API personalizada</li>
-                            </ul>
+                        </ul>
                             <a href="/payment/checkout/enterprise" class="btn btn-gradient w-100">Escolher Plano</a>
                         </div>
                     </div>
@@ -452,13 +452,13 @@
             anchor.addEventListener('click', function (e) {
                 const href = this.getAttribute('href');
                 if (href && href.length > 1 && href.startsWith('#')) {
-                    e.preventDefault();
+                e.preventDefault();
                     const target = document.querySelector(href);
-                    if (target) {
-                        target.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'start'
-                        });
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
                     }
                 }
             });

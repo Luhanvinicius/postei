@@ -202,10 +202,10 @@
         function copyPix() {
             const input = document.getElementById('pixCopyPaste');
             if (input) {
-                input.select();
-                document.execCommand('copy');
-                alert('Chave PIX copiada!');
-            }
+            input.select();
+            document.execCommand('copy');
+            alert('Chave PIX copiada!');
+        }
         }
 
         function copyBarcode() {
@@ -224,7 +224,7 @@
                 window.location.href = '/user/dashboard?payment=confirmed';
             }, 1000);
         <% } %>
-        
+
         // Atualizar status automaticamente a cada 30 segundos (apenas se ainda estiver pendente)
         <% if (!invoice || invoice.status !== 'paid') { %>
         setInterval(() => {
@@ -246,7 +246,7 @@
                     location.reload();
                 });
             } else {
-                location.reload();
+            location.reload();
             }
         }, 30000);
         <% } %>

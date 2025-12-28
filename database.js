@@ -1,17 +1,14 @@
-// Detectar se está no Vercel, Railway ou se DATABASE_URL está configurada
+// Detectar se está no Vercel ou se DATABASE_URL está configurada
 const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
-const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY;
 const hasPostgresUrl = !!(process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.PRISMA_DATABASE_URL);
 
-// Usar PostgreSQL se estiver no Vercel, Railway ou se DATABASE_URL estiver configurada
-if (isVercel || isRailway || hasPostgresUrl) {
+// Usar PostgreSQL se estiver no Vercel ou se DATABASE_URL estiver configurada
+if (isVercel || hasPostgresUrl) {
   const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.PRISMA_DATABASE_URL;
   const isLocalhost = dbUrl && (dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1'));
   
   if (isVercel) {
     console.log('📊 Usando PostgreSQL (Vercel/Produção)');
-  } else if (isRailway) {
-    console.log('📊 Usando PostgreSQL (Railway/Produção)');
   } else if (isLocalhost) {
     console.log('📊 Usando PostgreSQL (Local)');
   } else {
@@ -27,27 +24,16 @@ if (isVercel || isRailway || hasPostgresUrl) {
   
   module.exports = pgDb;
 } else {
-  // Usar SQLite localmente (apenas se better-sqlite3 estiver disponível)
-  console.log('📊 Tentando usar SQLite (Desenvolvimento Local)');
+  // Usar SQLite localmente
+  console.log('📊 Usando SQLite (Desenvolvimento Local)');
   
   let Database;
   try {
     Database = require('better-sqlite3');
   } catch (err) {
-    // Se better-sqlite3 não estiver disponível, tentar usar PostgreSQL se DATABASE_URL estiver configurada
-    if (process.env.DATABASE_URL || process.env.POSTGRES_URL) {
-      console.log('⚠️  better-sqlite3 não encontrado, mas DATABASE_URL está configurada. Usando PostgreSQL.');
-      const pgDb = require('./database-pg');
-      pgDb.initDatabase().catch(err => {
-        console.error('❌ Erro ao inicializar PostgreSQL:', err);
-      });
-      module.exports = pgDb;
-      return;
-    }
-    
     console.error('❌ better-sqlite3 não encontrado.');
     console.error('   Para desenvolvimento local: npm install better-sqlite3');
-    console.error('   Para produção (Vercel/Railway): Configure DATABASE_URL para usar PostgreSQL');
+    console.error('   Para produção (Render/Vercel): Configure DATABASE_URL para usar PostgreSQL');
     throw new Error('better-sqlite3 não está instalado. Para desenvolvimento local, execute: npm install better-sqlite3. Para produção, configure DATABASE_URL.');
   }
   const path = require('path');
@@ -204,9 +190,6 @@ function initDatabase() {
       pix_copy_paste TEXT,
       due_date DATE,
       paid_at DATETIME,
-      customer_name TEXT,
-      customer_cpf TEXT,
-      customer_phone TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -214,23 +197,6 @@ function initDatabase() {
       FOREIGN KEY (plan_id) REFERENCES plans(id)
     )
   `);
-  
-  // Adicionar colunas de dados do cliente se não existirem (migração)
-  try {
-    db.exec('ALTER TABLE invoices ADD COLUMN customer_name TEXT');
-  } catch (e) {
-    // Coluna já existe, ignorar erro
-  }
-  try {
-    db.exec('ALTER TABLE invoices ADD COLUMN customer_cpf TEXT');
-  } catch (e) {
-    // Coluna já existe, ignorar erro
-  }
-  try {
-    db.exec('ALTER TABLE invoices ADD COLUMN customer_phone TEXT');
-  } catch (e) {
-    // Coluna já existe, ignorar erro
-  }
 
   // Inserir planos padrão se não existirem
   const plansCheck = db.prepare('SELECT COUNT(*) as count FROM plans').get();
@@ -275,8 +241,7 @@ const userQueries = {
   delete: db.prepare('DELETE FROM users WHERE id = ?'),
   getAll: db.prepare('SELECT id, username, email, role, created_at FROM users ORDER BY id'),
   updateRole: db.prepare('UPDATE users SET role = ? WHERE id = ?'),
-  updatePassword: db.prepare('UPDATE users SET password = ? WHERE id = ?'),
-  updatePaymentStatus: db.prepare('UPDATE users SET payment_status = ? WHERE id = ?')
+  updatePassword: db.prepare('UPDATE users SET password = ? WHERE id = ?')
 };
 
 // Funções para configurações do YouTube
@@ -380,7 +345,7 @@ const planQueries = {
 // Funções para assinaturas
 const subscriptionQueries = {
   findByUserId: db.prepare(`
-    SELECT s.*, p.name as plan_name, p.slug as plan_slug, p.price, p.max_videos, p.max_channels, p.billing_period, p.id as plan_id
+    SELECT s.*, p.name as plan_name, p.slug as plan_slug, p.price, p.max_videos, p.max_channels
     FROM subscriptions s
     JOIN plans p ON s.plan_id = p.id
     WHERE s.user_id = ?
@@ -411,8 +376,8 @@ const invoiceQueries = {
     ORDER BY i.created_at DESC
   `),
   create: db.prepare(`
-    INSERT INTO invoices (user_id, subscription_id, plan_id, amount, asaas_invoice_id, invoice_number, due_date, pix_qr_code, pix_copy_paste, payment_method, customer_name, customer_cpf, customer_phone, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+    INSERT INTO invoices (user_id, subscription_id, plan_id, amount, asaas_invoice_id, invoice_number, due_date, pix_qr_code, pix_copy_paste, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
   `),
   findByAsaasId: db.prepare('SELECT * FROM invoices WHERE asaas_invoice_id = ?'),
   updateStatus: db.prepare('UPDATE invoices SET status = ?, paid_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
@@ -494,13 +459,9 @@ module.exports = {
   schedules: {
     findByUserId: (userId) => scheduleQueries.findByUserId.all(userId),
     findPending: () => scheduleQueries.findPending.all(),
-    findNeedingAI: () => scheduleQueries.findNeedingAI.all(),
     create: (userId, videoPath, scheduledTime, title, description, thumbnailPath = null) => {
       const result = scheduleQueries.create.run(userId, videoPath, scheduledTime, title, description, thumbnailPath);
       return result.lastInsertRowid;
-    },
-    updateContent: (id, title, description, thumbnailPath) => {
-      scheduleQueries.updateContent.run(title, description, thumbnailPath, id);
     },
     updateStatus: (id, status, videoId = null, error = null) => {
       scheduleQueries.updateStatus.run(status, videoId, error, status, status, id);
@@ -508,44 +469,116 @@ module.exports = {
   },
   published: {
     findByUserId: (userId) => publishedQueries.findByUserId.all(userId),
-    create: (userId, videoPath, videoId, videoUrl, title, description, thumbnailPath = null) => {
-      publishedQueries.create.run(userId, videoPath, videoId, videoUrl, title, description, thumbnailPath);
+    create: (userId, videoPath, videoId, videoUrl, title, description) => {
+      publishedQueries.create.run(userId, videoPath, videoId, videoUrl, title, description);
     },
-    findByVideoId: (videoId) => publishedQueries.findByVideoId.get(videoId),
-    findById: (id) => publishedQueries.findById.get(id),
-    delete: (id) => {
-      const result = publishedQueries.delete.run(id);
-      return result.changes > 0;
-    },
-    findAll: () => publishedQueries.findAll.all()
-  },
-  plans: {
-    findAll: () => planQueries.findAll.all(),
-    findBySlug: (slug) => planQueries.findBySlug.get(slug),
-    findById: (id) => planQueries.findById.get(id)
-  },
-  subscriptions: {
-    findByUserId: (userId) => subscriptionQueries.findByUserId.get(userId),
-    create: (userId, planId, asaasSubscriptionId = null) => {
-      const periodStart = new Date();
-      const periodEnd = new Date();
-      periodEnd.setMonth(periodEnd.getMonth() + 1);
-      const result = subscriptionQueries.create.run(userId, planId, asaasSubscriptionId, periodStart.toISOString(), periodEnd.toISOString());
-      return result.lastInsertRowid;
-    },
-    updateStatus: (id, status) => subscriptionQueries.updateStatus.run(status, id),
-    findAll: () => subscriptionQueries.findAll.all()
-  },
-  invoices: {
-    findByUserId: (userId) => invoiceQueries.findByUserId.all(userId),
-    create: (userId, planId, subscriptionId, amount, asaasInvoiceId, invoiceNumber, dueDate, pixQrCode = null, pixCopyPaste = null, paymentMethod = 'PIX', customerName = null, customerCpf = null, customerPhone = null) => {
-      const result = invoiceQueries.create.run(userId, subscriptionId, planId, amount, asaasInvoiceId, invoiceNumber, dueDate, pixQrCode, pixCopyPaste, paymentMethod, customerName, customerCpf, customerPhone);
-      return result.lastInsertRowid;
-    },
-    findByAsaasId: (asaasInvoiceId) => invoiceQueries.findByAsaasId.get(asaasInvoiceId),
-    updateStatus: (id, status, paidAt = null) => invoiceQueries.updateStatus.run(status, paidAt, id),
-    findAll: () => invoiceQueries.findAll.all(),
-    findById: (id) => invoiceQueries.findById.get(id)
+    findByVideoId: (videoId) => publishedQueries.findByVideoId.get(videoId)
   }
-};
+  };
+
+  module.exports = {
+    db,
+    users: {
+      findByUsername: (username) => userQueries.findByUsername.get(username, username),
+      findByUsernameOnly: (username) => userQueries.findByUsernameOnly.get(username),
+      findByEmail: (email) => userQueries.findByEmail.get(email),
+      findById: (id) => userQueries.findById.get(id),
+      create: (username, email, password, role = 'user') => {
+        try {
+          const result = userQueries.create.run(username, email, password, role);
+          return result.lastInsertRowid;
+        } catch (error) {
+          throw error;
+        }
+      },
+      delete: (id) => {
+        const result = userQueries.delete.run(id);
+        return result.changes > 0;
+      },
+      getAll: () => userQueries.getAll.all(),
+      updateRole: (id, role) => {
+        const result = userQueries.updateRole.run(role, id);
+        return result.changes > 0;
+      },
+      updatePassword: (id, hashedPassword) => {
+        const result = userQueries.updatePassword.run(hashedPassword, id);
+        return result.changes > 0;
+      }
+    },
+    configs: {
+      findByUserId: (userId) => configQueries.findByUserId.get(userId),
+      upsert: (userId, configPath) => configQueries.upsert.run(userId, configPath),
+      updateAuth: (userId, isAuthenticated, channelId, channelName, refreshToken, accessToken) => {
+        configQueries.updateAuth.run(
+          isAuthenticated ? 1 : 0,
+          channelId,
+          channelName,
+          refreshToken,
+          accessToken,
+          userId
+        );
+      },
+      updateDefaultFolder: (userId, folderPath) => {
+        const existing = configQueries.findByUserId.get(userId);
+        if (existing) {
+          configQueries.updateDefaultFolder.run(folderPath || null, userId);
+        } else {
+          configQueries.upsertDefaultFolder.run(userId, folderPath || null);
+        }
+      }
+    },
+    schedules: {
+      findByUserId: (userId) => scheduleQueries.findByUserId.all(userId),
+      findPending: () => scheduleQueries.findPending.all(),
+      create: (userId, videoPath, scheduledTime, title, description) => {
+        const result = scheduleQueries.create.run(userId, videoPath, scheduledTime, title, description);
+        return result.lastInsertRowid;
+      },
+      updateStatus: (id, status, videoId = null, error = null) => {
+        scheduleQueries.updateStatus.run(status, videoId, error, status, status, id);
+      }
+    },
+    published: {
+      findByUserId: (userId) => publishedQueries.findByUserId.all(userId),
+      create: (userId, videoPath, videoId, videoUrl, title, description, thumbnailPath = null) => {
+        publishedQueries.create.run(userId, videoPath, videoId, videoUrl, title, description, thumbnailPath);
+      },
+      findByVideoId: (videoId) => publishedQueries.findByVideoId.get(videoId),
+      findById: (id) => publishedQueries.findById.get(id),
+      delete: (id) => {
+        const result = publishedQueries.delete.run(id);
+        return result.changes > 0;
+      },
+      findAll: () => publishedQueries.findAll.all()
+    },
+    plans: {
+      findAll: () => planQueries.findAll.all(),
+      findBySlug: (slug) => planQueries.findBySlug.get(slug),
+      findById: (id) => planQueries.findById.get(id)
+    },
+    subscriptions: {
+      findByUserId: (userId) => subscriptionQueries.findByUserId.get(userId),
+      create: (userId, planId, asaasSubscriptionId = null) => {
+        const periodStart = new Date();
+        const periodEnd = new Date();
+        periodEnd.setMonth(periodEnd.getMonth() + 1);
+        const result = subscriptionQueries.create.run(userId, planId, asaasSubscriptionId, periodStart.toISOString(), periodEnd.toISOString());
+        return result.lastInsertRowid;
+      },
+      updateStatus: (id, status) => subscriptionQueries.updateStatus.run(status, id),
+      findAll: () => subscriptionQueries.findAll.all()
+    },
+    invoices: {
+      findByUserId: (userId) => invoiceQueries.findByUserId.all(userId),
+      create: (userId, planId, subscriptionId, amount, asaasInvoiceId, invoiceNumber, dueDate, pixQrCode = null, pixCopyPaste = null) => {
+        const result = invoiceQueries.create.run(userId, subscriptionId, planId, amount, asaasInvoiceId, invoiceNumber, dueDate, pixQrCode, pixCopyPaste);
+        return result.lastInsertRowid;
+      },
+      findByAsaasId: (asaasInvoiceId) => invoiceQueries.findByAsaasId.get(asaasInvoiceId),
+      updateStatus: (id, status, paidAt = null) => invoiceQueries.updateStatus.run(status, paidAt, id),
+      findAll: () => invoiceQueries.findAll.all(),
+      findById: (id) => invoiceQueries.findById.get(id)
+    }
+  };
 }
+

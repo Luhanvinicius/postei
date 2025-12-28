@@ -107,7 +107,7 @@ router.get('/pending', requireAuth, async (req, res) => {
         }
       }
     }
-    
+
     res.render('payment/pending', {
       user: req.user,
       invoice: invoiceData
@@ -243,50 +243,50 @@ router.post('/checkout/:planSlug', requireAuth, async (req, res) => {
 
     // Verificar se Asaas está configurado
     if (asaasService.isConfigured()) {
-      // Criar cliente no Asaas
-      const customerResult = await asaasService.createCustomer({
-        name,
-        email,
-        cpfCnpj: cpfCnpj.replace(/\D/g, ''), // Remove formatação
-        phone: phone.replace(/\D/g, ''),
-        postalCode: postalCode?.replace(/\D/g, ''),
-        address,
-        addressNumber,
-        complement,
-        province,
-        city,
-        state
-      });
+    // Criar cliente no Asaas
+    const customerResult = await asaasService.createCustomer({
+      name,
+      email,
+      cpfCnpj: cpfCnpj.replace(/\D/g, ''), // Remove formatação
+      phone: phone.replace(/\D/g, ''),
+      postalCode: postalCode?.replace(/\D/g, ''),
+      address,
+      addressNumber,
+      complement,
+      province,
+      city,
+      state
+    });
 
-      if (!customerResult.success) {
-        return res.json({ success: false, error: 'Erro ao criar cliente: ' + JSON.stringify(customerResult.error) });
-      }
+    if (!customerResult.success) {
+      return res.json({ success: false, error: 'Erro ao criar cliente: ' + JSON.stringify(customerResult.error) });
+    }
 
-      const asaasCustomerId = customerResult.data.id;
+    const asaasCustomerId = customerResult.data.id;
 
-      // Criar pagamento no Asaas
-      const paymentResult = await asaasService.createPayment({
-        customerId: asaasCustomerId,
+    // Criar pagamento no Asaas
+    const paymentResult = await asaasService.createPayment({
+      customerId: asaasCustomerId,
         billingType: billingType,
-        value: plan.price,
-        dueDate: dueDateStr,
-        description: `Assinatura ${plan.name} - YouTube Automation`,
-        externalReference: `user_${userId}_plan_${plan.id}_${Date.now()}`
-      });
+      value: plan.price,
+      dueDate: dueDateStr,
+      description: `Assinatura ${plan.name} - YouTube Automation`,
+      externalReference: `user_${userId}_plan_${plan.id}_${Date.now()}`
+    });
 
-      if (!paymentResult.success) {
-        return res.json({ success: false, error: 'Erro ao criar pagamento: ' + JSON.stringify(paymentResult.error) });
-      }
+    if (!paymentResult.success) {
+      return res.json({ success: false, error: 'Erro ao criar pagamento: ' + JSON.stringify(paymentResult.error) });
+    }
 
-      const asaasPayment = paymentResult.data;
+    const asaasPayment = paymentResult.data;
       asaasPaymentId = asaasPayment.id;
 
       // Buscar QR Code PIX apenas se o método for PIX
       if (billingType === 'PIX') {
-        const pixResult = await asaasService.getPixQrCode(asaasPayment.id);
-        if (pixResult.success) {
-          pixQrCode = pixResult.data.encodedImage;
-          pixCopyPaste = pixResult.data.payload;
+    const pixResult = await asaasService.getPixQrCode(asaasPayment.id);
+    if (pixResult.success) {
+      pixQrCode = pixResult.data.encodedImage;
+      pixCopyPaste = pixResult.data.payload;
         }
       } else if (billingType === 'BOLETO') {
         // Para boleto, pegar o código de barras

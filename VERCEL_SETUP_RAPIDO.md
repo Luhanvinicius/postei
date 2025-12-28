@@ -99,3 +99,4 @@ Se você usa essas funcionalidades, configure também:
 
 Veja `VERCEL_ENV_SETUP.md` para mais detalhes sobre todas as variáveis.
 
+

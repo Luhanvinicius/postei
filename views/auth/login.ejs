@@ -35,14 +35,14 @@
                             <h2 class="text-gradient mb-2">Bem-vindo de volta</h2>
                             <p class="text-secondary">Entre na sua conta para continuar</p>
                         </div>
-
+                        
                         <% if (typeof error !== 'undefined' && error) { %>
                             <div class="alert alert-danger">
                                 <i class="bi bi-exclamation-triangle me-2"></i>
                                 <%= error %>
                             </div>
                         <% } %>
-
+                        
                         <% if (typeof isAuthenticated !== 'undefined' && isAuthenticated) { %>
                             <div class="alert alert-warning text-center">
                                 Você já está logado como <strong><%= user.username %></strong>.

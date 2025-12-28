@@ -97,3 +97,4 @@ Antes de fazer deploy, certifique-se:
 
 Se você não conseguir fazer funcionar, pode deixar `ASAAS_API_KEY` vazia temporariamente. O backend funcionará, mas os pagamentos não. Você pode adicionar depois quando o deploy estiver funcionando.
 
+

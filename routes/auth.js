@@ -105,7 +105,7 @@ router.post('/login', async (req, res) => {
         console.log('🔀 Usuário com fatura pendente - redirecionando para pagamento');
       } else {
         // Ir para dashboard (com ou sem plano ativo)
-        redirectUrl = '/user/dashboard';
+      redirectUrl = '/user/dashboard';
         console.log('🔀 Redirecionando para dashboard');
       }
     }
