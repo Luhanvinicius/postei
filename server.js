@@ -336,11 +336,43 @@ app.get('/', async (req, res, next) => {
   }
   
     // Renderizar página inicial mesmo se não houver planos
-    res.render('index', { plans: allPlans || [] });
+    try {
+      res.render('index', { plans: allPlans || [] });
+    } catch (renderErr) {
+      console.error('❌ Erro ao renderizar página inicial:', renderErr);
+      console.error('Stack:', renderErr.stack);
+      // Se falhar ao renderizar, retornar página simples
+      res.status(500).send(`
+        <html>
+          <head><title>Erro</title></head>
+          <body>
+            <h1>Erro ao carregar página</h1>
+            <p>Por favor, tente novamente mais tarde.</p>
+            <p><a href="/health">Verificar status do servidor</a></p>
+          </body>
+        </html>
+      `);
+    }
   } catch (err) {
     console.error('❌ Erro na rota principal:', err);
     console.error('Stack:', err.stack);
-    next(err);
+    console.error('URL:', req.url);
+    console.error('Method:', req.method);
+    // Tentar retornar uma resposta mesmo com erro
+    try {
+      res.status(500).send(`
+        <html>
+          <head><title>Erro</title></head>
+          <body>
+            <h1>Erro interno do servidor</h1>
+            <p>Por favor, tente novamente mais tarde.</p>
+            <p><a href="/health">Verificar status do servidor</a></p>
+          </body>
+        </html>
+      `);
+    } catch (sendErr) {
+      next(err);
+    }
   }
 });
 
