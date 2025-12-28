@@ -91,7 +91,14 @@ try {
 } catch (err) {
   console.error('❌ Erro ao carregar rotas:', err);
   console.error('Stack:', err.stack);
-  throw err;
+  // No Vercel, não lançar erro - criar rotas vazias como fallback
+  authRoutes = { router: require('express').Router() };
+  adminRoutes = { router: require('express').Router() };
+  userRoutes = { router: require('express').Router() };
+  apiRoutes = { router: require('express').Router() };
+  testRoutes = { router: require('express').Router() };
+  paymentRoutes = { router: require('express').Router() };
+  console.warn('⚠️ Usando rotas vazias como fallback');
 }
 
 const app = express();
@@ -326,11 +333,6 @@ app.get('/', async (req, res, next) => {
     console.error('Stack:', err.stack);
     next(err);
   }
-  } catch (err) {
-    console.error('❌ Erro na rota principal (/):', err);
-    console.error('Stack:', err.stack);
-    next(err);
-  }
 });
 
 // Redirecionar /login para /auth/login (compatibilidade)
@@ -338,12 +340,19 @@ app.get('/login', (req, res) => {
   res.redirect('/auth/login');
 });
 
-app.use('/auth', authRoutes);
-app.use('/test', testRoutes); // Rota de teste (sem autenticação)
-app.use('/payment', paymentRoutes); // Rotas de pagamento (webhook sem auth, checkout com auth)
-app.use('/admin', requireAuth, requireAdmin, adminRoutes);
-app.use('/user', requireAuth, userRoutes);
-app.use('/api', requireAuth, apiRoutes);
+// Usar router se disponível, senão usar diretamente
+const getRouter = (routeModule) => {
+  if (routeModule && routeModule.router) return routeModule.router;
+  if (typeof routeModule === 'function') return routeModule;
+  return routeModule;
+};
+
+app.use('/auth', getRouter(authRoutes));
+app.use('/test', getRouter(testRoutes)); // Rota de teste (sem autenticação)
+app.use('/payment', getRouter(paymentRoutes)); // Rotas de pagamento (webhook sem auth, checkout com auth)
+app.use('/admin', requireAuth, requireAdmin, getRouter(adminRoutes));
+app.use('/user', requireAuth, getRouter(userRoutes));
+app.use('/api', requireAuth, getRouter(apiRoutes));
 
 // Iniciar servidor apenas se não estiver no Vercel
 // No Vercel, o app é exportado e o servidor é iniciado automaticamente
@@ -407,16 +416,28 @@ app.use((err, req, res, next) => {
 });
 
 // Rota de teste para verificar se o servidor está funcionando
+// Esta rota deve funcionar mesmo se o banco não estiver inicializado
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    isVercel: !!isVercel,
-    isRailway: !!isRailway,
-    dbReady: dbReady,
-    dbLoaded: !!db
-  });
+  try {
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      isVercel: !!isVercel,
+      isRailway: !!isRailway,
+      dbReady: dbReady,
+      dbLoaded: !!db,
+      nodeVersion: process.version,
+      vercelEnv: process.env.VERCEL_ENV || 'not-set'
+    });
+  } catch (err) {
+    console.error('❌ Erro na rota /health:', err);
+    res.status(500).json({
+      status: 'error',
+      error: err.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Exportar app para Vercel/Railway
