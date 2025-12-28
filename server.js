@@ -17,7 +17,9 @@ try {
 } catch (err) {
   console.error('❌ Erro ao carregar módulo de banco de dados:', err);
   console.error('Stack:', err.stack);
-  throw err;
+  // No Vercel, não lançar erro - deixar inicializar na primeira requisição
+  // throw err;
+  db = null; // Será inicializado na primeira requisição
 }
 
 // Importar middlewares de autenticação
@@ -31,15 +33,27 @@ try {
 } catch (err) {
   console.error('❌ Erro ao carregar middlewares de autenticação:', err);
   console.error('Stack:', err.stack);
-  throw err;
+  // No Vercel, não lançar erro - usar fallback
+  requireAuth = (req, res, next) => {
+    if (!req.session || !req.session.user) {
+      return res.redirect('/auth/login');
+    }
+    next();
+  };
+  requireAdmin = (req, res, next) => {
+    if (!req.session || !req.session.user || req.session.user.role !== 'admin') {
+      return res.status(403).send('Acesso negado');
+    }
+    next();
+  };
 }
 
 // Garantir que o banco está inicializado antes de processar requisições
 let dbReady = false;
 let dbInitPromise = null;
 
-if (db.initDatabase) {
-  // Iniciar inicialização imediatamente
+if (db && db.initDatabase) {
+  // Iniciar inicialização imediatamente (não bloquear)
   dbInitPromise = db.initDatabase()
     .then(() => {
       dbReady = true;
@@ -50,12 +64,17 @@ if (db.initDatabase) {
       console.error('❌ Erro ao inicializar banco de dados:', err);
       console.error('Stack:', err.stack);
       // Não bloquear o servidor, mas logar o erro
+      // O banco será inicializado na primeira requisição
       return false;
     });
-} else {
+} else if (db) {
   // SQLite inicializa síncronamente
   dbReady = true;
   dbInitPromise = Promise.resolve(true);
+} else {
+  // db não foi carregado - será inicializado na primeira requisição
+  dbReady = false;
+  dbInitPromise = Promise.resolve(false);
 }
 
 // Carregar rotas com tratamento de erro
@@ -171,6 +190,31 @@ app.use(async (req, res, next) => {
   // Rotas estáticas não precisam do banco
   if (req.path.startsWith('/thumbnails') || req.path.startsWith('/images') || req.path.startsWith('/css') || req.path.startsWith('/js') || req.path.startsWith('/favicon')) {
     return next();
+  }
+
+  // Se db não foi carregado, tentar carregar agora
+  if (!db) {
+    try {
+      console.log('🔄 Tentando carregar banco de dados na requisição...');
+      db = require('./database');
+      if (db && db.initDatabase) {
+        dbInitPromise = db.initDatabase()
+          .then(() => {
+            dbReady = true;
+            console.log('✅ Banco de dados inicializado na requisição');
+            return true;
+          })
+          .catch(err => {
+            console.error('❌ Erro ao inicializar banco na requisição:', err);
+            return false;
+          });
+      } else if (db) {
+        dbReady = true;
+        dbInitPromise = Promise.resolve(true);
+      }
+    } catch (err) {
+      console.error('❌ Erro ao carregar banco na requisição:', err);
+    }
   }
 
   // Aguardar inicialização do banco se ainda não estiver pronto
