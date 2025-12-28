@@ -52,12 +52,38 @@ router.get('/create-users', async (req, res) => {
       }
 
       if (existingAdmin) {
+        // Se existe, vamos resetar a senha
+        console.log('⚠️ Admin já existe, resetando senha...');
+        const hashedAdminPassword = await bcrypt.hash(adminPassword, 10);
+        
+        // Atualizar senha
+        if (users.updatePassword && existingAdmin.id) {
+          const isAsync = users.updatePassword.constructor && users.updatePassword.constructor.name === 'AsyncFunction';
+          if (isAsync) {
+            await users.updatePassword(existingAdmin.id, hashedAdminPassword);
+          } else {
+            users.updatePassword(existingAdmin.id, hashedAdminPassword);
+          }
+        }
+        
+        // Atualizar payment_status para 'paid'
+        if (users.updatePaymentStatus && existingAdmin.id) {
+          const isAsync = users.updatePaymentStatus.constructor && users.updatePaymentStatus.constructor.name === 'AsyncFunction';
+          if (isAsync) {
+            await users.updatePaymentStatus(existingAdmin.id, 'paid');
+          } else {
+            users.updatePaymentStatus(existingAdmin.id, 'paid');
+          }
+        }
+
         results.admin = {
-          success: false,
-          message: 'Usuário admin já existe',
+          success: true,
+          message: 'Senha do admin resetada com sucesso',
           username: adminUsername,
           email: adminEmail,
-          password: adminPassword
+          password: adminPassword,
+          role: 'admin',
+          payment_status: 'paid'
         };
       } else {
         const hashedAdminPassword = await bcrypt.hash(adminPassword, 10);
@@ -93,7 +119,7 @@ router.get('/create-users', async (req, res) => {
         };
       }
     } catch (err) {
-      console.error('❌ Erro ao criar usuário admin:', err);
+      console.error('❌ Erro ao criar/atualizar usuário admin:', err);
       results.errors.push({ user: 'admin', error: err.message });
       results.admin = {
         success: false,
@@ -120,12 +146,28 @@ router.get('/create-users', async (req, res) => {
       }
 
       if (existingTest) {
+        // Se existe, vamos resetar a senha
+        console.log('⚠️ Usuário de teste já existe, resetando senha...');
+        const hashedTestPassword = await bcrypt.hash(testPassword, 10);
+        
+        // Atualizar senha
+        if (users.updatePassword && existingTest.id) {
+          const isAsync = users.updatePassword.constructor && users.updatePassword.constructor.name === 'AsyncFunction';
+          if (isAsync) {
+            await users.updatePassword(existingTest.id, hashedTestPassword);
+          } else {
+            users.updatePassword(existingTest.id, hashedTestPassword);
+          }
+        }
+
         results.teste = {
-          success: false,
-          message: 'Usuário de teste já existe',
+          success: true,
+          message: 'Senha do usuário de teste resetada com sucesso',
           username: testUsername,
           email: testEmail,
-          password: testPassword
+          password: testPassword,
+          role: 'user',
+          payment_status: 'pending'
         };
       } else {
         const hashedTestPassword = await bcrypt.hash(testPassword, 10);
@@ -151,7 +193,7 @@ router.get('/create-users', async (req, res) => {
         };
       }
     } catch (err) {
-      console.error('❌ Erro ao criar usuário de teste:', err);
+      console.error('❌ Erro ao criar/atualizar usuário de teste:', err);
       results.errors.push({ user: 'teste', error: err.message });
       results.teste = {
         success: false,
@@ -190,4 +232,3 @@ router.get('/create-users', async (req, res) => {
 });
 
 module.exports = router;
-
