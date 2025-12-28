@@ -114,6 +114,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
 const isRailway = process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.RAILWAY_ENVIRONMENT_NAME;
+const isRender = process.env.RENDER === 'true' || process.env.RENDER_SERVICE_NAME;
 
 // Criar diretórios necessários (apenas em desenvolvimento)
 if (!isVercel && !isRailway) {
@@ -162,7 +163,7 @@ const sessionConfig = {
     secure: (isVercel || isRailway) ? true : false, // HTTPS no Vercel/Railway, HTTP localmente
     httpOnly: true, // Cookie não acessível via JavaScript (segurança)
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
-    sameSite: (isVercel || isRailway) ? 'none' : 'lax', // Necessário para HTTPS no Vercel/Railway
+    sameSite: (isVercel || isRailway || isRender) ? 'none' : 'lax', // Necessário para HTTPS no Vercel/Railway/Render
     path: '/'
   }
 };
@@ -439,12 +440,17 @@ if (!isVercel && !isRailway) {
   // Iniciar scheduler apenas em desenvolvimento/local
   // No Vercel, use Vercel Cron Jobs (vercel.json)
   require('./services/scheduler').start();
-} else if (isRailway) {
-  // No Railway, o servidor precisa ser iniciado explicitamente
+} else if (isRailway || isRender) {
+  // No Railway/Render, o servidor precisa ser iniciado explicitamente
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Servidor rodando na porta ${PORT}`);
     console.log(`📁 Ambiente: ${process.env.NODE_ENV || 'production'}`);
-    console.log(`🌐 Railway Environment: ${process.env.RAILWAY_ENVIRONMENT || 'production'}`);
+    if (isRailway) {
+      console.log(`🌐 Railway Environment: ${process.env.RAILWAY_ENVIRONMENT || 'production'}`);
+    }
+    if (isRender) {
+      console.log(`🌐 Render Service: ${process.env.RENDER_SERVICE_NAME || 'postei'}`);
+    }
   });
   
   // Iniciar scheduler no Railway também
