@@ -5,13 +5,25 @@ const { users } = require('../database');
 
 // Login
 router.get('/login', async (req, res) => {
-  // Sempre mostrar página de login quando acessada diretamente
-  // O usuário pode fazer logout se já estiver autenticado
-  res.render('auth/login', { error: null, isAuthenticated: !!(req.session && req.session.user) });
+  // Se já está autenticado, redirecionar para dashboard apropriado
+  if (req.session && req.session.user) {
+    if (req.session.user.role === 'admin') {
+      return res.redirect('/admin/dashboard');
+    }
+    return res.redirect('/user/dashboard');
+  }
+  
+  res.render('auth/login', { error: null, isAuthenticated: false });
 });
 
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
+
+  console.log('🔐 Tentativa de login:', { username, hasPassword: !!password });
+
+  if (!username || !password) {
+    return res.render('auth/login', { error: 'Usuário e senha são obrigatórios' });
+  }
 
   try {
     // Buscar usuário
@@ -26,6 +38,7 @@ router.post('/login', async (req, res) => {
         }
       }
     } catch (err) {
+      console.error('❌ Erro ao buscar usuário:', err);
       if (users && users.findByUsername) {
         user = users.findByUsername(username);
       }
@@ -36,19 +49,27 @@ router.post('/login', async (req, res) => {
       return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
     }
 
+    console.log('✅ Usuário encontrado:', user.username, 'ID:', user.id);
+
     // Verificar senha
-    const validPassword = await bcrypt.compare(password, user.password);
+    let validPassword = false;
+    try {
+      validPassword = await bcrypt.compare(password, user.password);
+    } catch (err) {
+      console.error('❌ Erro ao comparar senha:', err);
+      return res.render('auth/login', { error: 'Erro ao verificar senha. Tente novamente.' });
+    }
+
     if (!validPassword) {
       console.log('❌ Senha incorreta para usuário:', username);
       return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
     }
 
-    console.log('✅ Login bem-sucedido para:', username);
+    console.log('✅ Senha válida para:', username);
     
-    // Buscar payment_status do usuário (pode não estar na query, buscar do banco)
+    // Buscar payment_status do usuário
     let paymentStatus = user.payment_status || 'pending';
     if (!paymentStatus) {
-      // Se não veio na query, buscar do banco
       const { users: userDB } = require('../database');
       let fullUser;
       try {
@@ -68,20 +89,17 @@ router.post('/login', async (req, res) => {
       paymentStatus = fullUser?.payment_status || 'pending';
     }
     
-    // Verificar payment_status e determinar redirect antes de salvar sessão
+    // Determinar URL de redirecionamento
     let redirectUrl;
     
     if (user.role === 'admin') {
-      // Admin sempre vai para dashboard
       redirectUrl = '/admin/dashboard';
     } else {
-      // Todos os usuários (com ou sem pagamento) vão para dashboard
-      // O dashboard mostrará aviso se payment_status for 'pending'
-      const { invoices } = require('../database');
-      let pendingInvoice = null;
+      redirectUrl = '/user/dashboard';
       
-      // Verificar se tem fatura pendente para mostrar no dashboard
+      // Verificar se tem fatura pendente
       try {
+        const { invoices } = require('../database');
         let userInvoices;
         if (invoices && invoices.findByUserId) {
           const isAsync = invoices.findByUserId.constructor && invoices.findByUserId.constructor.name === 'AsyncFunction';
@@ -93,25 +111,18 @@ router.post('/login', async (req, res) => {
         }
         
         if (userInvoices && Array.isArray(userInvoices)) {
-          pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+          const pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+          if (pendingInvoice && paymentStatus === 'pending') {
+            redirectUrl = `/payment/pending?invoice=${pendingInvoice.id}`;
+          }
         }
       } catch (err) {
         console.error('Erro ao buscar faturas no login:', err);
       }
-      
-      if (pendingInvoice && paymentStatus === 'pending') {
-        // Se tem fatura pendente, ir para página de pagamento pendente
-        redirectUrl = `/payment/pending?invoice=${pendingInvoice.id}`;
-        console.log('🔀 Usuário com fatura pendente - redirecionando para pagamento');
-      } else {
-        // Ir para dashboard (com ou sem plano ativo)
-      redirectUrl = '/user/dashboard';
-        console.log('🔀 Redirecionando para dashboard');
-      }
     }
     
-    // Criar sessão
-    req.session.user = {
+    // Criar dados da sessão
+    const sessionData = {
       id: user.id,
       username: user.username,
       email: user.email,
@@ -119,51 +130,41 @@ router.post('/login', async (req, res) => {
       payment_status: paymentStatus
     };
     
-    console.log('✅ Dados da sessão criados:', {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      payment_status: paymentStatus
-    });
-    console.log('📍 Session ID antes de salvar:', req.sessionID);
+    console.log('📝 Criando sessão com dados:', sessionData);
     
-    // Salvar sessão explicitamente e redirecionar
-    // Tentar salvar sessão de forma síncrona primeiro (para Render)
-    try {
-      // No Render, pode ser necessário usar uma abordagem diferente
+    // Definir sessão
+    req.session.user = sessionData;
+    
+    // Salvar sessão e redirecionar
+    return new Promise((resolve) => {
       req.session.save((err) => {
         if (err) {
           console.error('❌ Erro ao salvar sessão:', err);
           console.error('Stack:', err.stack);
-          console.error('Erro completo:', JSON.stringify(err, null, 2));
           return res.render('auth/login', { error: 'Erro ao criar sessão. Tente novamente.' });
         }
         
         console.log('✅ Sessão salva com sucesso');
-        console.log('📍 Session ID após salvar:', req.sessionID);
-        console.log('📍 Session user:', JSON.stringify(req.session.user, null, 2));
-        console.log('📍 Session cookie:', req.session.cookie);
+        console.log('📍 Session ID:', req.sessionID);
+        console.log('📍 Session user:', req.session.user);
         console.log('🔀 Redirecionando para:', redirectUrl);
         
-        // Garantir que o redirecionamento aconteça
+        // Redirecionar
         res.redirect(redirectUrl);
+        resolve();
       });
-    } catch (saveErr) {
-      console.error('❌ Erro ao tentar salvar sessão:', saveErr);
-      console.error('Stack:', saveErr.stack);
-      // Tentar redirecionar mesmo assim
-      res.redirect(redirectUrl);
-    }
+    });
 
   } catch (error) {
     console.error('❌ Erro no login:', error);
+    console.error('Stack:', error.stack);
     res.render('auth/login', { error: 'Erro ao fazer login: ' + error.message });
   }
 });
 
 // Registro (apenas para criar usuários normais)
 router.get('/register', (req, res) => {
-  const { plan } = req.query; // Plano selecionado na home
+  const { plan } = req.query;
   res.render('auth/register', { error: null, plan: plan || null });
 });
 
@@ -223,7 +224,7 @@ router.post('/register', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Criar usuário com payment_status = 'pending'
+    // Criar usuário
     let userId;
     try {
       if (users && users.create) {
@@ -257,7 +258,7 @@ router.post('/register', async (req, res) => {
       }
     }
 
-    // Criar sessão para o usuário recém-criado
+    // Buscar usuário criado
     let createdUser;
     try {
       if (users && users.findById) {
@@ -287,24 +288,17 @@ router.post('/register', async (req, res) => {
       payment_status: 'pending'
     };
 
-    console.log('✅ Usuário criado:', createdUser.username);
-    console.log('📝 Payment Status:', 'pending');
-    console.log('🔀 Redirecionando para checkout:', `/payment/checkout/${plan}`);
-    
     // Salvar sessão antes de redirecionar
     await new Promise((resolve, reject) => {
       req.session.save((err) => {
         if (err) {
-          console.error('❌ Erro ao salvar sessão:', err);
           reject(err);
         } else {
-          console.log('✅ Sessão salva com sucesso');
           resolve();
         }
       });
     });
     
-    // Redirecionar para checkout com o plano selecionado
     res.redirect(`/payment/checkout/${plan}`);
   } catch (error) {
     console.error('Erro no registro:', error);
