@@ -264,9 +264,13 @@ app.use((req, res, next) => {
 
 // Rotas públicas
 app.get('/', async (req, res, next) => {
+  console.log('📍 Rota principal acessada:', req.url);
+  console.log('📍 Usuário autenticado:', !!req.user);
+  
   try {
     // Se já está autenticado, redirecionar para dashboard apropriado
     if (req.user) {
+      console.log('📍 Usuário encontrado, redirecionando...');
       // Admin sempre vai para dashboard
       if (req.user.role === 'admin') {
         return res.redirect('/admin/dashboard');
@@ -274,73 +278,97 @@ app.get('/', async (req, res, next) => {
       
       // Todos os usuários (com ou sem pagamento) vão para dashboard
       // O dashboard mostrará aviso se payment_status for 'pending'
-      const { invoices } = require('./database');
-      let pendingInvoice = null;
-      
-      // Verificar se tem fatura pendente
-      if (req.user.payment_status === 'pending') {
-        try {
-          let userInvoices;
-          if (invoices.findByUserId.constructor.name === 'AsyncFunction') {
-            userInvoices = await invoices.findByUserId(req.user.id);
-          } else {
-            userInvoices = invoices.findByUserId(req.user.id);
+      try {
+        const { invoices } = require('./database');
+        let pendingInvoice = null;
+        
+        // Verificar se tem fatura pendente
+        if (req.user.payment_status === 'pending' && invoices && invoices.findByUserId) {
+          try {
+            let userInvoices;
+            if (invoices.findByUserId.constructor && invoices.findByUserId.constructor.name === 'AsyncFunction') {
+              userInvoices = await invoices.findByUserId(req.user.id);
+            } else {
+              userInvoices = invoices.findByUserId(req.user.id);
+            }
+            
+            if (userInvoices && Array.isArray(userInvoices)) {
+              pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+            }
+          } catch (err) {
+            console.error('Erro ao buscar faturas na home:', err);
           }
           
-          if (userInvoices && Array.isArray(userInvoices)) {
-            pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+          if (pendingInvoice) {
+            // Se tem fatura pendente, redirecionar para página de pagamento
+            return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
           }
-        } catch (err) {
-          console.error('Erro ao buscar faturas na home:', err);
         }
-        
-        if (pendingInvoice) {
-          // Se tem fatura pendente, redirecionar para página de pagamento
-          return res.redirect(`/payment/pending?invoice=${pendingInvoice.id}`);
-        }
+      } catch (dbErr) {
+        console.error('Erro ao acessar banco para verificar faturas:', dbErr);
+        // Continuar mesmo com erro - redirecionar para dashboard
       }
       
       // Ir para dashboard (com ou sem plano ativo)
       return res.redirect('/user/dashboard');
     }
   
-  // Mostrar página inicial (com planos) apenas para visitantes não autenticados
-  // Buscar planos para exibir na página inicial
-  let allPlans = [];
-  try {
-    // Aguardar banco estar pronto antes de buscar planos
-    if (!dbReady && dbInitPromise) {
-      try {
-        await dbInitPromise;
-        dbReady = true;
-      } catch (err) {
-        console.warn('⚠️ Banco não inicializado - renderizando sem planos');
-      }
-    }
+    // Mostrar página inicial (com planos) apenas para visitantes não autenticados
+    console.log('📍 Renderizando página inicial para visitante não autenticado');
     
-    if (dbReady) {
-      const { plans } = require('./database');
-      if (plans && plans.findAll) {
-        const isAsync = plans.findAll.constructor && plans.findAll.constructor.name === 'AsyncFunction';
-        if (isAsync) {
-          allPlans = await plans.findAll();
-        } else {
-          allPlans = plans.findAll();
+    // Buscar planos para exibir na página inicial
+    let allPlans = [];
+    try {
+      // Aguardar banco estar pronto antes de buscar planos
+      if (!dbReady && dbInitPromise) {
+        try {
+          console.log('📍 Aguardando banco estar pronto...');
+          await Promise.race([
+            dbInitPromise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+          ]);
+          dbReady = true;
+          console.log('📍 Banco pronto após espera');
+        } catch (err) {
+          console.warn('⚠️ Banco não inicializado - renderizando sem planos:', err.message);
         }
       }
+      
+      if (dbReady && db) {
+        try {
+          const { plans } = require('./database');
+          if (plans && plans.findAll) {
+            const isAsync = plans.findAll.constructor && plans.findAll.constructor.name === 'AsyncFunction';
+            if (isAsync) {
+              allPlans = await plans.findAll();
+            } else {
+              allPlans = plans.findAll();
+            }
+            console.log('📍 Planos encontrados:', allPlans.length);
+          }
+        } catch (planErr) {
+          console.error('Erro ao buscar planos:', planErr);
+          allPlans = [];
+        }
+      } else {
+        console.warn('⚠️ Banco não está pronto, renderizando sem planos');
+      }
+    } catch (err) {
+      console.error('Erro ao buscar planos para página inicial:', err);
+      console.error('Stack:', err.stack);
+      // Continuar mesmo sem planos - página inicial ainda funciona
+      allPlans = [];
     }
-  } catch (err) {
-    console.error('Erro ao buscar planos para página inicial:', err);
-    // Continuar mesmo sem planos - página inicial ainda funciona
-    allPlans = [];
-  }
   
     // Renderizar página inicial mesmo se não houver planos
+    console.log('📍 Tentando renderizar template index.ejs com', allPlans.length, 'planos');
     try {
       res.render('index', { plans: allPlans || [] });
+      console.log('✅ Página inicial renderizada com sucesso');
     } catch (renderErr) {
       console.error('❌ Erro ao renderizar página inicial:', renderErr);
       console.error('Stack:', renderErr.stack);
+      console.error('Message:', renderErr.message);
       // Se falhar ao renderizar, retornar página simples
       res.status(500).send(`
         <html>
@@ -349,6 +377,7 @@ app.get('/', async (req, res, next) => {
             <h1>Erro ao carregar página</h1>
             <p>Por favor, tente novamente mais tarde.</p>
             <p><a href="/health">Verificar status do servidor</a></p>
+            <pre>${renderErr.message}</pre>
           </body>
         </html>
       `);
@@ -356,6 +385,7 @@ app.get('/', async (req, res, next) => {
   } catch (err) {
     console.error('❌ Erro na rota principal:', err);
     console.error('Stack:', err.stack);
+    console.error('Message:', err.message);
     console.error('URL:', req.url);
     console.error('Method:', req.method);
     // Tentar retornar uma resposta mesmo com erro
@@ -367,10 +397,12 @@ app.get('/', async (req, res, next) => {
             <h1>Erro interno do servidor</h1>
             <p>Por favor, tente novamente mais tarde.</p>
             <p><a href="/health">Verificar status do servidor</a></p>
+            <pre>${err.message}</pre>
           </body>
         </html>
       `);
     } catch (sendErr) {
+      console.error('❌ Erro ao enviar resposta de erro:', sendErr);
       next(err);
     }
   }
