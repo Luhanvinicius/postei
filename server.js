@@ -160,7 +160,7 @@ const sessionConfig = {
   name: 'youtube_automation_session', // Nome customizado
   rolling: true, // Renovar cookie a cada requisição
   cookie: {
-    secure: (isVercel || isRailway) ? true : false, // HTTPS no Vercel/Railway, HTTP localmente
+    secure: (isVercel || isRailway || isRender) ? true : false, // HTTPS no Vercel/Railway/Render, HTTP localmente
     httpOnly: true, // Cookie não acessível via JavaScript (segurança)
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
     sameSite: (isVercel || isRailway || isRender) ? 'none' : 'lax', // Necessário para HTTPS no Vercel/Railway/Render
@@ -169,7 +169,7 @@ const sessionConfig = {
 };
 
 // Usar file-store em desenvolvimento local (persistente)
-if (!isVercel && !isRailway) {
+if (!isVercel && !isRailway && !isRender) {
   sessionConfig.store = new FileStore({
     path: path.join(__dirname, 'data', 'sessions'),
     ttl: 7 * 24 * 60 * 60, // 7 dias em segundos
@@ -430,8 +430,8 @@ app.use('/api', requireAuth, getRouter(apiRoutes));
 
 // Iniciar servidor apenas se não estiver no Vercel
 // No Vercel, o app é exportado e o servidor é iniciado automaticamente
-// No Railway, precisamos iniciar o servidor explicitamente
-if (!isVercel && !isRailway) {
+// No Railway/Render, precisamos iniciar o servidor explicitamente
+if (!isVercel && !isRailway && !isRender) {
   app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
     console.log(`📁 Ambiente: ${process.env.NODE_ENV || 'development'}`);
@@ -487,7 +487,7 @@ app.use((err, req, res, next) => {
   console.error('Headers:', JSON.stringify(req.headers, null, 2));
   
   // Não expor detalhes do erro em produção
-  if (isVercel || isRailway) {
+  if (isVercel || isRailway || isRender) {
     res.status(500).send('Internal Server Error');
   } else {
     res.status(500).send(`<pre>${err.stack}</pre>`);
