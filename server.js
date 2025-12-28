@@ -504,6 +504,7 @@ app.get('/health', (req, res) => {
       environment: process.env.NODE_ENV || 'development',
       isVercel: !!isVercel,
       isRailway: !!isRailway,
+      isRender: !!isRender,
       dbReady: dbReady,
       dbLoaded: !!db,
       nodeVersion: process.version,
