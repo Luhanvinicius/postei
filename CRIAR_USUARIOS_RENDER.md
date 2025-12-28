@@ -25,11 +25,10 @@ Aguarde o deploy terminar no Render.
 Após o deploy, acesse no navegador:
 
 ```
-https://seu-app.onrender.com/setup/create-users?secret=SUA_CHAVE_SECRETA_AQUI
+https://postei.pro/setup/create-users?secret=SUA_CHAVE_SECRETA_AQUI
 ```
 
 **Substitua:**
-- `seu-app.onrender.com` pela URL real do seu app no Render
 - `SUA_CHAVE_SECRETA_AQUI` pelo valor que você configurou em `SETUP_SECRET`
 
 ### 4. **Verificar Resultado**

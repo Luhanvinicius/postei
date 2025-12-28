@@ -14,14 +14,14 @@ NODE_ENV=production
 PORT=10000
 
 # ============================================
-# 🟡 IMPORTANTES (Substitua pela URL do Render após criar o serviço)
+# 🟡 IMPORTANTES
 # ============================================
 
-FRONTEND_URL=https://seu-app.onrender.com
+FRONTEND_URL=https://postei.pro
 
-CORS_ORIGIN=https://seu-app.onrender.com
+CORS_ORIGIN=https://postei.pro
 
-BASE_URL=https://seu-app.onrender.com
+BASE_URL=https://postei.pro
 
 # ============================================
 # 🟢 OPCIONAIS (Mas Recomendadas)
@@ -37,6 +37,8 @@ POSTGRES_URL=postgres://8ef24adb75de8e9bb80012c01dacf72ee18e40c62e78b6cd5df15da7
 
 PRISMA_DATABASE_URL=prisma+postgres://accelerate.prisma-data.net/?api_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqd3RfaWQiOjEsInNlY3VyZV9rZXkiOiJza19CVkx3UEl1WkNUY3FMYmN6R3hzMXIiLCJhcGlfa2V5IjoiMDFLQVIyREJHODlXMzZZUTA5V1JSODFONUgiLCJ0ZW5hbnRfaWQiOiI4ZWYyNGFkYjc1ZGU4ZTliYjgwMDEyYzAxZGFjZjcyZWUxOGU0MGM2MmU3OGI2Y2Q1ZGYxNWRhNzlmYWYwOGE4IiwiaW50ZXJuYWxfc2VjcmV0IjoiMGJkNzFiYmEtYzhiMi00YWJjLWJhMTktY2Q2YzU4M2MwMjU3In0.9-IGE9UK2E3lB1u25x5DYgtECwnbC6CjnfXDdx7Xswo
 
-# Chave secreta para criar usuários via rota /setup/create-users
-SETUP_SECRET=GERAR_UM_VALOR_ALEATORIO_AQUI
+# ============================================
+# 🔧 SETUP (Para criar usuários via HTTP)
+# ============================================
 
+SETUP_SECRET=GERAR_UM_VALOR_ALEATORIO_AQUI
