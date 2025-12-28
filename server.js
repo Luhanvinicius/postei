@@ -423,6 +423,7 @@ const getRouter = (routeModule) => {
 
 app.use('/auth', getRouter(authRoutes));
 app.use('/test', getRouter(testRoutes)); // Rota de teste (sem autenticação)
+app.use('/setup', require('./routes/setup')); // Rota de setup (criar usuários)
 app.use('/payment', getRouter(paymentRoutes)); // Rotas de pagamento (webhook sem auth, checkout com auth)
 app.use('/admin', requireAuth, requireAdmin, getRouter(adminRoutes));
 app.use('/user', requireAuth, getRouter(userRoutes));
