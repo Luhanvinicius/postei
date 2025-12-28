@@ -1,3 +1,10 @@
+// Log inicial para debug
+console.log('🚀 Iniciando servidor...');
+console.log('📍 Ambiente:', process.env.NODE_ENV || 'development');
+console.log('📍 Vercel:', process.env.VERCEL || 'não detectado');
+console.log('📍 VERCEL_ENV:', process.env.VERCEL_ENV || 'não detectado');
+
+try {
 const express = require('express');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
@@ -7,6 +14,8 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs-extra');
 require('dotenv').config();
+
+console.log('✅ Módulos básicos carregados');
 
 // Inicializar banco de dados ANTES de carregar rotas
 let db;
