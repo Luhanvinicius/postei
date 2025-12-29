@@ -55,19 +55,34 @@ router.get('/dashboard', async (req, res) => {
 });
 
 // Gerenciar usuários
-router.get('/users', (req, res) => {
+router.get('/users', async (req, res) => {
   try {
-    const allUsers = userDB.getAll();
+    let allUsers = [];
+    try {
+      if (userDB.getAll.constructor.name === 'AsyncFunction') {
+        allUsers = await userDB.getAll();
+      } else {
+        allUsers = await Promise.resolve(userDB.getAll());
+      }
+    } catch (err) {
+      console.error('Erro ao buscar usuários:', err);
+      allUsers = [];
+    }
+    
+    console.log('📊 Total de usuários encontrados:', allUsers ? allUsers.length : 0);
+    
     res.render('admin/users', {
       user: req.user,
-      users: allUsers,
+      users: allUsers || [],
       token: req.token || req.query.token
     });
   } catch (error) {
     console.error('Erro ao carregar usuários:', error);
+    console.error('Stack:', error.stack);
     res.render('admin/users', {
       user: req.user,
-      users: []
+      users: [],
+      token: req.token || req.query.token
     });
   }
 });
