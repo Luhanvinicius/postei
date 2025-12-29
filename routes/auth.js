@@ -230,3 +230,4 @@ router.get('/verify', (req, res) => {
 });
 
 module.exports = router;
+module.exports.tokenStore = tokenStore;
