@@ -181,13 +181,32 @@ router.post('/login', async (req, res) => {
         console.log('📍 Cookie sendo enviado:', cookieHeader ? 'sim' : 'não');
         if (cookieHeader) {
           console.log('📍 Cookie value:', Array.isArray(cookieHeader) ? cookieHeader[0] : cookieHeader);
+        } else {
+          console.warn('⚠️ Cookie não está sendo enviado! Tentando forçar...');
+          // Forçar o envio do cookie manualmente
+          const cookieName = req.session.cookie.name || 'youtube_automation_session';
+          const cookieValue = req.sessionID;
+          const cookieOptions = {
+            secure: req.session.cookie.secure,
+            httpOnly: req.session.cookie.httpOnly,
+            sameSite: req.session.cookie.sameSite,
+            maxAge: req.session.cookie.maxAge,
+            path: req.session.cookie.path
+          };
+          
+          // Definir cookie manualmente usando res.cookie
+          res.cookie(cookieName, cookieValue, cookieOptions);
+          console.log('✅ Cookie definido manualmente:', cookieName);
+          
+          // Verificar novamente
+          const newCookieHeader = res.getHeader('Set-Cookie');
+          console.log('📍 Cookie após definir manualmente:', newCookieHeader ? 'sim' : 'não');
         }
         
         console.log('🔀 Redirecionando para:', redirectUrl);
         console.log('==========================================');
         
-        // Garantir que o cookie seja enviado antes de redirecionar
-        // Usar res.redirect diretamente para garantir que o cookie seja enviado
+        // Redirecionar - o cookie deve estar no header agora
         res.redirect(redirectUrl);
         resolve();
       });
