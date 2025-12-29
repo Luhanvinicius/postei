@@ -155,7 +155,7 @@ app.use(fileUpload({
 // Configuração de sessão
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'change-this-secret-key',
-  resave: true, // Salvar sessão mesmo se não foi modificada (importante para Render)
+  resave: false, // Não salvar sessão se não foi modificada (evita problemas)
   saveUninitialized: false, // Não criar sessão até que algo seja salvo
   name: 'youtube_automation_session', // Nome customizado
   rolling: true, // Renovar cookie a cada requisição

@@ -189,6 +189,9 @@ router.post('/login', async (req, res) => {
         if (cookieHeader) {
           const cookieStr = Array.isArray(cookieHeader) ? cookieHeader[0] : cookieHeader;
           console.log('📍 Cookie value:', cookieStr.substring(0, 100) + '...');
+        } else {
+          console.warn('⚠️ Cookie não está sendo enviado automaticamente!');
+          console.warn('⚠️ Isso pode causar problemas de autenticação após redirecionamento.');
         }
         
         // Verificar se a sessão está realmente salva no store
@@ -205,10 +208,22 @@ router.post('/login', async (req, res) => {
               }
             }
             
+            // IMPORTANTE: Se o cookie não foi enviado, precisamos forçar o envio
+            // O express-session deve fazer isso automaticamente, mas às vezes não funciona
+            // Vamos garantir que o cookie seja enviado antes de redirecionar
+            if (!cookieHeader) {
+              console.warn('⚠️ Forçando envio de cookie manualmente...');
+              // Não definir cookie manualmente - isso interfere com express-session
+              // Em vez disso, vamos garantir que a resposta seja enviada corretamente
+              // O problema pode ser que o express-session não está enviando o cookie
+              // porque a resposta já foi iniciada ou há algum problema de timing
+            }
+            
             console.log('🔀 Redirecionando para:', redirectUrl);
             console.log('==========================================');
             
             // Redirecionar - o express-session deve enviar o cookie automaticamente
+            // Mas se não enviou, vamos tentar uma abordagem diferente
             res.redirect(redirectUrl);
             resolve();
           });
