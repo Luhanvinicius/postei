@@ -58,19 +58,19 @@ router.post('/login', async (req, res) => {
     // Buscar usuário
     let user;
     try {
-      if (users && users.findByUsername) {
-        const isAsync = users.findByUsername.constructor && users.findByUsername.constructor.name === 'AsyncFunction';
-        if (isAsync) {
-          user = await users.findByUsername(username);
-        } else {
-          user = users.findByUsername(username);
-        }
+      if (!users || !users.findByUsername) {
+        console.error('❌ Módulo users não encontrado ou findByUsername não disponível');
+        clearTimeout(timeout);
+        return sendResponse('render', { error: 'Erro ao conectar com o banco de dados. Tente novamente.' });
       }
+      
+      // Sempre usar await - funciona tanto para SQLite (síncrono) quanto PostgreSQL (assíncrono)
+      user = await Promise.resolve(users.findByUsername(username));
     } catch (err) {
       console.error('❌ Erro ao buscar usuário:', err);
-      if (users && users.findByUsername) {
-        user = users.findByUsername(username);
-      }
+      console.error('Stack:', err.stack);
+      clearTimeout(timeout);
+      return sendResponse('render', { error: 'Erro ao buscar usuário. Tente novamente.' });
     }
 
     if (!user) {
@@ -102,23 +102,15 @@ router.post('/login', async (req, res) => {
     // Buscar payment_status do usuário
     let paymentStatus = user.payment_status || 'pending';
     if (!paymentStatus || paymentStatus === 'undefined' || paymentStatus === 'null') {
-      const { users: userDB } = require('../database');
-      let fullUser;
       try {
-        if (userDB && userDB.findById) {
-          const isAsync = userDB.findById.constructor && userDB.findById.constructor.name === 'AsyncFunction';
-          if (isAsync) {
-            fullUser = await userDB.findById(user.id);
-          } else {
-            fullUser = userDB.findById(user.id);
-          }
+        if (users && users.findById) {
+          const fullUser = await Promise.resolve(users.findById(user.id));
+          paymentStatus = fullUser?.payment_status || 'pending';
         }
       } catch (err) {
-        if (userDB && userDB.findById) {
-          fullUser = userDB.findById(user.id);
-        }
+        console.error('⚠️ Erro ao buscar payment_status completo (não crítico):', err.message);
+        paymentStatus = 'pending';
       }
-      paymentStatus = fullUser?.payment_status || 'pending';
     }
     
     // Determinar URL de redirecionamento
@@ -132,20 +124,14 @@ router.post('/login', async (req, res) => {
       // Verificar se tem fatura pendente
       try {
         const { invoices } = require('../database');
-        let userInvoices;
         if (invoices && invoices.findByUserId) {
-          const isAsync = invoices.findByUserId.constructor && invoices.findByUserId.constructor.name === 'AsyncFunction';
-          if (isAsync) {
-            userInvoices = await invoices.findByUserId(user.id);
-          } else {
-            userInvoices = invoices.findByUserId(user.id);
-          }
-        }
-        
-        if (userInvoices && Array.isArray(userInvoices)) {
-          const pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
-          if (pendingInvoice && paymentStatus === 'pending') {
-            redirectUrl = `/payment/pending?invoice=${pendingInvoice.id}`;
+          const userInvoices = await Promise.resolve(invoices.findByUserId(user.id));
+          
+          if (userInvoices && Array.isArray(userInvoices)) {
+            const pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
+            if (pendingInvoice && paymentStatus === 'pending') {
+              redirectUrl = `/payment/pending?invoice=${pendingInvoice.id}`;
+            }
           }
         }
       } catch (err) {
