@@ -122,19 +122,16 @@ router.get('/pending', requireAuth, async (req, res) => {
 router.get('/checkout/:planSlug', async (req, res) => {
   try {
     console.log('🔍 Acessando checkout:', req.params.planSlug);
-    console.log('📋 Sessão:', req.session ? 'existe' : 'não existe');
-    console.log('👤 Usuário na sessão:', req.session?.user ? req.session.user.username : 'não autenticado');
+    console.log('👤 Usuário:', req.user ? req.user.username : 'não autenticado');
+    console.log('🔑 Token:', req.token ? req.token.substring(0, 10) + '...' : 'ausente');
     
     // Se não estiver autenticado, redirecionar para cadastro com o plano selecionado
-    if (!req.session || !req.session.user) {
+    if (!req.user) {
       console.log('🔍 Usuário não autenticado - redirecionando para cadastro com plano:', req.params.planSlug);
       return res.redirect(`/auth/register?plan=${req.params.planSlug}`);
     }
     
-    console.log('👤 Usuário:', req.session.user.username, 'Payment Status:', req.session.user.payment_status);
-    
-    // Anexar usuário da sessão ao req.user para compatibilidade
-    req.user = req.session.user;
+    console.log('👤 Usuário autenticado:', req.user.username, 'Payment Status:', req.user.payment_status);
     
     const { planSlug } = req.params;
     const userId = req.user.id;
@@ -167,7 +164,8 @@ router.get('/checkout/:planSlug', async (req, res) => {
     
     res.render('payment/checkout', {
       user: req.user,
-      plan: plan
+      plan: plan,
+      token: req.token || req.query.token
     });
   } catch (error) {
     console.error('❌ Erro ao carregar checkout:', error);
