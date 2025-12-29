@@ -302,27 +302,49 @@ router.get('/invoices', async (req, res) => {
   try {
     const { invoices } = require('../database');
     
-    let allInvoices;
+    let allInvoices = [];
     try {
-      if (invoices.findAll.constructor.name === 'AsyncFunction') {
-        allInvoices = await invoices.findAll();
-      } else {
-        allInvoices = invoices.findAll();
+      if (invoices && invoices.findAll) {
+        if (invoices.findAll.constructor.name === 'AsyncFunction') {
+          allInvoices = await invoices.findAll();
+        } else {
+          allInvoices = await Promise.resolve(invoices.findAll());
+        }
       }
     } catch (err) {
-      allInvoices = invoices.findAll();
+      console.error('Erro ao buscar faturas:', err);
+      allInvoices = [];
     }
+    
+    console.log('📊 Total de faturas encontradas:', allInvoices ? allInvoices.length : 0);
+    
+    // Calcular estatísticas
+    const stats = {
+      pending: allInvoices.filter(i => i.status === 'pending').length,
+      paid: allInvoices.filter(i => i.status === 'paid').length,
+      overdue: allInvoices.filter(i => i.status === 'overdue').length,
+      total: allInvoices.length
+    };
     
     res.render('admin/invoices', {
       user: req.user,
-      invoices: allInvoices,
+      invoices: allInvoices || [],
+      stats: stats,
       token: req.token || req.query.token
     });
   } catch (error) {
     console.error('Erro ao carregar faturas:', error);
+    console.error('Stack:', error.stack);
     res.render('admin/invoices', {
       user: req.user,
-      invoices: []
+      invoices: [],
+      stats: {
+        pending: 0,
+        paid: 0,
+        overdue: 0,
+        total: 0
+      },
+      token: req.token || req.query.token
     });
   }
 });
