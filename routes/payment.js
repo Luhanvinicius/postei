@@ -137,26 +137,24 @@ router.get('/checkout/:planSlug', async (req, res) => {
     const userId = req.user.id;
 
     // Buscar plano
-    let plan;
+    let plan = null;
     try {
-      if (plans && plans.findBySlug) {
-        const isAsync = plans.findBySlug.constructor && plans.findBySlug.constructor.name === 'AsyncFunction';
-        if (isAsync) {
-          plan = await plans.findBySlug(planSlug);
-        } else {
-          plan = plans.findBySlug(planSlug);
-        }
+      if (!plans || !plans.findBySlug) {
+        console.error('❌ plans ou plans.findBySlug não encontrado');
+        return res.redirect('/user/plans?error=erro_buscar_plano');
       }
+      
+      plan = await Promise.resolve(plans.findBySlug(planSlug));
+      console.log('📦 Plano buscado:', plan ? plan.name : 'não encontrado');
     } catch (err) {
-      console.error('Erro ao buscar plano:', err);
-      if (plans && plans.findBySlug) {
-        plan = plans.findBySlug(planSlug);
-      }
+      console.error('❌ Erro ao buscar plano:', err);
+      console.error('Stack:', err.stack);
+      return res.redirect('/user/plans?error=erro_buscar_plano');
     }
 
     if (!plan) {
       console.error('❌ Plano não encontrado:', planSlug);
-      return res.redirect('/?error=plano_nao_encontrado');
+      return res.redirect('/user/plans?error=plano_nao_encontrado');
     }
 
     console.log('✅ Plano encontrado:', plan.name);
@@ -199,21 +197,17 @@ router.post('/checkout/:planSlug', requireAuth, async (req, res) => {
     }
 
     // Buscar plano
-    let plan;
+    let plan = null;
     try {
-      if (plans && plans.findBySlug) {
-        const isAsync = plans.findBySlug.constructor && plans.findBySlug.constructor.name === 'AsyncFunction';
-        if (isAsync) {
-          plan = await plans.findBySlug(planSlug);
-        } else {
-          plan = plans.findBySlug(planSlug);
-        }
+      if (!plans || !plans.findBySlug) {
+        return res.json({ success: false, error: 'Erro ao acessar banco de dados de planos' });
       }
+      
+      plan = await Promise.resolve(plans.findBySlug(planSlug));
     } catch (err) {
-      console.error('Erro ao buscar plano:', err);
-      if (plans && plans.findBySlug) {
-        plan = plans.findBySlug(planSlug);
-      }
+      console.error('❌ Erro ao buscar plano:', err);
+      console.error('Stack:', err.stack);
+      return res.json({ success: false, error: 'Erro ao buscar plano: ' + err.message });
     }
 
     if (!plan) {
@@ -465,18 +459,16 @@ router.post('/regenerate/:invoiceId', requireAuth, async (req, res) => {
     
     // Buscar plano
     const { plans } = require('../database');
-    let plan;
+    let plan = null;
     try {
-      if (plans && plans.findById) {
-        const isAsync = plans.findById.constructor && plans.findById.constructor.name === 'AsyncFunction';
-        if (isAsync) {
-          plan = await plans.findById(invoice.plan_id);
-        } else {
-          plan = plans.findById(invoice.plan_id);
-        }
+      if (!plans || !plans.findById) {
+        return res.json({ success: false, error: 'Erro ao acessar banco de dados de planos' });
       }
+      
+      plan = await Promise.resolve(plans.findById(invoice.plan_id));
     } catch (err) {
-      plan = plans.findById(invoice.plan_id);
+      console.error('❌ Erro ao buscar plano:', err);
+      return res.json({ success: false, error: 'Erro ao buscar plano: ' + err.message });
     }
     
     if (!plan) {
