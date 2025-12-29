@@ -150,11 +150,18 @@ router.post('/login', async (req, res) => {
     
     console.log('📝 Criando sessão com dados:', JSON.stringify(sessionData, null, 2));
     
+    // IMPORTANTE: Não definir cookie manualmente - isso interfere com o express-session
+    // O express-session precisa gerenciar o cookie sozinho para que a sessão seja recuperada corretamente
+    
     // Definir sessão
     req.session.user = sessionData;
     
+    // Marcar sessão como modificada para forçar salvamento
+    req.session.touch();
+    
     // Salvar sessão usando Promise para garantir que seja salva antes de redirecionar
     return new Promise((resolve) => {
+      // Usar req.session.save() que deve enviar o cookie automaticamente
       req.session.save((err) => {
         clearTimeout(timeout);
         
@@ -180,35 +187,37 @@ router.post('/login', async (req, res) => {
         const cookieHeader = res.getHeader('Set-Cookie');
         console.log('📍 Cookie sendo enviado:', cookieHeader ? 'sim' : 'não');
         if (cookieHeader) {
-          console.log('📍 Cookie value:', Array.isArray(cookieHeader) ? cookieHeader[0] : cookieHeader);
-        } else {
-          console.warn('⚠️ Cookie não está sendo enviado! Tentando forçar...');
-          // Forçar o envio do cookie manualmente
-          const cookieName = req.session.cookie.name || 'youtube_automation_session';
-          const cookieValue = req.sessionID;
-          const cookieOptions = {
-            secure: req.session.cookie.secure,
-            httpOnly: req.session.cookie.httpOnly,
-            sameSite: req.session.cookie.sameSite,
-            maxAge: req.session.cookie.maxAge,
-            path: req.session.cookie.path
-          };
-          
-          // Definir cookie manualmente usando res.cookie
-          res.cookie(cookieName, cookieValue, cookieOptions);
-          console.log('✅ Cookie definido manualmente:', cookieName);
-          
-          // Verificar novamente
-          const newCookieHeader = res.getHeader('Set-Cookie');
-          console.log('📍 Cookie após definir manualmente:', newCookieHeader ? 'sim' : 'não');
+          const cookieStr = Array.isArray(cookieHeader) ? cookieHeader[0] : cookieHeader;
+          console.log('📍 Cookie value:', cookieStr.substring(0, 100) + '...');
         }
         
-        console.log('🔀 Redirecionando para:', redirectUrl);
-        console.log('==========================================');
-        
-        // Redirecionar - o cookie deve estar no header agora
-        res.redirect(redirectUrl);
-        resolve();
+        // Verificar se a sessão está realmente salva no store
+        if (req.sessionStore && req.sessionStore.get) {
+          req.sessionStore.get(req.sessionID, (storeErr, storedSession) => {
+            if (storeErr) {
+              console.error('❌ Erro ao verificar sessão no store:', storeErr);
+            } else {
+              console.log('📍 Sessão no store:', storedSession ? 'presente' : 'ausente');
+              if (storedSession && storedSession.user) {
+                console.log('📍 Usuário no store:', storedSession.user.username);
+              } else {
+                console.warn('⚠️ Sessão salva mas usuário não encontrado no store!');
+              }
+            }
+            
+            console.log('🔀 Redirecionando para:', redirectUrl);
+            console.log('==========================================');
+            
+            // Redirecionar - o express-session deve enviar o cookie automaticamente
+            res.redirect(redirectUrl);
+            resolve();
+          });
+        } else {
+          console.log('🔀 Redirecionando para:', redirectUrl);
+          console.log('==========================================');
+          res.redirect(redirectUrl);
+          resolve();
+        }
       });
     });
 
