@@ -18,23 +18,25 @@ router.get('/dashboard', async (req, res) => {
   let userSchedules, userPublished;
   
   try {
-    if (schedules.findByUserId.constructor.name === 'AsyncFunction') {
-      userSchedules = await schedules.findByUserId(userId);
-    } else {
-      userSchedules = await Promise.resolve(schedules.findByUserId(userId));
+    userSchedules = await Promise.resolve(schedules.findByUserId(userId));
+    // Garantir que é um array
+    if (!Array.isArray(userSchedules)) {
+      userSchedules = [];
     }
   } catch (err) {
-    userSchedules = schedules.findByUserId(userId);
+    console.error('Erro ao buscar agendamentos:', err);
+    userSchedules = [];
   }
   
   try {
-    if (published.findByUserId.constructor.name === 'AsyncFunction') {
-      userPublished = await published.findByUserId(userId);
-    } else {
-      userPublished = await Promise.resolve(published.findByUserId(userId));
+    userPublished = await Promise.resolve(published.findByUserId(userId));
+    // Garantir que é um array
+    if (!Array.isArray(userPublished)) {
+      userPublished = [];
     }
   } catch (err) {
-    userPublished = published.findByUserId(userId);
+    console.error('Erro ao buscar publicados:', err);
+    userPublished = [];
   }
   
   // Calcular estatísticas
@@ -55,21 +57,20 @@ router.get('/dashboard', async (req, res) => {
   const { invoices } = require('../database');
   let pendingInvoice = null;
   try {
-    let userInvoices;
+    let userInvoices = [];
     if (invoices && invoices.findByUserId) {
-      const isAsync = invoices.findByUserId.constructor && invoices.findByUserId.constructor.name === 'AsyncFunction';
-      if (isAsync) {
-        userInvoices = await invoices.findByUserId(userId);
-      } else {
-        userInvoices = invoices.findByUserId(userId);
+      userInvoices = await Promise.resolve(invoices.findByUserId(userId));
+      if (!Array.isArray(userInvoices)) {
+        userInvoices = [];
       }
     }
     
-    if (userInvoices && Array.isArray(userInvoices)) {
+    if (userInvoices && userInvoices.length > 0) {
       pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
     }
   } catch (err) {
     console.error('Erro ao buscar faturas no dashboard:', err);
+    pendingInvoice = null;
   }
 
   res.render('user/dashboard', {
@@ -93,13 +94,10 @@ router.get('/accounts', async (req, res) => {
   // Buscar configuração do banco (pode ser async no PostgreSQL)
   let dbConfig;
   try {
-    if (configs.findByUserId.constructor.name === 'AsyncFunction') {
-      dbConfig = await configs.findByUserId(userId);
-    } else {
-      dbConfig = configs.findByUserId(userId);
-    }
+    dbConfig = await Promise.resolve(configs.findByUserId(userId));
   } catch (err) {
-    dbConfig = configs.findByUserId(userId);
+    console.error('Erro ao buscar configuração:', err);
+    dbConfig = null;
   }
   
   let userConfig = null;
@@ -172,15 +170,11 @@ router.post('/authenticate', async (req, res) => {
 
   try {
     // Buscar configuração (pode ser async no PostgreSQL)
-    let dbConfig;
+    let dbConfig = null;
     try {
-      if (configs.findByUserId.constructor.name === 'AsyncFunction') {
-        dbConfig = await configs.findByUserId(userId);
-      } else {
-        dbConfig = configs.findByUserId(userId);
-      }
+      dbConfig = await Promise.resolve(configs.findByUserId(userId));
     } catch (err) {
-      dbConfig = configs.findByUserId(userId);
+      console.error('Erro ao buscar configuração:', err);
     }
     
     if (!dbConfig || !dbConfig.config_path) {
@@ -273,15 +267,11 @@ router.get('/auth/callback', async (req, res) => {
 
   try {
     // Buscar configuração (pode ser async no PostgreSQL)
-    let dbConfig;
+    let dbConfig = null;
     try {
-      if (configs.findByUserId.constructor.name === 'AsyncFunction') {
-        dbConfig = await configs.findByUserId(userId);
-      } else {
-        dbConfig = configs.findByUserId(userId);
-      }
+      dbConfig = await Promise.resolve(configs.findByUserId(userId));
     } catch (err) {
-      dbConfig = configs.findByUserId(userId);
+      console.error('Erro ao buscar configuração:', err);
     }
     
     if (!dbConfig || !dbConfig.config_path) {
@@ -445,7 +435,13 @@ router.get('/videos', async (req, res) => {
     });
   }
   
-  const dbConfig = configs.findByUserId(userId);
+  // Buscar configuração do banco (pode ser async no PostgreSQL)
+  let dbConfig = null;
+  try {
+    dbConfig = await Promise.resolve(configs.findByUserId(userId));
+  } catch (err) {
+    console.error('Erro ao buscar configuração:', err);
+  }
   
   res.render('user/videos', {
     user: req.user,
@@ -502,13 +498,14 @@ router.post('/videos/scan', async (req, res) => {
     const { published } = require('../database');
     let publishedVideos = [];
     try {
-      if (published.findByUserId.constructor.name === 'AsyncFunction') {
-        publishedVideos = await published.findByUserId(userId);
-      } else {
-        publishedVideos = published.findByUserId(userId);
+      publishedVideos = await Promise.resolve(published.findByUserId(userId));
+      // Garantir que é um array
+      if (!Array.isArray(publishedVideos)) {
+        publishedVideos = [];
       }
     } catch (err) {
-      publishedVideos = published.findByUserId(userId);
+      console.error('Erro ao buscar vídeos publicados:', err);
+      publishedVideos = [];
     }
     
     // Criar um Set com os caminhos dos vídeos já publicados (normalizado)
@@ -600,15 +597,11 @@ router.post('/videos/generate', async (req, res) => {
       
       // Tentar encontrar o arquivo na pasta padrão do usuário
       const userId = req.user.id;
-      let dbConfig;
+      let dbConfig = null;
       try {
-        if (configs.findByUserId.constructor.name === 'AsyncFunction') {
-          dbConfig = await configs.findByUserId(userId);
-        } else {
-          dbConfig = configs.findByUserId(userId);
-        }
+        dbConfig = await Promise.resolve(configs.findByUserId(userId));
       } catch (err) {
-        dbConfig = configs.findByUserId(userId);
+        console.error('Erro ao buscar configuração:', err);
       }
       
       if (dbConfig && dbConfig.default_video_folder) {
@@ -643,15 +636,11 @@ router.post('/videos/generate', async (req, res) => {
       
       // Última tentativa: procurar pelo nome do arquivo na pasta padrão
       const userId2 = req.user.id;
-      let dbConfig2;
+      let dbConfig2 = null;
       try {
-        if (configs.findByUserId.constructor.name === 'AsyncFunction') {
-          dbConfig2 = await configs.findByUserId(userId2);
-        } else {
-          dbConfig2 = configs.findByUserId(userId2);
-        }
+        dbConfig2 = await Promise.resolve(configs.findByUserId(userId2));
       } catch (err) {
-        dbConfig2 = configs.findByUserId(userId2);
+        console.error('Erro ao buscar configuração:', err);
       }
       
       if (dbConfig2 && dbConfig2.default_video_folder) {
@@ -1056,17 +1045,13 @@ router.get('/scheduled', async (req, res) => {
     let userSchedules;
     
     try {
-      if (schedules.findByUserId.constructor.name === 'AsyncFunction') {
-        userSchedules = await schedules.findByUserId(userId);
-      } else {
-        userSchedules = schedules.findByUserId(userId);
+      userSchedules = await Promise.resolve(schedules.findByUserId(userId));
+      // Garantir que é um array
+      if (!Array.isArray(userSchedules)) {
+        userSchedules = [];
       }
     } catch (err) {
-      userSchedules = schedules.findByUserId(userId);
-    }
-    
-    // Garantir que é um array
-    if (!Array.isArray(userSchedules)) {
+      console.error('Erro ao buscar agendamentos:', err);
       userSchedules = [];
     }
     
@@ -1093,13 +1078,14 @@ router.get('/published', async (req, res) => {
   // Buscar vídeos publicados (pode ser async no PostgreSQL)
   let userPublished = [];
   try {
-    if (published.findByUserId.constructor.name === 'AsyncFunction') {
-      userPublished = await published.findByUserId(userId);
-    } else {
-      userPublished = published.findByUserId(userId);
+    userPublished = await Promise.resolve(published.findByUserId(userId));
+    // Garantir que é um array
+    if (!Array.isArray(userPublished)) {
+      userPublished = [];
     }
   } catch (err) {
-    userPublished = published.findByUserId(userId);
+    console.error('Erro ao buscar vídeos publicados:', err);
+    userPublished = [];
   }
   
   res.render('user/published', {
@@ -1115,13 +1101,14 @@ router.get('/plans', async (req, res) => {
   
   let allPlans = [];
   try {
-    if (planDB.findAll.constructor.name === 'AsyncFunction') {
-      allPlans = await planDB.findAll();
-    } else {
-      allPlans = planDB.findAll();
+    allPlans = await Promise.resolve(planDB.findAll());
+    // Garantir que é um array
+    if (!Array.isArray(allPlans)) {
+      allPlans = [];
     }
   } catch (err) {
-    allPlans = planDB.findAll();
+    console.error('Erro ao buscar planos:', err);
+    allPlans = [];
   }
   
   res.render('user/plans', {
@@ -1137,40 +1124,35 @@ router.get('/profile', async (req, res) => {
   const { users, subscriptions, invoices: invoiceDB } = require('../database');
   
   // Buscar dados completos do usuário (pode ser async no PostgreSQL)
-  let userData;
+  let userData = null;
   try {
-    if (users.findById.constructor.name === 'AsyncFunction') {
-      userData = await users.findById(userId);
-    } else {
-      userData = users.findById(userId);
-    }
+    userData = await Promise.resolve(users.findById(userId));
   } catch (err) {
-    userData = users.findById(userId);
+    console.error('Erro ao buscar dados do usuário:', err);
+    userData = null;
   }
   
   // Buscar assinatura ativa
   let subscription = null;
   try {
-    if (subscriptions.findByUserId.constructor.name === 'AsyncFunction') {
-      subscription = await subscriptions.findByUserId(userId);
-    } else {
-      subscription = subscriptions.findByUserId(userId);
-    }
+    subscription = await Promise.resolve(subscriptions.findByUserId(userId));
   } catch (err) {
-    subscription = subscriptions.findByUserId(userId);
+    console.error('Erro ao buscar assinatura:', err);
+    subscription = null;
   }
   
   // Buscar faturas (apenas se não for admin)
   let userInvoices = [];
   if (req.user.role !== 'admin') {
     try {
-      if (invoiceDB.findByUserId.constructor.name === 'AsyncFunction') {
-        userInvoices = await invoiceDB.findByUserId(userId);
-      } else {
-        userInvoices = invoiceDB.findByUserId(userId);
+      userInvoices = await Promise.resolve(invoiceDB.findByUserId(userId));
+      // Garantir que é um array
+      if (!Array.isArray(userInvoices)) {
+        userInvoices = [];
       }
     } catch (err) {
-      userInvoices = invoiceDB.findByUserId(userId);
+      console.error('Erro ao buscar faturas:', err);
+      userInvoices = [];
     }
   }
   
@@ -1235,15 +1217,12 @@ router.post('/profile/change-password', async (req, res) => {
 
     // Buscar usuário
     const { users } = require('../database');
-    let user;
+    let user = null;
     try {
-      if (users.findById.constructor.name === 'AsyncFunction') {
-        user = await users.findById(userId);
-      } else {
-        user = users.findById(userId);
-      }
+      user = await Promise.resolve(users.findById(userId));
     } catch (err) {
-      user = users.findById(userId);
+      console.error('Erro ao buscar usuário:', err);
+      user = null;
     }
 
     if (!user) {
@@ -1293,13 +1272,10 @@ router.post('/subscription/cancel', requireAuth, async (req, res) => {
     const { subscriptions } = require('../database');
     let subscription = null;
     try {
-      if (subscriptions.findByUserId.constructor && subscriptions.findByUserId.constructor.name === 'AsyncFunction') {
-        subscription = await subscriptions.findByUserId(userId);
-      } else {
-        subscription = subscriptions.findByUserId(userId);
-      }
+      subscription = await Promise.resolve(subscriptions.findByUserId(userId));
     } catch (err) {
-      subscription = subscriptions.findByUserId(userId);
+      console.error('Erro ao buscar assinatura:', err);
+      subscription = null;
     }
     
     if (!subscription) {
