@@ -51,7 +51,14 @@ router.post('/login', async (req, res) => {
 
   try {
     // Buscar usuário
-    const user = await Promise.resolve(users.findByUsername(username));
+    let user;
+    try {
+      user = await Promise.resolve(users.findByUsername(username));
+    } catch (err) {
+      console.error('❌ Erro ao buscar usuário:', err);
+      console.error('Stack:', err.stack);
+      return res.render('auth/login', { error: 'Erro ao buscar usuário. Tente novamente.' });
+    }
 
     if (!user) {
       console.log('❌ Usuário não encontrado:', username);
@@ -59,12 +66,37 @@ router.post('/login', async (req, res) => {
     }
 
     console.log('✅ Usuário encontrado:', user.username);
+    console.log('📋 Dados do usuário:', {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      hasPassword: !!user.password,
+      passwordLength: user.password ? user.password.length : 0
+    });
 
     // Verificar senha
-    const validPassword = await bcrypt.compare(password, user.password);
+    let validPassword = false;
+    try {
+      if (!user.password) {
+        console.log('❌ Usuário não tem senha definida');
+        return res.render('auth/login', { error: 'Usuário não tem senha definida. Entre em contato com o suporte.' });
+      }
+      
+      validPassword = await bcrypt.compare(password, user.password);
+      console.log('🔐 Comparação de senha:', {
+        passwordProvided: password ? 'sim' : 'não',
+        passwordHash: user.password ? user.password.substring(0, 20) + '...' : 'não existe',
+        valid: validPassword
+      });
+    } catch (err) {
+      console.error('❌ Erro ao comparar senha:', err);
+      console.error('Stack:', err.stack);
+      return res.render('auth/login', { error: 'Erro ao verificar senha. Tente novamente.' });
+    }
 
     if (!validPassword) {
-      console.log('❌ Senha incorreta');
+      console.log('❌ Senha incorreta para usuário:', username);
       return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
     }
 
