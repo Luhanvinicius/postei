@@ -56,64 +56,70 @@ function logout() {
   }
 }
 
-// Adicionar token automaticamente em todos os links e formulários
+// Função para adicionar token aos links e formulários
+function addTokenToElements() {
+  const token = getAuthToken();
+  if (!token) return;
+  
+  // Adicionar token em todos os links internos
+  document.querySelectorAll('a[href]').forEach(link => {
+    const href = link.getAttribute('href');
+    if (href && 
+        !href.startsWith('#') && 
+        !href.startsWith('javascript:') && 
+        !href.startsWith('mailto:') &&
+        !href.startsWith('tel:') &&
+        !href.includes('token=') &&
+        (href.startsWith('/') || href.startsWith(window.location.origin))) {
+      
+      // Modificar o href diretamente
+      const separator = href.includes('?') ? '&' : '?';
+      link.setAttribute('href', href + separator + 'token=' + token);
+    }
+  });
+  
+  // Adicionar token em todos os formulários
+  document.querySelectorAll('form').forEach(form => {
+    const action = form.getAttribute('action') || form.action;
+    if (action && !action.includes('token=') && (action.startsWith('/') || action.startsWith(window.location.origin))) {
+      const separator = action.includes('?') ? '&' : '?';
+      form.setAttribute('action', action + separator + 'token=' + token);
+    }
+  });
+}
+
+// Salvar token da URL no localStorage se presente
 (function() {
-  // Salvar token da URL no localStorage se presente
   const urlParams = new URLSearchParams(window.location.search);
   const urlToken = urlParams.get('token');
   if (urlToken) {
     localStorage.setItem('auth_token', urlToken);
-    // Remover token da URL para manter limpa
+    // Remover token da URL para manter limpa (mas manter em histórico)
     urlParams.delete('token');
     const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
     window.history.replaceState({}, '', newUrl);
   }
   
-  // Função para adicionar token aos links
-  function addTokenToLinks() {
-    const token = getAuthToken();
-    if (!token) return;
-    
-    // Adicionar token em todos os links internos
-    document.querySelectorAll('a[href]').forEach(link => {
-      const href = link.getAttribute('href');
-      if (href && 
-          !href.startsWith('#') && 
-          !href.startsWith('javascript:') && 
-          !href.startsWith('mailto:') &&
-          !href.startsWith('tel:') &&
-          !href.includes('token=') &&
-          (href.startsWith('/') || href.startsWith(window.location.origin))) {
-        
-        // Modificar o href diretamente
-        const separator = href.includes('?') ? '&' : '?';
-        link.setAttribute('href', href + separator + 'token=' + token);
-      }
-    });
-    
-    // Adicionar token em todos os formulários
-    document.querySelectorAll('form').forEach(form => {
-      const action = form.getAttribute('action') || form.action;
-      if (action && !action.includes('token=') && (action.startsWith('/') || action.startsWith(window.location.origin))) {
-        const separator = action.includes('?') ? '&' : '?';
-        form.setAttribute('action', action + separator + 'token=' + token);
-      }
-    });
-  }
-  
   // Executar quando o DOM estiver pronto
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', addTokenToLinks);
+    document.addEventListener('DOMContentLoaded', function() {
+      addTokenToElements();
+    });
   } else {
-    addTokenToLinks();
+    addTokenToElements();
   }
   
   // Re-executar após mudanças no DOM (para conteúdo dinâmico)
-  const observer = new MutationObserver(addTokenToLinks);
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
+  const observer = new MutationObserver(function(mutations) {
+    addTokenToElements();
   });
+  
+  if (document.body) {
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
   
   // Interceptar cliques em links para garantir que o token seja mantido
   document.addEventListener('click', function(e) {
@@ -135,4 +141,19 @@ function logout() {
       }
     }
   }, true); // Usar capture phase para pegar antes do navegador processar
+  
+  // Interceptar submit de formulários
+  document.addEventListener('submit', function(e) {
+    const form = e.target;
+    if (form.tagName === 'FORM') {
+      const token = getAuthToken();
+      if (token) {
+        const action = form.getAttribute('action') || form.action;
+        if (action && !action.includes('token=') && (action.startsWith('/') || action.startsWith(window.location.origin))) {
+          const separator = action.includes('?') ? '&' : '?';
+          form.setAttribute('action', action + separator + 'token=' + token);
+        }
+      }
+    }
+  }, true);
 })();
