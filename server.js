@@ -163,7 +163,9 @@ const sessionConfig = {
     secure: (isVercel || isRailway || isRender) ? true : false, // HTTPS no Vercel/Railway/Render, HTTP localmente
     httpOnly: true, // Cookie não acessível via JavaScript (segurança)
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
-    sameSite: (isVercel || isRailway || isRender) ? 'none' : 'lax', // Necessário para HTTPS no Vercel/Railway/Render
+    // sameSite: 'none' só é necessário para requisições cross-site
+    // Como frontend e backend estão no mesmo domínio (postei.pro), usar 'lax' funciona melhor
+    sameSite: isVercel ? 'none' : (isRailway || isRender ? 'lax' : 'lax'), // 'lax' para Render/Railway, 'none' apenas para Vercel
     path: '/',
     // Não definir domain - deixar o navegador usar o domínio padrão
     // Isso é importante para Render funcionar corretamente
