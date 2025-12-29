@@ -25,13 +25,43 @@ const requireAuth = async (req, res, next) => {
   console.log('   Session.user:', req.session?.user ? JSON.stringify(req.session.user) : 'undefined');
   console.log('   Cookies recebidos:', req.cookies ? Object.keys(req.cookies) : 'nenhum');
   console.log('   Cookie session:', req.cookies?.youtube_automation_session ? 'presente' : 'ausente');
+  console.log('   Cookie value:', req.cookies?.youtube_automation_session ? req.cookies.youtube_automation_session.substring(0, 20) + '...' : 'ausente');
+  
+  // Se há cookie mas não há session.user, tentar recuperar do store
+  if (req.cookies?.youtube_automation_session && req.session && !req.session.user) {
+    console.log('⚠️ Cookie presente mas session.user ausente - tentando recuperar do store...');
+    if (req.sessionStore && req.sessionStore.get) {
+      const cookieSessionId = req.cookies.youtube_automation_session;
+      req.sessionStore.get(cookieSessionId, (storeErr, storedSession) => {
+        if (storeErr) {
+          console.error('❌ Erro ao recuperar sessão do store:', storeErr);
+        } else if (storedSession && storedSession.user) {
+          console.log('✅ Sessão recuperada do store:', storedSession.user.username);
+          // Restaurar dados da sessão
+          req.session.user = storedSession.user;
+          req.session.save(() => {
+            console.log('✅ Sessão restaurada e salva');
+            req.user = req.session.user;
+            return next();
+          });
+          return;
+        } else {
+          console.warn('⚠️ Sessão não encontrada no store para cookie:', cookieSessionId);
+        }
+        
+        // Se não conseguiu recuperar, redirecionar para login
+        console.log('❌ Não autenticado - redirecionando para login');
+        return res.redirect('/auth/login');
+      });
+      return;
+    }
+  }
   
   // Verificar se há sessão e usuário
   if (!req.session || !req.session.user) {
     console.log('❌ Não autenticado - redirecionando para login');
     console.log('   Session:', !!req.session);
     console.log('   Session.user:', req.session?.user);
-    console.log('   Session completo:', JSON.stringify(req.session, null, 2));
     return res.redirect('/auth/login');
   }
   

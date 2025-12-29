@@ -91,34 +91,46 @@ router.post('/login', async (req, res) => {
     
     console.log('📝 Criando sessão:', sessionData);
     
-    // IMPORTANTE: Regenerar sessão para garantir novo ID seguro
+    // NÃO usar regenerate() - isso cria uma nova sessão e pode causar problemas
+    // Em vez disso, usar a sessão existente e apenas definir os dados do usuário
+    req.session.user = sessionData;
+    
+    // Salvar sessão
     return new Promise((resolve) => {
-      req.session.regenerate((regenerateErr) => {
-        if (regenerateErr) {
-          console.error('❌ Erro ao regenerar sessão:', regenerateErr);
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('❌ Erro ao salvar sessão:', saveErr);
           return res.render('auth/login', { error: 'Erro ao criar sessão. Tente novamente.' });
         }
 
-        // Definir dados do usuário na nova sessão
-        req.session.user = sessionData;
+        console.log('✅ Sessão criada e salva');
+        console.log('📍 Session ID:', req.sessionID);
+        console.log('📍 Session user:', JSON.stringify(req.session.user));
         
-        // Salvar sessão
-        req.session.save((saveErr) => {
-          if (saveErr) {
-            console.error('❌ Erro ao salvar sessão:', saveErr);
-            return res.render('auth/login', { error: 'Erro ao criar sessão. Tente novamente.' });
-          }
+        // Verificar se a sessão está no store
+        if (req.sessionStore && req.sessionStore.get) {
+          req.sessionStore.get(req.sessionID, (storeErr, storedSession) => {
+            if (storeErr) {
+              console.error('❌ Erro ao verificar sessão no store:', storeErr);
+            } else if (storedSession && storedSession.user) {
+              console.log('✅ Sessão confirmada no store:', storedSession.user.username);
+            } else {
+              console.warn('⚠️ Sessão não encontrada no store após salvar!');
+            }
+            
+            console.log('🔀 Redirecionando para:', redirectUrl);
+            console.log('==========================================');
 
-          console.log('✅ Sessão criada e salva');
-          console.log('📍 Session ID:', req.sessionID);
-          console.log('📍 Session user:', JSON.stringify(req.session.user));
+            // Redirecionar
+            res.redirect(redirectUrl);
+            resolve();
+          });
+        } else {
           console.log('🔀 Redirecionando para:', redirectUrl);
           console.log('==========================================');
-
-          // Redirecionar
           res.redirect(redirectUrl);
           resolve();
-        });
+        }
       });
     });
 
