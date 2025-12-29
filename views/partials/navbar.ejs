@@ -1,6 +1,6 @@
 <nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container">
-        <a class="navbar-brand" href="/">
+        <a class="navbar-brand" href="/<%= typeof token !== 'undefined' && token ? '?token=' + token : '' %>">
             <span class="text-gradient">postei.pro</span>
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -10,16 +10,16 @@
             <div class="navbar-nav ms-auto d-flex align-items-center">
                 <% if (typeof user !== 'undefined' && user) { %>
                     <% if (user.role === 'admin') { %>
-                        <a class="nav-link" href="/admin/dashboard">Admin</a>
-                        <a class="nav-link" href="/admin/users">Usuários</a>
-                        <a class="nav-link" href="/admin/videos">Vídeos</a>
-                        <a class="nav-link" href="/admin/invoices">Faturas</a>
+                        <a class="nav-link" href="/admin/dashboard<%= typeof token !== 'undefined' && token ? '?token=' + token : '' %>">Admin</a>
+                        <a class="nav-link" href="/admin/users<%= typeof token !== 'undefined' && token ? '?token=' + token : '' %>">Usuários</a>
+                        <a class="nav-link" href="/admin/videos<%= typeof token !== 'undefined' && token ? '?token=' + token : '' %>">Vídeos</a>
+                        <a class="nav-link" href="/admin/invoices<%= typeof token !== 'undefined' && token ? '?token=' + token : '' %>">Faturas</a>
                     <% } else { %>
-                        <a class="nav-link" href="/user/dashboard">Dashboard</a>
-                        <a class="nav-link" href="/user/accounts">Contas</a>
-                        <a class="nav-link" href="/user/videos">Vídeos</a>
-                        <a class="nav-link" href="/user/scheduled">Agendados</a>
-                        <a class="nav-link" href="/user/published">Publicados</a>
+                        <a class="nav-link" href="/user/dashboard<%= typeof token !== 'undefined' && token ? '?token=' + token : '' %>">Dashboard</a>
+                        <a class="nav-link" href="/user/accounts<%= typeof token !== 'undefined' && token ? '?token=' + token : '' %>">Contas</a>
+                        <a class="nav-link" href="/user/videos<%= typeof token !== 'undefined' && token ? '?token=' + token : '' %>">Vídeos</a>
+                        <a class="nav-link" href="/user/scheduled<%= typeof token !== 'undefined' && token ? '?token=' + token : '' %>">Agendados</a>
+                        <a class="nav-link" href="/user/published<%= typeof token !== 'undefined' && token ? '?token=' + token : '' %>">Publicados</a>
                     <% } %>
                     <%- include('profile-menu') %>
                 <% } else { %>
@@ -32,4 +32,3 @@
         </div>
     </div>
 </nav>
-

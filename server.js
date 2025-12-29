@@ -280,6 +280,16 @@ app.use(async (req, res, next) => {
 const { attachUser } = require('./middleware/auth');
 app.use(attachUser);
 
+// Middleware para adicionar token nas respostas renderizadas
+app.use((req, res, next) => {
+  // Adicionar token no res.locals para uso nas views
+  const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+  if (token) {
+    res.locals.token = token;
+  }
+  next();
+});
+
 // Rotas públicas
 app.get('/', async (req, res, next) => {
   console.log('📍 Rota principal acessada:', req.url);
