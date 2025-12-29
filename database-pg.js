@@ -518,12 +518,14 @@ const publishedQueries = {
 // Funções para planos
 const planQueries = {
   findAll: async () => {
-    const result = await pool.query('SELECT * FROM plans WHERE is_active = true ORDER BY price');
+    // Buscar planos ativos (is_active = true ou NULL, já que NULL significa ativo por padrão)
+    const result = await pool.query('SELECT * FROM plans WHERE (is_active = true OR is_active IS NULL) ORDER BY price');
     return result.rows;
   },
   
   findBySlug: async (slug) => {
-    const result = await pool.query('SELECT * FROM plans WHERE slug = $1 AND is_active = true', [slug]);
+    // Buscar plano por slug (is_active = true ou NULL)
+    const result = await pool.query('SELECT * FROM plans WHERE slug = $1 AND (is_active = true OR is_active IS NULL)', [slug]);
     return result.rows[0] || null;
   },
   
