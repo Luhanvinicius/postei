@@ -155,7 +155,7 @@ app.use(fileUpload({
 // Configuração de sessão
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'change-this-secret-key',
-  resave: false, // Não salvar sessão se não foi modificada
+  resave: true, // Salvar sessão mesmo se não foi modificada (importante para Render)
   saveUninitialized: false, // Não criar sessão até que algo seja salvo
   name: 'youtube_automation_session', // Nome customizado
   rolling: true, // Renovar cookie a cada requisição
@@ -164,7 +164,8 @@ const sessionConfig = {
     httpOnly: true, // Cookie não acessível via JavaScript (segurança)
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
     sameSite: (isVercel || isRailway || isRender) ? 'none' : 'lax', // Necessário para HTTPS no Vercel/Railway/Render
-    path: '/'
+    path: '/',
+    domain: isRender ? undefined : undefined // Deixar undefined para Render usar o domínio padrão
   }
 };
 
@@ -177,17 +178,24 @@ if (!isVercel && !isRailway && !isRender) {
   });
   console.log('📁 Usando FileStore para sessões (desenvolvimento local)');
 } else {
-  // No Vercel, usar MemoryStore (padrão do express-session)
-  // IMPORTANTE: MemoryStore funciona no Vercel porque:
-  // 1. O Vercel mantém funções "quentes" por ~10 minutos após última requisição
+  // No Vercel/Render, usar MemoryStore (padrão do express-session)
+  // IMPORTANTE: MemoryStore funciona porque:
+  // 1. O servidor mantém o processo ativo entre requisições
   // 2. Durante esse período, a sessão persiste na memória
   // 3. Após inatividade ou deploy, a sessão é perdida (usuário precisa fazer login novamente)
   // 
-  // Para produção com muitas requisições, considere usar Redis (Upstash):
-  // https://vercel.com/docs/storage/upstash
-  console.log('💾 Usando MemoryStore para sessões (Vercel)');
-  console.log('✅ Funciona bem para a maioria dos casos');
-  console.log('⚠️  Nota: Sessões podem ser perdidas após ~10min de inatividade ou entre deploys');
+  // Para produção com muitas requisições, considere usar Redis:
+  // - Vercel: Upstash (https://vercel.com/docs/storage/upstash)
+  // - Render: Redis addon (https://render.com/docs/redis)
+  if (isRender) {
+    console.log('💾 Usando MemoryStore para sessões (Render)');
+    console.log('✅ Funciona bem para a maioria dos casos');
+    console.log('⚠️  Nota: Sessões podem ser perdidas após reinicialização do servidor');
+  } else {
+    console.log('💾 Usando MemoryStore para sessões (Vercel/Railway)');
+    console.log('✅ Funciona bem para a maioria dos casos');
+    console.log('⚠️  Nota: Sessões podem ser perdidas após ~10min de inatividade ou entre deploys');
+  }
 }
 
 app.use(session(sessionConfig));

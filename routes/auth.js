@@ -19,9 +19,14 @@ router.get('/login', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
-  console.log('🔐 Tentativa de login:', { username, hasPassword: !!password });
+  console.log('🔐 ========== TENTATIVA DE LOGIN ==========');
+  console.log('📍 Username:', username);
+  console.log('📍 Has password:', !!password);
+  console.log('📍 Session ID antes:', req.sessionID);
+  console.log('📍 Session antes:', JSON.stringify(req.session));
 
   if (!username || !password) {
+    console.log('❌ Usuário ou senha vazios');
     return res.render('auth/login', { error: 'Usuário e senha são obrigatórios' });
   }
 
@@ -49,7 +54,7 @@ router.post('/login', async (req, res) => {
       return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
     }
 
-    console.log('✅ Usuário encontrado:', user.username, 'ID:', user.id);
+    console.log('✅ Usuário encontrado:', user.username, 'ID:', user.id, 'Role:', user.role);
 
     // Verificar senha
     let validPassword = false;
@@ -69,7 +74,7 @@ router.post('/login', async (req, res) => {
     
     // Buscar payment_status do usuário
     let paymentStatus = user.payment_status || 'pending';
-    if (!paymentStatus) {
+    if (!paymentStatus || paymentStatus === 'undefined' || paymentStatus === 'null') {
       const { users: userDB } = require('../database');
       let fullUser;
       try {
@@ -117,7 +122,7 @@ router.post('/login', async (req, res) => {
           }
         }
       } catch (err) {
-        console.error('Erro ao buscar faturas no login:', err);
+        console.error('⚠️ Erro ao buscar faturas no login (não crítico):', err.message);
       }
     }
     
@@ -130,27 +135,37 @@ router.post('/login', async (req, res) => {
       payment_status: paymentStatus
     };
     
-    console.log('📝 Criando sessão com dados:', sessionData);
+    console.log('📝 Criando sessão com dados:', JSON.stringify(sessionData, null, 2));
     
     // Definir sessão
     req.session.user = sessionData;
     
-    // Salvar sessão e redirecionar
-    req.session.save((err) => {
-      if (err) {
-        console.error('❌ Erro ao salvar sessão:', err);
-        console.error('Stack:', err.stack);
-        return res.render('auth/login', { error: 'Erro ao criar sessão. Tente novamente.' });
-      }
-      
-      console.log('✅ Sessão salva com sucesso');
-      console.log('📍 Session ID:', req.sessionID);
-      console.log('📍 Session user:', JSON.stringify(req.session.user));
-      console.log('📍 Session cookie:', req.session.cookie);
-      console.log('🔀 Redirecionando para:', redirectUrl);
-      
-      // Redirecionar com código 302 explícito
-      res.status(302).location(redirectUrl).end();
+    // Salvar sessão usando Promise para garantir que seja salva antes de redirecionar
+    return new Promise((resolve) => {
+      req.session.save((err) => {
+        if (err) {
+          console.error('❌ Erro ao salvar sessão:', err);
+          console.error('Stack:', err.stack);
+          return res.render('auth/login', { error: 'Erro ao criar sessão. Tente novamente.' });
+        }
+        
+        console.log('✅ Sessão salva com sucesso!');
+        console.log('📍 Session ID após salvar:', req.sessionID);
+        console.log('📍 Session user após salvar:', JSON.stringify(req.session.user));
+        console.log('📍 Session cookie config:', {
+          secure: req.session.cookie.secure,
+          httpOnly: req.session.cookie.httpOnly,
+          sameSite: req.session.cookie.sameSite,
+          maxAge: req.session.cookie.maxAge,
+          path: req.session.cookie.path
+        });
+        console.log('🔀 Redirecionando para:', redirectUrl);
+        console.log('==========================================');
+        
+        // Redirecionar usando res.redirect() padrão do Express
+        res.redirect(redirectUrl);
+        resolve();
+      });
     });
 
   } catch (error) {

@@ -117,3 +117,4 @@ Após o deploy:
 - Verifique se `SESSION_SECRET` foi gerada corretamente
 - Verifique se todas as variáveis obrigatórias estão configuradas
 
+

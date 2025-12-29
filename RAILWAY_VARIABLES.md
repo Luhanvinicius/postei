@@ -153,3 +153,4 @@ Para funcionalidades completas:
 - Verifique se o banco está ativo no Railway
 
 
+

@@ -175,3 +175,4 @@ Se houver problemas:
 - Verifique os logs no Render
 - Confirme que `npm start` está correto no `package.json`
 
+

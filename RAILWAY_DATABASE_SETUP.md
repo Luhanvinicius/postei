@@ -66,3 +66,4 @@ Depois de configurar `DATABASE_URL`, você também precisa de:
 Veja `RAILWAY_VARIABLES.md` para a lista completa.
 
 
+

@@ -104,3 +104,4 @@ Para alterar as senhas dos usuários criados, você pode:
 - Ambos podem fazer login normalmente
 - O admin tem acesso ao painel administrativo
 
+

@@ -126,3 +126,4 @@ O backend está configurado para aceitar requisições do frontend. Configure `F
 - Para produção, considere usar Redis (Upstash no Railway)
 
 
+
