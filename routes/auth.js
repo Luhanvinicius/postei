@@ -17,6 +17,21 @@ router.get('/login', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
+  // Garantir que sempre haverá uma resposta
+  let responseSent = false;
+  
+  const sendResponse = (status, data) => {
+    if (responseSent) return;
+    responseSent = true;
+    if (status === 'render') {
+      res.render('auth/login', data);
+    } else if (status === 'redirect') {
+      res.redirect(data);
+    } else {
+      res.status(status).json(data);
+    }
+  };
+
   const { username, password } = req.body;
 
   console.log('🔐 ========== TENTATIVA DE LOGIN ==========');
@@ -24,11 +39,20 @@ router.post('/login', async (req, res) => {
   console.log('📍 Has password:', !!password);
   console.log('📍 Session ID antes:', req.sessionID);
   console.log('📍 Session antes:', JSON.stringify(req.session));
+  console.log('📍 Body completo:', JSON.stringify(req.body));
 
   if (!username || !password) {
     console.log('❌ Usuário ou senha vazios');
-    return res.render('auth/login', { error: 'Usuário e senha são obrigatórios' });
+    return sendResponse('render', { error: 'Usuário e senha são obrigatórios' });
   }
+
+  // Timeout de segurança (10 segundos)
+  const timeout = setTimeout(() => {
+    if (!responseSent) {
+      console.error('⏱️ Timeout no login após 10 segundos');
+      sendResponse('render', { error: 'Tempo de resposta excedido. Tente novamente.' });
+    }
+  }, 10000);
 
   try {
     // Buscar usuário
@@ -51,7 +75,8 @@ router.post('/login', async (req, res) => {
 
     if (!user) {
       console.log('❌ Usuário não encontrado:', username);
-      return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
+      clearTimeout(timeout);
+      return sendResponse('render', { error: 'Usuário ou senha incorretos' });
     }
 
     console.log('✅ Usuário encontrado:', user.username, 'ID:', user.id, 'Role:', user.role);
@@ -62,12 +87,14 @@ router.post('/login', async (req, res) => {
       validPassword = await bcrypt.compare(password, user.password);
     } catch (err) {
       console.error('❌ Erro ao comparar senha:', err);
-      return res.render('auth/login', { error: 'Erro ao verificar senha. Tente novamente.' });
+      clearTimeout(timeout);
+      return sendResponse('render', { error: 'Erro ao verificar senha. Tente novamente.' });
     }
 
     if (!validPassword) {
       console.log('❌ Senha incorreta para usuário:', username);
-      return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
+      clearTimeout(timeout);
+      return sendResponse('render', { error: 'Usuário ou senha incorretos' });
     }
 
     console.log('✅ Senha válida para:', username);
@@ -143,10 +170,13 @@ router.post('/login', async (req, res) => {
     // Salvar sessão usando Promise para garantir que seja salva antes de redirecionar
     return new Promise((resolve) => {
       req.session.save((err) => {
+        clearTimeout(timeout);
+        
         if (err) {
           console.error('❌ Erro ao salvar sessão:', err);
           console.error('Stack:', err.stack);
-          return res.render('auth/login', { error: 'Erro ao criar sessão. Tente novamente.' });
+          sendResponse('render', { error: 'Erro ao criar sessão. Tente novamente.' });
+          return resolve();
         }
         
         console.log('✅ Sessão salva com sucesso!');
@@ -163,15 +193,16 @@ router.post('/login', async (req, res) => {
         console.log('==========================================');
         
         // Redirecionar usando res.redirect() padrão do Express
-        res.redirect(redirectUrl);
+        sendResponse('redirect', redirectUrl);
         resolve();
       });
     });
 
   } catch (error) {
+    clearTimeout(timeout);
     console.error('❌ Erro no login:', error);
     console.error('Stack:', error.stack);
-    res.render('auth/login', { error: 'Erro ao fazer login: ' + error.message });
+    sendResponse('render', { error: 'Erro ao fazer login: ' + error.message });
   }
 });
 
