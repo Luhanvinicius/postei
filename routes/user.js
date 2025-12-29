@@ -73,6 +73,7 @@ router.get('/dashboard', async (req, res) => {
   }
 
   res.render('user/dashboard', {
+    token: req.token || req.query.token,
     user: req.user,
     stats: {
       totalPublished,
@@ -121,7 +122,8 @@ router.get('/accounts', async (req, res) => {
     user: req.user,
     hasConfig: !!userConfig,
     config: userConfig,
-    query: req.query
+    query: req.query,
+    token: req.token || req.query.token
   });
 });
 
@@ -438,7 +440,8 @@ router.get('/videos', async (req, res) => {
     
     return res.render('user/videos-locked', {
       user: req.user,
-      plans: allPlans
+      plans: allPlans,
+      token: req.token || req.query.token
     });
   }
   
@@ -446,7 +449,8 @@ router.get('/videos', async (req, res) => {
   
   res.render('user/videos', {
     user: req.user,
-    defaultFolder: dbConfig?.default_video_folder || null
+    defaultFolder: dbConfig?.default_video_folder || null,
+    token: req.token || req.query.token
   });
 });
 
@@ -1068,13 +1072,15 @@ router.get('/scheduled', async (req, res) => {
     
     res.render('user/scheduled', {
       user: req.user,
-      schedules: userSchedules
+      schedules: userSchedules,
+      token: req.token || req.query.token
     });
   } catch (error) {
     console.error('Erro ao carregar vídeos agendados:', error);
     res.render('user/scheduled', {
       user: req.user,
-      schedules: []
+      schedules: [],
+      token: req.token || req.query.token
     });
   }
 });
@@ -1098,7 +1104,8 @@ router.get('/published', async (req, res) => {
   
   res.render('user/published', {
     user: req.user,
-    videos: userPublished
+    videos: userPublished,
+    token: req.token || req.query.token
   });
 });
 
@@ -1119,7 +1126,8 @@ router.get('/plans', async (req, res) => {
   
   res.render('user/plans', {
     user: req.user,
-    plans: allPlans
+    plans: allPlans,
+    token: req.token || req.query.token
   });
 });
 
@@ -1206,7 +1214,8 @@ router.get('/profile', async (req, res) => {
     user: userData || req.user,
     plan: planData,
     invoices: userInvoices,
-    isAdmin: req.user.role === 'admin'
+    isAdmin: req.user.role === 'admin',
+    token: req.token || req.query.token
   });
 });
 

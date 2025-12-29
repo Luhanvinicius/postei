@@ -48,7 +48,8 @@ router.get('/dashboard', async (req, res) => {
       users: [],
       totalUsers: 0,
       adminUsers: 0,
-      regularUsers: 0
+      regularUsers: 0,
+      token: req.token || req.query.token
     });
   }
 });
@@ -59,7 +60,8 @@ router.get('/users', (req, res) => {
     const allUsers = userDB.getAll();
     res.render('admin/users', {
       user: req.user,
-      users: allUsers
+      users: allUsers,
+      token: req.token || req.query.token
     });
   } catch (error) {
     console.error('Erro ao carregar usuários:', error);
@@ -313,7 +315,8 @@ router.get('/invoices', async (req, res) => {
     
     res.render('admin/invoices', {
       user: req.user,
-      invoices: allInvoices
+      invoices: allInvoices,
+      token: req.token || req.query.token
     });
   } catch (error) {
     console.error('Erro ao carregar faturas:', error);
@@ -343,7 +346,8 @@ router.get('/videos', async (req, res) => {
     
     res.render('admin/videos', {
       user: req.user,
-      videos: allVideos
+      videos: allVideos,
+      token: req.token || req.query.token
     });
   } catch (error) {
     console.error('Erro ao carregar vídeos:', error);
