@@ -11,7 +11,8 @@ const attachUser = (req, res, next) => {
   const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
   
   if (token) {
-    const { tokenStore } = require('../routes/auth');
+    const authRoutes = require('../routes/auth');
+    const tokenStore = authRoutes.tokenStore || (authRoutes.router && authRoutes.router.tokenStore);
     if (tokenStore && tokenStore.has(token)) {
       const userData = tokenStore.get(token);
       if (userData.expires > Date.now()) {
@@ -48,7 +49,8 @@ const requireAuth = async (req, res, next) => {
     return res.redirect('/auth/login');
   }
   
-  const { tokenStore } = require('../routes/auth');
+  const authRoutes = require('../routes/auth');
+  const tokenStore = authRoutes.tokenStore || (authRoutes.router && authRoutes.router.tokenStore);
   if (!tokenStore || !tokenStore.has(token)) {
     console.log('❌ Token inválido - redirecionando para login');
     return res.redirect('/auth/login');

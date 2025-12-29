@@ -8,6 +8,9 @@ const crypto = require('crypto');
 // Em produção, considere usar Redis
 const tokenStore = new Map(); // token -> { userId, username, role, payment_status, expires }
 
+// Exportar tokenStore para uso no middleware
+module.exports.tokenStore = tokenStore;
+
 // Limpar tokens expirados a cada hora
 setInterval(() => {
   const now = Date.now();
