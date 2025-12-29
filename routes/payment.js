@@ -110,11 +110,13 @@ router.get('/pending', requireAuth, async (req, res) => {
 
     res.render('payment/pending', {
       user: req.user,
-      invoice: invoiceData
+      invoice: invoiceData,
+      token: req.token || req.query.token
     });
   } catch (error) {
     console.error('Erro ao carregar página de pagamento pendente:', error);
-    res.redirect('/user/plans');
+    const token = req.token || req.query.token;
+    res.redirect(`/user/plans${token ? '?token=' + token : ''}`);
   }
 });
 
