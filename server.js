@@ -165,9 +165,21 @@ const sessionConfig = {
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
     sameSite: (isVercel || isRailway || isRender) ? 'none' : 'lax', // Necessário para HTTPS no Vercel/Railway/Render
     path: '/',
-    domain: isRender ? undefined : undefined // Deixar undefined para Render usar o domínio padrão
+    // Não definir domain - deixar o navegador usar o domínio padrão
+    // Isso é importante para Render funcionar corretamente
   }
 };
+
+// Log da configuração de sessão
+console.log('🔧 Configuração de sessão:', {
+  name: sessionConfig.name,
+  secure: sessionConfig.cookie.secure,
+  sameSite: sessionConfig.cookie.sameSite,
+  httpOnly: sessionConfig.cookie.httpOnly,
+  isRender: !!isRender,
+  isVercel: !!isVercel,
+  isRailway: !!isRailway
+});
 
 // Usar file-store em desenvolvimento local (persistente)
 if (!isVercel && !isRailway && !isRender) {

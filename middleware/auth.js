@@ -18,11 +18,20 @@ const attachUser = (req, res, next) => {
  * Middleware: verificar autenticação
  */
 const requireAuth = async (req, res, next) => {
+  // Log detalhado para debug
+  console.log('🔍 requireAuth - Verificando autenticação');
+  console.log('   Session ID:', req.sessionID);
+  console.log('   Session existe:', !!req.session);
+  console.log('   Session.user:', req.session?.user ? JSON.stringify(req.session.user) : 'undefined');
+  console.log('   Cookies recebidos:', req.cookies ? Object.keys(req.cookies) : 'nenhum');
+  console.log('   Cookie session:', req.cookies?.youtube_automation_session ? 'presente' : 'ausente');
+  
   // Verificar se há sessão e usuário
   if (!req.session || !req.session.user) {
     console.log('❌ Não autenticado - redirecionando para login');
     console.log('   Session:', !!req.session);
     console.log('   Session.user:', req.session?.user);
+    console.log('   Session completo:', JSON.stringify(req.session, null, 2));
     return res.redirect('/auth/login');
   }
   

@@ -175,12 +175,23 @@ router.post('/login', async (req, res) => {
           maxAge: req.session.cookie.maxAge,
           path: req.session.cookie.path
         });
+        
+        // Verificar se o cookie será enviado
+        const cookieHeader = res.getHeader('Set-Cookie');
+        console.log('📍 Cookie sendo enviado:', cookieHeader ? 'sim' : 'não');
+        if (cookieHeader) {
+          console.log('📍 Cookie value:', Array.isArray(cookieHeader) ? cookieHeader[0] : cookieHeader);
+        }
+        
         console.log('🔀 Redirecionando para:', redirectUrl);
         console.log('==========================================');
         
-        // Redirecionar usando res.redirect() padrão do Express
-        sendResponse('redirect', redirectUrl);
-        resolve();
+        // Garantir que o cookie seja enviado antes de redirecionar
+        // Adicionar um pequeno delay para garantir que o cookie seja persistido
+        setTimeout(() => {
+          sendResponse('redirect', redirectUrl);
+          resolve();
+        }, 100);
       });
     });
 
