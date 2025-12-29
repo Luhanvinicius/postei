@@ -9,11 +9,7 @@
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/"><span class="text-gradient">postei.pro</span></a>
-        </div>
-    </nav>
+    <%- include('../partials/navbar') %>
 
     <main class="container my-5">
         <div class="row">
@@ -114,16 +110,20 @@
                         <h5 class="mb-0">Resumo do Pedido</h5>
                     </div>
                     <div class="card-body">
-                        <h4><%= plan.name %></h4>
-                        <p class="text-muted mb-3">R$ <%= plan.price.toFixed(2) %>/mês</p>
+                        <h4><%= plan.name || 'Plano' %></h4>
+                        <% 
+                        const planPrice = plan.price ? parseFloat(plan.price) : 0;
+                        const billingText = plan.billing_period === 'yearly' || plan.billing_period === 'annual' ? '/ano' : '/mês';
+                        %>
+                        <p class="text-muted mb-3">R$ <%= planPrice.toFixed(2) %><%= billingText %></p>
                         <hr>
                         <div class="d-flex justify-content-between mb-2">
                             <span>Subtotal:</span>
-                            <strong>R$ <%= plan.price.toFixed(2) %></strong>
+                            <strong>R$ <%= planPrice.toFixed(2) %></strong>
                         </div>
                         <div class="d-flex justify-content-between mb-3">
                             <span>Total:</span>
-                            <strong class="text-primary">R$ <%= plan.price.toFixed(2) %></strong>
+                            <strong class="text-primary">R$ <%= planPrice.toFixed(2) %></strong>
                         </div>
                         <div id="pixSection" style="display: none;">
                             <hr>
@@ -178,10 +178,19 @@
                 
                 console.log('📤 Enviando dados do checkout:', formDataObj);
                 
-                const response = await fetch(`/payment/checkout/<%= plan.slug %>`, {
+                const planSlug = '<%= plan.slug || plan.id %>';
+                const token = '<%= typeof token !== "undefined" && token ? token : "" %>';
+                const checkoutUrl = `/payment/checkout/${planSlug}${token ? '?token=' + token : ''}`;
+                
+                console.log('🔗 URL do checkout:', checkoutUrl);
+                
+                const response = await fetch(checkoutUrl, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        <% if (typeof token !== 'undefined' && token) { %>
+                        'Authorization': 'Bearer <%= token %>',
+                        <% } %>
                     },
                     body: JSON.stringify(formDataObj)
                 });
@@ -220,14 +229,15 @@
                     }
                     
                     // Redirecionar para página de pagamento pendente após 1 segundo
+                    const tokenParam = token ? `&token=${token}` : '';
                     if (data.invoiceId) {
                         setTimeout(() => {
-                            window.location.href = `/payment/pending?invoice=${data.invoiceId}`;
+                            window.location.href = `/payment/pending?invoice=${data.invoiceId}${tokenParam}`;
                         }, 1000);
                     } else {
                         // Se não tiver invoiceId, redirecionar mesmo assim
                         setTimeout(() => {
-                            window.location.href = `/payment/pending`;
+                            window.location.href = `/payment/pending${token ? '?token=' + token : ''}`;
                         }, 1000);
                     }
                 } else {

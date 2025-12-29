@@ -158,16 +158,43 @@ router.get('/checkout/:planSlug', async (req, res) => {
     }
 
     console.log('✅ Plano encontrado:', plan.name);
+    console.log('📄 Dados do plano:', {
+      id: plan.id,
+      name: plan.name,
+      slug: plan.slug,
+      price: plan.price,
+      billing_period: plan.billing_period
+    });
     console.log('📄 Renderizando checkout...');
     
-    res.render('payment/checkout', {
-      user: req.user,
-      plan: plan,
-      token: req.token || req.query.token
-    });
+    try {
+      res.render('payment/checkout', {
+        user: req.user,
+        plan: plan,
+        token: req.token || req.query.token
+      });
+    } catch (renderError) {
+      console.error('❌ Erro ao renderizar checkout:', renderError);
+      console.error('Stack:', renderError.stack);
+      throw renderError; // Re-throw para ser capturado pelo catch externo
+    }
   } catch (error) {
     console.error('❌ Erro ao carregar checkout:', error);
-    res.redirect('/?error=erro_carregar_checkout');
+    console.error('Stack:', error.stack);
+    console.error('Message:', error.message);
+    
+    // Tentar renderizar uma página de erro amigável
+    try {
+      res.status(500).render('error', {
+        message: 'Erro ao carregar página de checkout',
+        error: process.env.NODE_ENV === 'development' ? error : undefined,
+        user: req.user,
+        token: req.token || req.query.token
+      });
+    } catch (renderError) {
+      // Se não conseguir renderizar a página de erro, redirecionar
+      res.redirect('/user/plans?error=erro_carregar_checkout');
+    }
   }
 });
 
