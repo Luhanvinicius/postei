@@ -214,6 +214,27 @@ if (!isVercel && !isRailway && !isRender) {
 
 app.use(session(sessionConfig));
 
+// Middleware para garantir que sessões sejam salvas corretamente
+app.use((req, res, next) => {
+  const originalRedirect = res.redirect;
+  res.redirect = function(url) {
+    // Se há uma sessão com dados, garantir que seja salva antes de redirecionar
+    if (req.session && req.session.user && !req.session.saved) {
+      req.session.save((err) => {
+        if (err) {
+          console.error('❌ Erro ao salvar sessão antes de redirecionar:', err);
+        } else {
+          console.log('✅ Sessão salva antes de redirecionar para:', url);
+        }
+        originalRedirect.call(this, url);
+      });
+    } else {
+      originalRedirect.call(this, url);
+    }
+  };
+  next();
+});
+
 // View engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
