@@ -38,7 +38,8 @@ router.get('/dashboard', async (req, res) => {
       users: allUsers,
       totalUsers: allUsers.length,
       adminUsers: allUsers.filter(u => u.role === 'admin').length,
-      regularUsers: allUsers.filter(u => u.role === 'user').length
+      regularUsers: allUsers.filter(u => u.role === 'user').length,
+      token: req.token || req.query.token
     });
   } catch (error) {
     console.error('Erro ao carregar dashboard:', error);

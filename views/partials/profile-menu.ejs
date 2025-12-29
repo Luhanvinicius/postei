@@ -10,7 +10,7 @@
     <ul class="dropdown-menu dropdown-menu-end shadow-lg" aria-labelledby="profileMenuButton" style="min-width: 280px; border: none; border-radius: 8px; padding: 8px 0;">
         <!-- Perfil do Usuário -->
         <li>
-            <a class="dropdown-item d-flex align-items-center py-2 px-3" href="/user/profile" style="border-radius: 6px; margin: 2px 8px;">
+            <a class="dropdown-item d-flex align-items-center py-2 px-3" href="/user/profile<%= typeof token !== 'undefined' && token ? '?token=' + token : '' %>" style="border-radius: 6px; margin: 2px 8px;">
                 <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center me-3" style="width: 36px; height: 36px; font-weight: bold; color: white;">
                     <%= user.username.charAt(0).toUpperCase() %>
                 </div>
@@ -24,7 +24,7 @@
         
         <!-- Plano Atual -->
         <li>
-            <a class="dropdown-item d-flex align-items-center py-2 px-3" href="/user/profile#plano" style="border-radius: 6px; margin: 2px 8px;">
+            <a class="dropdown-item d-flex align-items-center py-2 px-3" href="/user/profile<%= typeof token !== 'undefined' && token ? '?token=' + token : '' %>#plano" style="border-radius: 6px; margin: 2px 8px;">
                 <i class="bi bi-credit-card me-3" style="font-size: 20px; color: #1877f2;"></i>
                 <div>
                     <div style="font-weight: 500;">Plano Atual</div>
@@ -35,7 +35,7 @@
         
         <!-- Faturas -->
         <li>
-            <a class="dropdown-item d-flex align-items-center py-2 px-3" href="/user/profile#faturas" style="border-radius: 6px; margin: 2px 8px;">
+            <a class="dropdown-item d-flex align-items-center py-2 px-3" href="/user/profile<%= typeof token !== 'undefined' && token ? '?token=' + token : '' %>#faturas" style="border-radius: 6px; margin: 2px 8px;">
                 <i class="bi bi-receipt me-3" style="font-size: 20px; color: #1877f2;"></i>
                 <div>
                     <div style="font-weight: 500;">Faturas</div>
@@ -46,7 +46,7 @@
         
         <!-- Privacidade -->
         <li>
-            <a class="dropdown-item d-flex align-items-center py-2 px-3" href="/user/profile#privacidade" style="border-radius: 6px; margin: 2px 8px;">
+            <a class="dropdown-item d-flex align-items-center py-2 px-3" href="/user/profile<%= typeof token !== 'undefined' && token ? '?token=' + token : '' %>#privacidade" style="border-radius: 6px; margin: 2px 8px;">
                 <i class="bi bi-shield-lock me-3" style="font-size: 20px; color: #1877f2;"></i>
                 <div>
                     <div style="font-weight: 500;">Privacidade</div>
@@ -59,7 +59,7 @@
         
         <!-- Sair -->
         <li>
-            <form action="/auth/logout" method="POST" class="d-inline w-100">
+            <form action="/auth/logout<%= typeof token !== 'undefined' && token ? '?token=' + token : '' %>" method="POST" class="d-inline w-100">
                 <button type="submit" class="dropdown-item py-2 px-3 w-100 text-start" style="border: none; background: none; border-radius: 6px; margin: 2px 8px;">
                     <i class="bi bi-box-arrow-right me-3" style="font-size: 20px;"></i>
                     <span style="font-weight: 500;">Sair</span>
