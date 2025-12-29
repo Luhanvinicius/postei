@@ -187,11 +187,9 @@ router.post('/login', async (req, res) => {
         console.log('==========================================');
         
         // Garantir que o cookie seja enviado antes de redirecionar
-        // Adicionar um pequeno delay para garantir que o cookie seja persistido
-        setTimeout(() => {
-          sendResponse('redirect', redirectUrl);
-          resolve();
-        }, 100);
+        // Usar res.redirect diretamente para garantir que o cookie seja enviado
+        res.redirect(redirectUrl);
+        resolve();
       });
     });
 
