@@ -8,7 +8,14 @@ function getAuthToken() {
   
   // Tentar da URL
   const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get('token');
+  const urlToken = urlParams.get('token');
+  if (urlToken) {
+    // Salvar na localStorage se veio da URL
+    localStorage.setItem('auth_token', urlToken);
+    return urlToken;
+  }
+  
+  return null;
 }
 
 // Função para fazer requisições autenticadas
@@ -32,7 +39,7 @@ function logout() {
   const token = getAuthToken();
   if (token) {
     // Chamar endpoint de logout
-    fetch('/auth/logout', {
+    fetch('/auth/logout?token=' + token, {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + token,
@@ -50,29 +57,82 @@ function logout() {
 }
 
 // Adicionar token automaticamente em todos os links e formulários
-document.addEventListener('DOMContentLoaded', function() {
-  const token = getAuthToken();
-  if (token) {
-    // Adicionar token em todos os links
+(function() {
+  // Salvar token da URL no localStorage se presente
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlToken = urlParams.get('token');
+  if (urlToken) {
+    localStorage.setItem('auth_token', urlToken);
+    // Remover token da URL para manter limpa
+    urlParams.delete('token');
+    const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+    window.history.replaceState({}, '', newUrl);
+  }
+  
+  // Função para adicionar token aos links
+  function addTokenToLinks() {
+    const token = getAuthToken();
+    if (!token) return;
+    
+    // Adicionar token em todos os links internos
     document.querySelectorAll('a[href]').forEach(link => {
       const href = link.getAttribute('href');
-      if (href && !href.startsWith('#') && !href.startsWith('javascript:') && !href.includes('token=')) {
-        link.addEventListener('click', function(e) {
-          if (!this.href.includes('token=')) {
-            const separator = this.href.includes('?') ? '&' : '?';
-            this.href = this.href + separator + 'token=' + token;
-          }
-        });
+      if (href && 
+          !href.startsWith('#') && 
+          !href.startsWith('javascript:') && 
+          !href.startsWith('mailto:') &&
+          !href.startsWith('tel:') &&
+          !href.includes('token=') &&
+          (href.startsWith('/') || href.startsWith(window.location.origin))) {
+        
+        // Modificar o href diretamente
+        const separator = href.includes('?') ? '&' : '?';
+        link.setAttribute('href', href + separator + 'token=' + token);
       }
     });
     
     // Adicionar token em todos os formulários
     document.querySelectorAll('form').forEach(form => {
-      if (!form.action.includes('token=')) {
-        const action = form.getAttribute('action') || form.action;
+      const action = form.getAttribute('action') || form.action;
+      if (action && !action.includes('token=') && (action.startsWith('/') || action.startsWith(window.location.origin))) {
         const separator = action.includes('?') ? '&' : '?';
-        form.action = action + separator + 'token=' + token;
+        form.setAttribute('action', action + separator + 'token=' + token);
       }
     });
   }
-});
+  
+  // Executar quando o DOM estiver pronto
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', addTokenToLinks);
+  } else {
+    addTokenToLinks();
+  }
+  
+  // Re-executar após mudanças no DOM (para conteúdo dinâmico)
+  const observer = new MutationObserver(addTokenToLinks);
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+  
+  // Interceptar cliques em links para garantir que o token seja mantido
+  document.addEventListener('click', function(e) {
+    const link = e.target.closest('a[href]');
+    if (link) {
+      const href = link.getAttribute('href');
+      const token = getAuthToken();
+      
+      if (token && 
+          href && 
+          !href.startsWith('#') && 
+          !href.startsWith('javascript:') &&
+          !href.includes('token=') &&
+          (href.startsWith('/') || href.startsWith(window.location.origin))) {
+        
+        // Adicionar token se não estiver presente
+        const separator = href.includes('?') ? '&' : '?';
+        link.setAttribute('href', href + separator + 'token=' + token);
+      }
+    }
+  }, true); // Usar capture phase para pegar antes do navegador processar
+})();
