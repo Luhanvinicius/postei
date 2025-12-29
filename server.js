@@ -276,14 +276,9 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// Middleware global: anexar usuário da sessão em todas as requisições
-app.use((req, res, next) => {
-  // Se tem sessão com usuário, anexar ao req.user
-  if (req.session && req.session.user) {
-    req.user = req.session.user;
-  }
-  next();
-});
+// Middleware global: anexar usuário do token em todas as requisições
+const { attachUser } = require('./middleware/auth');
+app.use(attachUser);
 
 // Rotas públicas
 app.get('/', async (req, res, next) => {

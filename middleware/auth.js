@@ -1,16 +1,35 @@
 /**
- * Autenticação baseada em SESSÕES (sem tokens)
- * Usa express-session com cookies assinados
+ * Autenticação baseada em TOKENS (sem cookies)
+ * Usa tokens armazenados em memória e enviados via header Authorization ou query parameter
  */
 
 /**
- * Middleware global: anexar usuário da sessão ao req.user
+ * Middleware global: anexar usuário do token ao req.user
  */
 const attachUser = (req, res, next) => {
-  // Popular req.user a partir da sessão
-  if (req.session && req.session.user) {
-    req.user = req.session.user;
+  // Tentar obter token do header Authorization ou query parameter
+  const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+  
+  if (token) {
+    const { tokenStore } = require('../routes/auth');
+    if (tokenStore && tokenStore.has(token)) {
+      const userData = tokenStore.get(token);
+      if (userData.expires > Date.now()) {
+        req.user = {
+          id: userData.userId,
+          username: userData.username,
+          email: userData.email,
+          role: userData.role,
+          payment_status: userData.payment_status
+        };
+        req.token = token;
+      } else {
+        // Token expirado
+        tokenStore.delete(token);
+      }
+    }
   }
+  
   next();
 };
 
@@ -18,55 +37,39 @@ const attachUser = (req, res, next) => {
  * Middleware: verificar autenticação
  */
 const requireAuth = async (req, res, next) => {
-  // Log detalhado para debug
+  // Tentar obter token do header Authorization ou query parameter
+  const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+  
   console.log('🔍 requireAuth - Verificando autenticação');
-  console.log('   Session ID:', req.sessionID);
-  console.log('   Session existe:', !!req.session);
-  console.log('   Session.user:', req.session?.user ? JSON.stringify(req.session.user) : 'undefined');
-  console.log('   Cookies recebidos:', req.cookies ? Object.keys(req.cookies) : 'nenhum');
-  console.log('   Cookie session:', req.cookies?.youtube_automation_session ? 'presente' : 'ausente');
-  console.log('   Cookie value:', req.cookies?.youtube_automation_session ? req.cookies.youtube_automation_session.substring(0, 20) + '...' : 'ausente');
+  console.log('   Token presente:', !!token);
   
-  // Se há cookie mas não há session.user, tentar recuperar do store
-  if (req.cookies?.youtube_automation_session && req.session && !req.session.user) {
-    console.log('⚠️ Cookie presente mas session.user ausente - tentando recuperar do store...');
-    if (req.sessionStore && req.sessionStore.get) {
-      const cookieSessionId = req.cookies.youtube_automation_session;
-      req.sessionStore.get(cookieSessionId, (storeErr, storedSession) => {
-        if (storeErr) {
-          console.error('❌ Erro ao recuperar sessão do store:', storeErr);
-        } else if (storedSession && storedSession.user) {
-          console.log('✅ Sessão recuperada do store:', storedSession.user.username);
-          // Restaurar dados da sessão
-          req.session.user = storedSession.user;
-          req.session.save(() => {
-            console.log('✅ Sessão restaurada e salva');
-            req.user = req.session.user;
-            return next();
-          });
-          return;
-        } else {
-          console.warn('⚠️ Sessão não encontrada no store para cookie:', cookieSessionId);
-        }
-        
-        // Se não conseguiu recuperar, redirecionar para login
-        console.log('❌ Não autenticado - redirecionando para login');
-        return res.redirect('/auth/login');
-      });
-      return;
-    }
-  }
-  
-  // Verificar se há sessão e usuário
-  if (!req.session || !req.session.user) {
-    console.log('❌ Não autenticado - redirecionando para login');
-    console.log('   Session:', !!req.session);
-    console.log('   Session.user:', req.session?.user);
+  if (!token) {
+    console.log('❌ Token não encontrado - redirecionando para login');
     return res.redirect('/auth/login');
   }
   
-  // Anexar usuário da sessão ao req.user
-  req.user = req.session.user;
+  const { tokenStore } = require('../routes/auth');
+  if (!tokenStore || !tokenStore.has(token)) {
+    console.log('❌ Token inválido - redirecionando para login');
+    return res.redirect('/auth/login');
+  }
+  
+  const userData = tokenStore.get(token);
+  if (userData.expires <= Date.now()) {
+    console.log('❌ Token expirado - redirecionando para login');
+    tokenStore.delete(token);
+    return res.redirect('/auth/login');
+  }
+  
+  // Anexar usuário ao req.user
+  req.user = {
+    id: userData.userId,
+    username: userData.username,
+    email: userData.email,
+    role: userData.role,
+    payment_status: userData.payment_status
+  };
+  req.token = token;
   
   console.log('✅ Usuário autenticado:', req.user.username, 'Role:', req.user.role);
   
@@ -133,12 +136,11 @@ const requireAuth = async (req, res, next) => {
  * Middleware: verificar se é admin
  */
 const requireAdmin = (req, res, next) => {
-  if (!req.session || !req.session.user || req.session.user.role !== 'admin') {
+  if (!req.user || req.user.role !== 'admin') {
     console.log('❌ Acesso negado - não é admin');
     return res.status(403).send('Acesso negado. Apenas administradores.');
   }
   
-  req.user = req.session.user;
   next();
 };
 

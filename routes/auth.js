@@ -2,15 +2,34 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const router = express.Router();
 const { users } = require('../database');
+const crypto = require('crypto');
+
+// Armazenamento simples de tokens em memória (para Render)
+// Em produção, considere usar Redis
+const tokenStore = new Map(); // token -> { userId, username, role, payment_status, expires }
+
+// Limpar tokens expirados a cada hora
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, data] of tokenStore.entries()) {
+    if (data.expires < now) {
+      tokenStore.delete(token);
+    }
+  }
+}, 60 * 60 * 1000); // 1 hora
 
 // Login
 router.get('/login', async (req, res) => {
-  // Se já está autenticado, redirecionar para dashboard apropriado
-  if (req.session && req.session.user) {
-    if (req.session.user.role === 'admin') {
-      return res.redirect('/admin/dashboard');
+  // Verificar se já está autenticado via token
+  const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+  if (token && tokenStore.has(token)) {
+    const userData = tokenStore.get(token);
+    if (userData.expires > Date.now()) {
+      if (userData.role === 'admin') {
+        return res.redirect('/admin/dashboard?token=' + token);
+      }
+      return res.redirect('/user/dashboard?token=' + token);
     }
-    return res.redirect('/user/dashboard');
   }
   
   res.render('auth/login', { error: null, isAuthenticated: false });
@@ -80,59 +99,28 @@ router.post('/login', async (req, res) => {
       }
     }
     
-    // Criar dados da sessão
-    const sessionData = {
-      id: user.id,
+    // Gerar token único
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 dias
+    
+    // Armazenar token
+    tokenStore.set(token, {
+      userId: user.id,
       username: user.username,
       email: user.email,
       role: user.role,
-      payment_status: paymentStatus
-    };
-    
-    console.log('📝 Criando sessão:', sessionData);
-    
-    // NÃO usar regenerate() - isso cria uma nova sessão e pode causar problemas
-    // Em vez disso, usar a sessão existente e apenas definir os dados do usuário
-    req.session.user = sessionData;
-    
-    // Salvar sessão
-    return new Promise((resolve) => {
-      req.session.save((saveErr) => {
-        if (saveErr) {
-          console.error('❌ Erro ao salvar sessão:', saveErr);
-          return res.render('auth/login', { error: 'Erro ao criar sessão. Tente novamente.' });
-        }
-
-        console.log('✅ Sessão criada e salva');
-        console.log('📍 Session ID:', req.sessionID);
-        console.log('📍 Session user:', JSON.stringify(req.session.user));
-        
-        // Verificar se a sessão está no store
-        if (req.sessionStore && req.sessionStore.get) {
-          req.sessionStore.get(req.sessionID, (storeErr, storedSession) => {
-            if (storeErr) {
-              console.error('❌ Erro ao verificar sessão no store:', storeErr);
-            } else if (storedSession && storedSession.user) {
-              console.log('✅ Sessão confirmada no store:', storedSession.user.username);
-            } else {
-              console.warn('⚠️ Sessão não encontrada no store após salvar!');
-            }
-            
-            console.log('🔀 Redirecionando para:', redirectUrl);
-            console.log('==========================================');
-
-            // Redirecionar
-            res.redirect(redirectUrl);
-            resolve();
-          });
-        } else {
-          console.log('🔀 Redirecionando para:', redirectUrl);
-          console.log('==========================================');
-          res.redirect(redirectUrl);
-          resolve();
-        }
-      });
+      payment_status: paymentStatus,
+      expires: expires
     });
+    
+    console.log('✅ Token gerado e armazenado');
+    console.log('📍 Token:', token.substring(0, 20) + '...');
+    console.log('📍 Expira em:', new Date(expires).toISOString());
+    console.log('🔀 Redirecionando para:', redirectUrl);
+    console.log('==========================================');
+
+    // Redirecionar com token na URL (o JavaScript vai salvar no localStorage)
+    res.redirect(`${redirectUrl}?token=${token}`);
 
   } catch (error) {
     console.error('❌ Erro no login:', error);
@@ -195,27 +183,20 @@ router.post('/register', async (req, res) => {
       return res.render('auth/register', { error: 'Erro ao criar conta. Tente novamente.', plan: plan || null });
     }
 
-    // Criar sessão
-    req.session.user = {
-      id: createdUser.id,
+    // Gerar token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 dias
+    
+    tokenStore.set(token, {
+      userId: createdUser.id,
       username: createdUser.username,
       email: createdUser.email,
       role: createdUser.role,
-      payment_status: 'pending'
-    };
-
-    // Salvar sessão antes de redirecionar
-    await new Promise((resolve, reject) => {
-      req.session.save((err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
+      payment_status: 'pending',
+      expires: expires
     });
     
-    res.redirect(`/payment/checkout/${plan}`);
+    res.redirect(`/payment/checkout/${plan}?token=${token}`);
   } catch (error) {
     console.error('Erro no registro:', error);
     res.render('auth/register', { error: 'Erro ao criar conta: ' + error.message, plan: plan || null });
@@ -224,12 +205,25 @@ router.post('/register', async (req, res) => {
 
 // Logout
 router.post('/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('Erro ao destruir sessão:', err);
+  const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token || req.query.token;
+  if (token) {
+    tokenStore.delete(token);
+  }
+  res.redirect('/auth/login');
+});
+
+// Verificar token
+router.get('/verify', (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+  if (token && tokenStore.has(token)) {
+    const userData = tokenStore.get(token);
+    if (userData.expires > Date.now()) {
+      return res.json({ valid: true, user: userData });
+    } else {
+      tokenStore.delete(token);
     }
-    res.redirect('/auth/login');
-  });
+  }
+  res.json({ valid: false });
 });
 
 module.exports = router;
