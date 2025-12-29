@@ -24,14 +24,26 @@
             </div>
         </div>
 
+        <% if (typeof error !== 'undefined' && error) { %>
+        <div class="alert alert-danger" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i><%= error %>
+        </div>
+        <% } %>
+
+        <% if (!plans || !Array.isArray(plans) || plans.length === 0) { %>
+        <div class="alert alert-warning" role="alert">
+            <i class="bi bi-info-circle me-2"></i>Nenhum plano disponível no momento. Entre em contato com o suporte.
+        </div>
+        <% } else { %>
         <div class="row g-4 justify-content-center">
             <% plans.forEach((plan, index) => { %>
+            <% if (!plan || !plan.id) { return; } %>
             <div class="col-lg-4 col-md-6">
                 <div class="pricing-card <%= index === 1 ? 'featured' : '' %>">
                     <% if (index === 1) { %>
                     <div class="badge bg-primary mb-2" style="background: linear-gradient(135deg, #8b2be2 0%, #9333ea 50%, #ec4899 100%) !important;">Mais Popular</div>
                     <% } %>
-                    <h3 class="fw-bold mb-3"><%= plan.name %></h3>
+                    <h3 class="fw-bold mb-3"><%= plan.name || 'Plano' %></h3>
                     <% 
                     // Mapear billing_period para português
                     let billingText = '/mês'; // padrão
@@ -44,15 +56,28 @@
                             billingText = '/mês';
                         }
                     }
+                    const planPrice = plan.price ? parseFloat(plan.price) : 0;
                     %>
-                    <div class="price mb-3">R$ <%= parseFloat(plan.price).toFixed(2) %><span class="fs-6"><%= billingText %></span></div>
+                    <div class="price mb-3">R$ <%= planPrice.toFixed(2) %><span class="fs-6"><%= billingText %></span></div>
                     <ul class="list-unstyled mb-4 text-start">
                         <% 
                         let features = [];
-                        try {
-                            features = JSON.parse(plan.features || '[]');
-                        } catch (e) {
-                            features = plan.features ? plan.features.split(',') : [];
+                        if (plan.features) {
+                            try {
+                                if (typeof plan.features === 'string') {
+                                    // Tentar parsear como JSON primeiro
+                                    try {
+                                        features = JSON.parse(plan.features);
+                                    } catch (e) {
+                                        // Se não for JSON, tratar como string separada por vírgula
+                                        features = plan.features.split(',').map(f => f.trim()).filter(f => f);
+                                    }
+                                } else if (Array.isArray(plan.features)) {
+                                    features = plan.features;
+                                }
+                            } catch (e) {
+                                features = [];
+                            }
                         }
                         features.forEach(feature => { %>
                             <li class="mb-2"><i class="bi bi-check text-success me-2"></i><%= feature %></li>
@@ -68,11 +93,13 @@
                             <li class="mb-2"><i class="bi bi-check text-success me-2"></i>Canais ilimitados</li>
                         <% } %>
                     </ul>
-                    <a href="/payment/checkout/<%= plan.slug %>" class="btn btn-gradient w-100" style="text-decoration: none; color: white;">Escolher Plano</a>
+                    <% const checkoutUrl = '/payment/checkout/' + (plan.slug || plan.id) + (typeof token !== 'undefined' && token ? '?token=' + token : ''); %>
+                    <a href="<%= checkoutUrl %>" class="btn btn-gradient w-100" style="text-decoration: none; color: white;">Escolher Plano</a>
                 </div>
             </div>
             <% }); %>
         </div>
+        <% } %>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

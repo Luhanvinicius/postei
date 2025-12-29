@@ -1097,25 +1097,62 @@ router.get('/published', async (req, res) => {
 
 // Página de escolher planos
 router.get('/plans', async (req, res) => {
-  const { plans: planDB } = require('../database');
-  
-  let allPlans = [];
   try {
-    allPlans = await Promise.resolve(planDB.findAll());
-    // Garantir que é um array
-    if (!Array.isArray(allPlans)) {
+    console.log('📦 Buscando planos para usuário:', req.user?.username);
+    
+    const db = require('../database');
+    const planDB = db.plans || db;
+    
+    if (!planDB || !planDB.findAll) {
+      console.error('❌ planDB ou planDB.findAll não encontrado');
+      return res.render('user/plans', {
+        user: req.user,
+        plans: [],
+        token: req.token || req.query.token,
+        error: 'Erro ao carregar planos. Tente novamente mais tarde.'
+      });
+    }
+    
+    let allPlans = [];
+    try {
+      allPlans = await Promise.resolve(planDB.findAll());
+      console.log('✅ Planos encontrados:', allPlans ? allPlans.length : 0);
+      
+      // Garantir que é um array
+      if (!Array.isArray(allPlans)) {
+        console.warn('⚠️ Planos não é um array, convertendo...');
+        allPlans = [];
+      }
+      
+      // Validar cada plano
+      allPlans = allPlans.filter(plan => {
+        if (!plan || !plan.id) {
+          console.warn('⚠️ Plano inválido encontrado:', plan);
+          return false;
+        }
+        return true;
+      });
+      
+      console.log('✅ Planos válidos:', allPlans.length);
+    } catch (err) {
+      console.error('❌ Erro ao buscar planos:', err);
+      console.error('Stack:', err.stack);
       allPlans = [];
     }
-  } catch (err) {
-    console.error('Erro ao buscar planos:', err);
-    allPlans = [];
+    
+    res.render('user/plans', {
+      user: req.user,
+      plans: allPlans,
+      token: req.token || req.query.token
+    });
+  } catch (error) {
+    console.error('❌ Erro crítico na rota /plans:', error);
+    console.error('Stack:', error.stack);
+    res.status(500).render('error', {
+      message: 'Erro ao carregar página de planos',
+      error: process.env.NODE_ENV === 'development' ? error : undefined
+    });
   }
-  
-  res.render('user/plans', {
-    user: req.user,
-    plans: allPlans,
-    token: req.token || req.query.token
-  });
 });
 
 // Página de perfil
