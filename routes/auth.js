@@ -17,116 +17,57 @@ router.get('/login', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
-  // Garantir que sempre haverá uma resposta
-  let responseSent = false;
-  
-  const sendResponse = (status, data) => {
-    if (responseSent) return;
-    responseSent = true;
-    if (status === 'render') {
-      res.render('auth/login', data);
-    } else if (status === 'redirect') {
-      res.redirect(data);
-    } else {
-      res.status(status).json(data);
-    }
-  };
-
   const { username, password } = req.body;
 
-  console.log('🔐 ========== TENTATIVA DE LOGIN ==========');
+  console.log('🔐 ========== LOGIN ==========');
   console.log('📍 Username:', username);
-  console.log('📍 Has password:', !!password);
-  console.log('📍 Session ID antes:', req.sessionID);
-  console.log('📍 Session antes:', JSON.stringify(req.session));
-  console.log('📍 Body completo:', JSON.stringify(req.body));
 
   if (!username || !password) {
     console.log('❌ Usuário ou senha vazios');
-    return sendResponse('render', { error: 'Usuário e senha são obrigatórios' });
+    return res.render('auth/login', { error: 'Usuário e senha são obrigatórios' });
   }
-
-  // Timeout de segurança (10 segundos)
-  const timeout = setTimeout(() => {
-    if (!responseSent) {
-      console.error('⏱️ Timeout no login após 10 segundos');
-      sendResponse('render', { error: 'Tempo de resposta excedido. Tente novamente.' });
-    }
-  }, 10000);
 
   try {
     // Buscar usuário
-    let user;
-    try {
-      if (!users || !users.findByUsername) {
-        console.error('❌ Módulo users não encontrado ou findByUsername não disponível');
-        clearTimeout(timeout);
-        return sendResponse('render', { error: 'Erro ao conectar com o banco de dados. Tente novamente.' });
-      }
-      
-      // Sempre usar await - funciona tanto para SQLite (síncrono) quanto PostgreSQL (assíncrono)
-      user = await Promise.resolve(users.findByUsername(username));
-    } catch (err) {
-      console.error('❌ Erro ao buscar usuário:', err);
-      console.error('Stack:', err.stack);
-      clearTimeout(timeout);
-      return sendResponse('render', { error: 'Erro ao buscar usuário. Tente novamente.' });
-    }
+    const user = await Promise.resolve(users.findByUsername(username));
 
     if (!user) {
       console.log('❌ Usuário não encontrado:', username);
-      clearTimeout(timeout);
-      return sendResponse('render', { error: 'Usuário ou senha incorretos' });
+      return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
     }
 
-    console.log('✅ Usuário encontrado:', user.username, 'ID:', user.id, 'Role:', user.role);
+    console.log('✅ Usuário encontrado:', user.username);
 
     // Verificar senha
-    let validPassword = false;
-    try {
-      validPassword = await bcrypt.compare(password, user.password);
-    } catch (err) {
-      console.error('❌ Erro ao comparar senha:', err);
-      clearTimeout(timeout);
-      return sendResponse('render', { error: 'Erro ao verificar senha. Tente novamente.' });
-    }
+    const validPassword = await bcrypt.compare(password, user.password);
 
     if (!validPassword) {
-      console.log('❌ Senha incorreta para usuário:', username);
-      clearTimeout(timeout);
-      return sendResponse('render', { error: 'Usuário ou senha incorretos' });
+      console.log('❌ Senha incorreta');
+      return res.render('auth/login', { error: 'Usuário ou senha incorretos' });
     }
 
-    console.log('✅ Senha válida para:', username);
-    
-    // Buscar payment_status do usuário
+    console.log('✅ Senha válida');
+
+    // Buscar payment_status
     let paymentStatus = user.payment_status || 'pending';
     if (!paymentStatus || paymentStatus === 'undefined' || paymentStatus === 'null') {
       try {
-        if (users && users.findById) {
-          const fullUser = await Promise.resolve(users.findById(user.id));
-          paymentStatus = fullUser?.payment_status || 'pending';
-        }
+        const fullUser = await Promise.resolve(users.findById(user.id));
+        paymentStatus = fullUser?.payment_status || 'pending';
       } catch (err) {
-        console.error('⚠️ Erro ao buscar payment_status completo (não crítico):', err.message);
         paymentStatus = 'pending';
       }
     }
     
     // Determinar URL de redirecionamento
-    let redirectUrl;
+    let redirectUrl = user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
     
-    if (user.role === 'admin') {
-      redirectUrl = '/admin/dashboard';
-    } else {
-      redirectUrl = '/user/dashboard';
-      
-      // Verificar se tem fatura pendente
+    // Verificar se tem fatura pendente (apenas para usuários normais)
+    if (user.role !== 'admin') {
       try {
         const { invoices } = require('../database');
         if (invoices && invoices.findByUserId) {
           const userInvoices = await Promise.resolve(invoices.findByUserId(user.id));
-          
           if (userInvoices && Array.isArray(userInvoices)) {
             const pendingInvoice = userInvoices.find(inv => inv.status === 'pending');
             if (pendingInvoice && paymentStatus === 'pending') {
@@ -135,7 +76,7 @@ router.post('/login', async (req, res) => {
           }
         }
       } catch (err) {
-        console.error('⚠️ Erro ao buscar faturas no login (não crítico):', err.message);
+        // Ignorar erro - não crítico
       }
     }
     
@@ -148,90 +89,43 @@ router.post('/login', async (req, res) => {
       payment_status: paymentStatus
     };
     
-    console.log('📝 Criando sessão com dados:', JSON.stringify(sessionData, null, 2));
+    console.log('📝 Criando sessão:', sessionData);
     
-    // IMPORTANTE: Não definir cookie manualmente - isso interfere com o express-session
-    // O express-session precisa gerenciar o cookie sozinho para que a sessão seja recuperada corretamente
-    
-    // Definir sessão
-    req.session.user = sessionData;
-    
-    // Marcar sessão como modificada para forçar salvamento
-    req.session.touch();
-    
-    // Salvar sessão usando Promise para garantir que seja salva antes de redirecionar
+    // IMPORTANTE: Regenerar sessão para garantir novo ID seguro
     return new Promise((resolve) => {
-      // Usar req.session.save() que deve enviar o cookie automaticamente
-      req.session.save((err) => {
-        clearTimeout(timeout);
-        
-        if (err) {
-          console.error('❌ Erro ao salvar sessão:', err);
-          console.error('Stack:', err.stack);
-          sendResponse('render', { error: 'Erro ao criar sessão. Tente novamente.' });
-          return resolve();
+      req.session.regenerate((regenerateErr) => {
+        if (regenerateErr) {
+          console.error('❌ Erro ao regenerar sessão:', regenerateErr);
+          return res.render('auth/login', { error: 'Erro ao criar sessão. Tente novamente.' });
         }
+
+        // Definir dados do usuário na nova sessão
+        req.session.user = sessionData;
         
-        console.log('✅ Sessão salva com sucesso!');
-        console.log('📍 Session ID após salvar:', req.sessionID);
-        console.log('📍 Session user após salvar:', JSON.stringify(req.session.user));
-        console.log('📍 Session cookie config:', {
-          secure: req.session.cookie.secure,
-          httpOnly: req.session.cookie.httpOnly,
-          sameSite: req.session.cookie.sameSite,
-          maxAge: req.session.cookie.maxAge,
-          path: req.session.cookie.path
-        });
-        
-        // IMPORTANTE: O express-session envia o cookie automaticamente quando a resposta é enviada
-        // Mas precisamos garantir que o cookie seja enviado ANTES do redirecionamento
-        // O problema pode ser que o express-session não está enviando o cookie porque
-        // a resposta já foi iniciada ou há algum problema de timing
-        
-        // Verificar se o cookie será enviado
-        // NOTA: res.getHeader('Set-Cookie') pode não mostrar o cookie ainda porque
-        // o express-session envia o cookie quando a resposta é enviada, não antes
-        const cookieHeader = res.getHeader('Set-Cookie');
-        console.log('📍 Cookie no header antes de enviar:', cookieHeader ? 'sim' : 'não');
-        
-        // Verificar se a sessão está realmente salva no store
-        if (req.sessionStore && req.sessionStore.get) {
-          req.sessionStore.get(req.sessionID, (storeErr, storedSession) => {
-            if (storeErr) {
-              console.error('❌ Erro ao verificar sessão no store:', storeErr);
-            } else {
-              console.log('📍 Sessão no store:', storedSession ? 'presente' : 'ausente');
-              if (storedSession && storedSession.user) {
-                console.log('📍 Usuário no store:', storedSession.user.username);
-              } else {
-                console.warn('⚠️ Sessão salva mas usuário não encontrado no store!');
-              }
-            }
-            
-            console.log('🔀 Redirecionando para:', redirectUrl);
-            console.log('📍 Session ID que será usado:', req.sessionID);
-            console.log('==========================================');
-            
-            // Redirecionar - o express-session deve enviar o cookie automaticamente
-            // quando res.redirect() é chamado, o express-session intercepta e adiciona o cookie
-            res.redirect(redirectUrl);
-            resolve();
-          });
-        } else {
+        // Salvar sessão
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error('❌ Erro ao salvar sessão:', saveErr);
+            return res.render('auth/login', { error: 'Erro ao criar sessão. Tente novamente.' });
+          }
+
+          console.log('✅ Sessão criada e salva');
+          console.log('📍 Session ID:', req.sessionID);
+          console.log('📍 Session user:', JSON.stringify(req.session.user));
           console.log('🔀 Redirecionando para:', redirectUrl);
-          console.log('📍 Session ID que será usado:', req.sessionID);
           console.log('==========================================');
+
+          // Redirecionar
           res.redirect(redirectUrl);
           resolve();
-        }
+        });
       });
     });
 
   } catch (error) {
-    clearTimeout(timeout);
     console.error('❌ Erro no login:', error);
     console.error('Stack:', error.stack);
-    sendResponse('render', { error: 'Erro ao fazer login: ' + error.message });
+    res.render('auth/login', { error: 'Erro ao fazer login: ' + error.message });
   }
 });
 
@@ -254,42 +148,14 @@ router.post('/register', async (req, res) => {
 
   try {
     // Verificar se usuário já existe
-    let existingUser;
-    try {
-      if (users && users.findByUsername) {
-        const isAsync = users.findByUsername.constructor && users.findByUsername.constructor.name === 'AsyncFunction';
-        if (isAsync) {
-          existingUser = await users.findByUsername(username);
-        } else {
-          existingUser = users.findByUsername(username);
-        }
-      }
-    } catch (err) {
-      if (users && users.findByUsername) {
-        existingUser = users.findByUsername(username);
-      }
-    }
+    const existingUser = await Promise.resolve(users.findByUsername(username));
     
     if (existingUser) {
       return res.render('auth/register', { error: 'Usuário já existe', plan: plan || null });
     }
 
     // Verificar se email já existe
-    let existingByEmail;
-    try {
-      if (users && users.findByEmail) {
-        const isAsync = users.findByEmail.constructor && users.findByEmail.constructor.name === 'AsyncFunction';
-        if (isAsync) {
-          existingByEmail = await users.findByEmail(email);
-        } else {
-          existingByEmail = users.findByEmail(email);
-        }
-      }
-    } catch (err) {
-      if (users && users.findByEmail) {
-        existingByEmail = users.findByEmail(email);
-      }
-    }
+    const existingByEmail = await Promise.resolve(users.findByEmail(email));
     
     if (existingByEmail) {
       return res.render('auth/register', { error: 'Email já está em uso', plan: plan || null });
@@ -298,55 +164,20 @@ router.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     
     // Criar usuário
-    let userId;
-    try {
-      if (users && users.create) {
-        const isAsync = users.create.constructor && users.create.constructor.name === 'AsyncFunction';
-        if (isAsync) {
-          userId = await users.create(username, email, hashedPassword, 'user');
-        } else {
-          userId = users.create(username, email, hashedPassword, 'user');
-        }
-      }
-    } catch (err) {
-      if (users && users.create) {
-        userId = users.create(username, email, hashedPassword, 'user');
-      }
-    }
+    const userId = await Promise.resolve(users.create(username, email, hashedPassword, 'user'));
 
     // Definir payment_status como pending
-    const { users: userDB } = require('../database');
     try {
+      const { users: userDB } = require('../database');
       if (userDB && userDB.updatePaymentStatus) {
-        const isAsync = userDB.updatePaymentStatus.constructor && userDB.updatePaymentStatus.constructor.name === 'AsyncFunction';
-        if (isAsync) {
-          await userDB.updatePaymentStatus(userId, 'pending');
-        } else {
-          userDB.updatePaymentStatus(userId, 'pending');
-        }
+        await Promise.resolve(userDB.updatePaymentStatus(userId, 'pending'));
       }
     } catch (err) {
-      if (userDB && userDB.updatePaymentStatus) {
-        userDB.updatePaymentStatus(userId, 'pending');
-      }
+      // Ignorar erro - não crítico
     }
 
     // Buscar usuário criado
-    let createdUser;
-    try {
-      if (users && users.findById) {
-        const isAsync = users.findById.constructor && users.findById.constructor.name === 'AsyncFunction';
-        if (isAsync) {
-          createdUser = await users.findById(userId);
-        } else {
-          createdUser = users.findById(userId);
-        }
-      }
-    } catch (err) {
-      if (users && users.findById) {
-        createdUser = users.findById(userId);
-      }
-    }
+    const createdUser = await Promise.resolve(users.findById(userId));
     
     if (!createdUser) {
       return res.render('auth/register', { error: 'Erro ao criar conta. Tente novamente.', plan: plan || null });
