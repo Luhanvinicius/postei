@@ -452,6 +452,18 @@ router.post('/upload-video', async (req, res) => {
 
 // Rota alternativa para upload (compatibilidade)
 router.post('/videos/upload', async (req, res) => {
+  console.log('📤 ========== UPLOAD DE VÍDEO ==========');
+  console.log('📍 Usuário:', req.user?.username || 'não autenticado');
+  console.log('📍 User ID:', req.user?.id || 'não encontrado');
+  console.log('📍 Files presente:', !!req.files);
+  console.log('📍 video presente:', !!req.files?.video);
+  
+  // Verificar autenticação
+  if (!req.user || !req.user.id) {
+    console.error('❌ Usuário não autenticado');
+    return res.status(401).json({ success: false, error: 'Token não encontrado. Faça login novamente.' });
+  }
+  
   if (!req.files || !req.files.video) {
     return res.json({ success: false, error: 'Nenhum vídeo enviado' });
   }

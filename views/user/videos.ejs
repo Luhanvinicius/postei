@@ -671,12 +671,25 @@
                     console.log('📊 Tamanho do arquivo:', (video.file.size / (1024 * 1024)).toFixed(2), 'MB');
                     btn.textContent = '⏳ Enviando vídeo...';
                     
+                    // Obter token para autenticação
+                    const token = getAuthToken();
+                    if (!token) {
+                        throw new Error('Token não encontrado. Faça login novamente.');
+                    }
+                    
                     const formData = new FormData();
                     formData.append('video', video.file);
                     
+                    // Adicionar token na URL
+                    let uploadUrl = '/user/videos/upload';
+                    uploadUrl += (uploadUrl.includes('?') ? '&' : '?') + 'token=' + token;
+                    
                     const uploadStartTime = Date.now();
-                    const uploadResponse = await fetch('/user/videos/upload', {
+                    const uploadResponse = await fetch(uploadUrl, {
                         method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + token
+                        },
                         body: formData
                     });
                     
