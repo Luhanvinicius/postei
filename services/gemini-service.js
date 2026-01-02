@@ -501,17 +501,21 @@ ${validFrameData.length > 2 ? `FRAME 3:
 PASSO 2: CRIAR TÍTULO ESPECÍFICO BASEADO NA ANÁLISE VISUAL
 Baseado EXCLUSIVAMENTE na sua análise detalhada acima, crie um título que:
 - Descreva ESPECIFICAMENTE o que você VÊ nas imagens (não genérico!)
-- Mencione elementos visuais concretos (ex: "Galinhas no quintal", "Pessoa cozinhando", "Reunião de trabalho")
+- Mencione elementos visuais concretos que você identificou (ex: "Duas pessoas se abraçando", "Galinhas no quintal", "Pessoa cozinhando", "Reunião de trabalho")
 - Seja criativo e chamativo para redes sociais
-- Use emojis que correspondam EXATAMENTE ao conteúdo visual
+- Use emojis que correspondam EXATAMENTE ao conteúdo visual que você vê
 - Tenha entre 30-60 caracteres
 - NUNCA use o nome do arquivo no título
+- NUNCA use frases genéricas como "A cena mais icônica" ou "O momento mais"
 
 EXEMPLOS DE TÍTULOS ESPECÍFICOS (baseados em análise visual real):
+- Se vê duas pessoas se abraçando: "O abraço mais emocionante que você vai ver! 💙"
 - Se vê galinhas: "Galinhas no quintal: o momento mais engraçado! 🐔"
 - Se vê alguém cozinhando: "Receita simples que vai mudar sua vida! 👨‍🍳"
 - Se vê pessoas rindo: "A reação mais genuína que você vai ver hoje! 😂"
 - Se vê tutorial: "Como fazer [ação específica que você vê] passo a passo! 📝"
+
+IMPORTANTE: O título DEVE mencionar elementos visuais específicos que você identificou na análise!
 
 PASSO 3: CRIAR DESCRIÇÃO DETALHADA
 Crie uma descrição de 2-3 linhas que:
@@ -521,17 +525,19 @@ Crie uma descrição de 2-3 linhas que:
 - Seja específica e não genérica
 
 ═══════════════════════════════════════════════════════════════
-❌ PROIBIÇÕES ABSOLUTAS - NUNCA USE:
+❌ PROIBIÇÕES ABSOLUTAS - NUNCA USE ESTES PADRÕES:
 ═══════════════════════════════════════════════════════════════
 
-- "A cena mais icônica de [qualquer coisa]"
+- "A cena mais icônica" ou "A cena mais icônica de [qualquer coisa]"
+- "O momento mais" ou "O momento mais [qualquer coisa]"
 - "Por que [qualquer coisa] está viralizando?"
-- Títulos que mencionam o nome do arquivo (V01, V02, etc.)
+- Títulos que mencionam o nome do arquivo (V01, V02, thechosenoficial, etc.)
 - Títulos genéricos sem descrição visual específica
 - Descrições vazias ou apenas "#shorts"
 - Títulos que não descrevem o que você VÊ nas imagens
+- Frases como "você não vai acreditar", "isso vai mudar", "você precisa ver"
 
-Se você usar qualquer um desses padrões genéricos, sua resposta será REJEITADA e você precisará refazer.
+⚠️ SE VOCÊ USAR QUALQUER UM DESSES PADRÕES GENÉRICOS, SUA RESPOSTA SERÁ REJEITADA E VOCÊ PRECISARÁ REFAZER COM ANÁLISE VISUAL CORRETA!
 
 ═══════════════════════════════════════════════════════════════
 FORMATO DE RESPOSTA (OBRIGATÓRIO):
@@ -624,18 +630,40 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
               /cena mais icônica/i,
               /por que.*viralizando/i,
               /está viralizando/i,
-              /você não vai acreditar/i
+              /você não vai acreditar/i,
+              /a cena mais/i,
+              /cena mais/i,
+              /momento mais icônico/i,
+              /o momento mais/i,
+              /isso vai mudar/i,
+              /você precisa ver/i,
+              /não vai acreditar/i,
+              /isso é incrível/i,
+              /você não vai acreditar no que/i
             ];
             
             const isGeneric = genericPatterns.some(pattern => pattern.test(titleLower));
             
             if (isGeneric) {
               console.error(`❌ TÍTULO GENÉRICO REJEITADO: "${title}"`);
+              console.error(`   Padrão genérico detectado!`);
               console.error(`   O Gemini não analisou os frames corretamente!`);
-              title = null; // Forçar nova tentativa ou fallback
-            } else {
-              console.log(`✅ Título parece específico: "${title}"`);
+              throw new Error(`Título genérico detectado: "${title}". O Gemini deve analisar o conteúdo visual específico das imagens e criar um título que descreva exatamente o que aparece nos frames, não usar frases genéricas.`);
             }
+            
+            // Verificar se o título é muito curto ou muito genérico
+            if (title.length < 20) {
+              console.warn('⚠️  Título muito curto, pode ser genérico');
+            }
+            
+            // Verificar se o título tem palavras específicas que indicam análise visual
+            const hasVisualDescription = /(pessoa|pessoas|homem|mulher|gato|cachorro|galinha|animal|comida|cozinha|rua|casa|escritório|trabalho|dança|riso|abraço|abraçando|vestindo|usando|segurando|com|em|no|na)/i.test(titleLower);
+            
+            if (!hasVisualDescription && title.length < 40) {
+              console.warn('⚠️  Título pode ser genérico - não menciona elementos visuais específicos');
+            }
+            
+            console.log(`✅ Título aceito: "${title}"`);
           }
           
           // VALIDAÇÃO: Garantir que descrição não é apenas "#shorts"
