@@ -140,7 +140,13 @@ router.post('/login', async (req, res) => {
     }
     
     // Determinar URL de redirecionamento
+    // Se veio de uma autenticação bem-sucedida do YouTube, redirecionar para contas
     let redirectUrl = user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
+    
+    // Verificar se há um parâmetro indicando sucesso na autenticação do YouTube
+    if (req.query.youtube_authenticated === 'true' || req.body.youtube_authenticated === 'true') {
+      redirectUrl = '/user/accounts?success=authenticated';
+    }
     
     // Verificar se tem fatura pendente (apenas para usuários normais)
     if (user.role !== 'admin') {
