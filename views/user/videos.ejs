@@ -708,9 +708,19 @@
                 console.log('📤 Enviando requisição para o servidor...');
                 const generateStartTime = Date.now();
                 
-                const response = await fetch('/user/videos/generate', {
+                // Obter token para autenticação
+                const token = getAuthToken();
+                let generateUrl = '/user/videos/generate';
+                if (token) {
+                    generateUrl += (generateUrl.includes('?') ? '&' : '?') + 'token=' + token;
+                }
+                
+                const response = await fetch(generateUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? 'Bearer ' + token : undefined
+                    },
                     body: JSON.stringify({ videoPath }),
                     signal: controller.signal
                 });
