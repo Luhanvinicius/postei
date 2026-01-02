@@ -649,6 +649,12 @@ router.post('/videos/scan', async (req, res) => {
 
 // API: Gerar conteúdo com IA
 router.post('/videos/generate', async (req, res) => {
+  console.log('🤖 ========== GERAÇÃO DE CONTEÚDO COM IA ==========');
+  console.log('📍 Usuário:', req.user?.username || 'não autenticado');
+  console.log('📍 User ID:', req.user?.id || 'não encontrado');
+  console.log('📍 GEMINI_API_KEY configurada?', !!process.env.GEMINI_API_KEY);
+  console.log('📍 GEMINI_API_KEY (primeiros 10 chars):', process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 10) + '...' : 'não configurada');
+  
   // Timeout de 10 minutos (Render pode ter timeout menor, então vamos processar rápido)
   req.setTimeout(600000); // 10 minutos
     
@@ -660,7 +666,7 @@ router.post('/videos/generate', async (req, res) => {
     let { videoPath } = req.body;
     
     console.log(`📥 Recebido pedido para gerar conteúdo: ${videoPath}`);
-    console.log(`⏱️  Timeout configurado: 5 minutos`);
+    console.log(`⏱️  Timeout configurado: 10 minutos`);
     
     if (!videoPath) {
       return res.json({ success: false, error: 'Caminho do vídeo não fornecido' });
