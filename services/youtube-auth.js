@@ -50,7 +50,8 @@ async function authenticateYouTube(userId, credentialsPath, req = null) {
       BASE_URL: process.env.BASE_URL,
       baseUrlFinal: baseUrl,
       hasReq: !!req,
-      reqHost: req?.headers?.host
+      reqHost: req?.headers?.host,
+      protocol: req?.headers?.['x-forwarded-proto'] || (req?.secure ? 'https' : 'http')
     });
     
     let redirectUri = process.env.YOUTUBE_REDIRECT_URI;

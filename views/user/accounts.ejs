@@ -205,12 +205,25 @@
                     // Recarregar página com token
                     window.location.href = '/user/accounts?token=' + token;
                 } else if (data.needsAuth && data.authUrl) {
-                    if (data.message) {
-                        const confirmRedirect = confirm(data.message + '\n\nContinuar para autenticação?');
-                        if (!confirmRedirect) return;
-                    }
                     if (data.redirectUri) {
                         console.log('🔗 Redirect URI que deve estar configurado:', data.redirectUri);
+                        
+                        // Mostrar mensagem clara sobre o redirect URI
+                        const message = `IMPORTANTE: Antes de continuar, você precisa adicionar este redirect URI no Google Cloud Console:\n\n${data.redirectUri}\n\n` +
+                                      `Passos:\n` +
+                                      `1. Acesse: https://console.cloud.google.com/apis/credentials\n` +
+                                      `2. Clique no seu Client ID OAuth 2.0\n` +
+                                      `3. Em "URIs de redirecionamento autorizados", clique em "+ Adicionar URI"\n` +
+                                      `4. Cole: ${data.redirectUri}\n` +
+                                      `5. Clique em "Salvar"\n` +
+                                      `6. Aguarde alguns minutos para as alterações entrarem em vigor\n\n` +
+                                      `Depois disso, clique em OK para continuar com a autenticação.`;
+                        
+                        const confirmRedirect = confirm(message);
+                        if (!confirmRedirect) return;
+                    } else if (data.message) {
+                        const confirmRedirect = confirm(data.message + '\n\nContinuar para autenticação?');
+                        if (!confirmRedirect) return;
                     }
                     window.location.href = data.authUrl;
                 } else {
