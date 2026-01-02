@@ -469,65 +469,84 @@ async function generateContentWithGemini(videoPath, videoName) {
     console.log(`📸 Total de frames: ${validFrameData.length}`);
     console.log(`🎬 Modelo: gemini-2.0-flash (Vision)`);
     
-    // PROMPT ULTRA ESPECÍFICO - FORÇA ANÁLISE VISUAL DETALHADA
+    // PROMPT ULTRA ESPECÍFICO - FORÇA ANÁLISE VISUAL DETALHADA FRAME A FRAME
     const prompt = `Você está recebendo ${validFrameData.length} imagem(ns) REAL(IS) extraída(s) de um vídeo do YouTube Shorts.
 
 ═══════════════════════════════════════════════════════════════
-⚠️ INSTRUÇÕES OBRIGATÓRIAS - SIGA EXATAMENTE:
+⚠️ INSTRUÇÕES CRÍTICAS - ANALISE CADA FRAME INDIVIDUALMENTE:
 ═══════════════════════════════════════════════════════════════
 
-PASSO 1: ANÁLISE VISUAL DETALHADA (OBRIGATÓRIO)
-Para CADA imagem acima, descreva EXATAMENTE o que você vê:
-- Quem aparece? (descreva pessoas, personagens, atores - cor de pele, roupas, idade aproximada)
-- O que estão fazendo? (ações específicas: falando, gesticulando, trabalhando, etc.)
-- Onde estão? (cenário: sala, escritório, rua, estúdio, etc.)
-- Qual é o contexto? (reunião, aula, entrevista, vlog, tutorial, etc.)
-- Qual é a emoção/atmosfera? (sério, engraçado, dramático, educativo, etc.)
+PASSO 1: ANÁLISE FRAME A FRAME (OBRIGATÓRIO - FAÇA ISSO PRIMEIRO!)
+Para CADA uma das ${validFrameData.length} imagem(ns) acima, descreva DETALHADAMENTE:
 
-PASSO 2: CRIAR TÍTULO ESPECÍFICO BASEADO NO QUE VOCÊ VÊ
-Baseado APENAS na sua análise visual acima, crie um título que:
-- Descreva ESPECIFICAMENTE o conteúdo visual (não genérico!)
+FRAME 1:
+- O que você VÊ exatamente? (objetos, pessoas, animais, cenário)
+- Quem aparece? (descreva características físicas: cor de cabelo, roupa, idade, expressão facial)
+- O que estão fazendo? (ação específica: cozinhando, rindo, trabalhando, dançando, etc.)
+- Onde estão? (local específico: cozinha, escritório, rua, estúdio, natureza, etc.)
+- Qual é a emoção/expressão? (alegre, sério, surpreso, concentrado, etc.)
+- Há texto visível? (se sim, transcreva exatamente)
+- Há objetos específicos? (descreva: tipo de comida, ferramentas, equipamentos, etc.)
+
+${validFrameData.length > 1 ? `FRAME 2:
+- Repita a análise detalhada acima para esta segunda imagem
+- Compare com o Frame 1: o que mudou? O que é diferente?
+- Há progressão na ação? Descreva a sequência.
+
+${validFrameData.length > 2 ? `FRAME 3:
+- Repita a análise detalhada acima para esta terceira imagem
+- Compare com os Frames anteriores: qual é a evolução da cena?
+- Qual é o momento mais interessante visualmente?` : ''}` : ''}
+
+PASSO 2: CRIAR TÍTULO ESPECÍFICO BASEADO NA ANÁLISE VISUAL
+Baseado EXCLUSIVAMENTE na sua análise detalhada acima, crie um título que:
+- Descreva ESPECIFICAMENTE o que você VÊ nas imagens (não genérico!)
+- Mencione elementos visuais concretos (ex: "Galinhas no quintal", "Pessoa cozinhando", "Reunião de trabalho")
 - Seja criativo e chamativo para redes sociais
-- Use emojis relevantes ao conteúdo REAL que você vê
+- Use emojis que correspondam EXATAMENTE ao conteúdo visual
 - Tenha entre 30-60 caracteres
+- NUNCA use o nome do arquivo no título
 
-EXEMPLOS DE TÍTULOS ESPECÍFICOS (baseados em análise visual):
-- Se vê pessoas em reunião: "O momento mais tenso da reunião! 😰"
-- Se vê alguém explicando algo: "Como [tema específico] funciona na prática! 💡"
-- Se vê uma cena engraçada: "A reação mais inesperada que você vai ver! 😂"
-- Se vê um tutorial: "Passo a passo que ninguém te ensinou! 🎯"
+EXEMPLOS DE TÍTULOS ESPECÍFICOS (baseados em análise visual real):
+- Se vê galinhas: "Galinhas no quintal: o momento mais engraçado! 🐔"
+- Se vê alguém cozinhando: "Receita simples que vai mudar sua vida! 👨‍🍳"
+- Se vê pessoas rindo: "A reação mais genuína que você vai ver hoje! 😂"
+- Se vê tutorial: "Como fazer [ação específica que você vê] passo a passo! 📝"
 
 PASSO 3: CRIAR DESCRIÇÃO DETALHADA
 Crie uma descrição de 2-3 linhas que:
-- Descreva o conteúdo visual do vídeo
-- Inclua hashtags relevantes (#shorts, #viral, etc.)
-- Seja específica baseada no que você VÊ nas imagens
+- Descreva ESPECIFICAMENTE o conteúdo visual que você analisou
+- Mencione elementos visuais concretos das imagens
+- Inclua hashtags relevantes ao conteúdo REAL (#shorts, #viral, etc.)
+- Seja específica e não genérica
 
 ═══════════════════════════════════════════════════════════════
-❌ PROIBIÇÕES ABSOLUTAS:
+❌ PROIBIÇÕES ABSOLUTAS - NUNCA USE:
 ═══════════════════════════════════════════════════════════════
 
-NUNCA use:
-- "A cena mais icônica de [palavra genérica]"
-- "Por que [palavra] está viralizando?"
-- Títulos baseados apenas no nome do arquivo
-- Títulos genéricos que não descrevem o conteúdo visual
+- "A cena mais icônica de [qualquer coisa]"
+- "Por que [qualquer coisa] está viralizando?"
+- Títulos que mencionam o nome do arquivo (V01, V02, etc.)
+- Títulos genéricos sem descrição visual específica
 - Descrições vazias ou apenas "#shorts"
+- Títulos que não descrevem o que você VÊ nas imagens
 
-Se você usar qualquer título genérico, sua resposta será REJEITADA.
+Se você usar qualquer um desses padrões genéricos, sua resposta será REJEITADA e você precisará refazer.
 
 ═══════════════════════════════════════════════════════════════
 FORMATO DE RESPOSTA (OBRIGATÓRIO):
 ═══════════════════════════════════════════════════════════════
 
-Responda APENAS em JSON válido (sem markdown, sem código):
+IMPORTANTE: Analise as imagens PRIMEIRO, depois responda em JSON.
+
+Responda APENAS em JSON válido (sem markdown, sem código, sem explicações):
 
 {
-    "title": "título ESPECÍFICO baseado no conteúdo visual que você VÊ nas imagens acima",
-    "description": "Descrição detalhada de 2-3 linhas do conteúdo visual com hashtags relevantes como #shorts #viral"
+    "title": "título ESPECÍFICO que descreve exatamente o que você VÊ nas imagens acima",
+    "description": "Descrição detalhada de 2-3 linhas do conteúdo visual específico com hashtags relevantes como #shorts #viral"
 }
 
-Nome do arquivo (NÃO use no título, apenas referência): ${videoName}`;
+Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser genérico!`;
 
     console.log(`📝 Prompt: ${prompt.length} caracteres`);
     console.log(`📤 Enviando ${validFrameData.length} frame(s) + prompt para Gemini Vision...`);
@@ -586,9 +605,21 @@ Nome do arquivo (NÃO use no título, apenas referência): ${videoName}`;
           console.log(`✅ Título extraído: "${title}"`);
           console.log(`✅ Descrição extraída: "${description}"`);
           
-          // VALIDAÇÃO: Rejeitar títulos genéricos
+          // VALIDAÇÃO: Rejeitar títulos genéricos ou que mencionam nome do arquivo
           if (title) {
             const titleLower = title.toLowerCase().trim();
+            const videoNameLower = videoName.toLowerCase();
+            
+            // Verificar se o título menciona o nome do arquivo
+            if (titleLower.includes(videoNameLower.replace(/\.[^/.]+$/, '')) || 
+                titleLower.includes('v01') || titleLower.includes('v02') ||
+                titleLower.match(/v\d+/i)) {
+              console.error('❌ Título rejeitado: menciona nome do arquivo!');
+              console.error(`   Título: "${title}"`);
+              console.error(`   Nome do arquivo: "${videoName}"`);
+              throw new Error('Título genérico detectado: menciona nome do arquivo. O Gemini deve analisar apenas o conteúdo visual.');
+            }
+            
             const genericPatterns = [
               /cena mais icônica/i,
               /por que.*viralizando/i,
