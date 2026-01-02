@@ -11,6 +11,24 @@ const tokenStore = new Map(); // token -> { userId, username, role, payment_stat
 // Exportar tokenStore para uso no middleware
 module.exports.tokenStore = tokenStore;
 
+// Função helper para atualizar payment_status em todos os tokens de um usuário
+const updateUserTokensPaymentStatus = (userId, newPaymentStatus) => {
+  let updatedCount = 0;
+  for (const [token, userData] of tokenStore.entries()) {
+    if (userData.userId === userId) {
+      tokenStore.set(token, {
+        ...userData,
+        payment_status: newPaymentStatus
+      });
+      updatedCount++;
+    }
+  }
+  console.log(`✅ Atualizados ${updatedCount} token(s) para usuário ${userId} com payment_status: ${newPaymentStatus}`);
+  return updatedCount;
+};
+
+module.exports.updateUserTokensPaymentStatus = updateUserTokensPaymentStatus;
+
 // Limpar tokens expirados a cada hora
 setInterval(() => {
   const now = Date.now();

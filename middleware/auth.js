@@ -5,8 +5,9 @@
 
 /**
  * Middleware global: anexar usuário do token ao req.user
+ * Busca sempre os dados mais recentes do banco para garantir payment_status atualizado
  */
-const attachUser = (req, res, next) => {
+const attachUser = async (req, res, next) => {
   // Tentar obter token do header Authorization ou query parameter
   const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
   
@@ -16,13 +17,47 @@ const attachUser = (req, res, next) => {
     if (tokenStore && tokenStore.has(token)) {
       const userData = tokenStore.get(token);
       if (userData.expires > Date.now()) {
-        req.user = {
-          id: userData.userId,
-          username: userData.username,
-          email: userData.email,
-          role: userData.role,
-          payment_status: userData.payment_status
-        };
+        // Buscar dados mais recentes do banco para garantir payment_status atualizado
+        try {
+          const { users } = require('../database');
+          const freshUser = await Promise.resolve(users.findById(userData.userId));
+          
+          if (freshUser) {
+            // Atualizar token com dados mais recentes
+            const updatedPaymentStatus = freshUser.payment_status || 'pending';
+            tokenStore.set(token, {
+              ...userData,
+              payment_status: updatedPaymentStatus
+            });
+            
+            req.user = {
+              id: freshUser.id,
+              username: freshUser.username,
+              email: freshUser.email,
+              role: freshUser.role,
+              payment_status: updatedPaymentStatus
+            };
+          } else {
+            // Se usuário não existe mais, usar dados do token
+            req.user = {
+              id: userData.userId,
+              username: userData.username,
+              email: userData.email,
+              role: userData.role,
+              payment_status: userData.payment_status
+            };
+          }
+        } catch (err) {
+          // Em caso de erro, usar dados do token
+          console.error('Erro ao buscar dados atualizados do usuário:', err);
+          req.user = {
+            id: userData.userId,
+            username: userData.username,
+            email: userData.email,
+            role: userData.role,
+            payment_status: userData.payment_status
+          };
+        }
         req.token = token;
       } else {
         // Token expirado
@@ -36,6 +71,7 @@ const attachUser = (req, res, next) => {
 
 /**
  * Middleware: verificar autenticação
+ * O attachUser já deve ter populado req.user com dados atualizados do banco
  */
 const requireAuth = async (req, res, next) => {
   // Tentar obter token do header Authorization ou query parameter
@@ -63,17 +99,55 @@ const requireAuth = async (req, res, next) => {
     return res.redirect('/auth/login');
   }
   
-  // Anexar usuário ao req.user
-  req.user = {
-    id: userData.userId,
-    username: userData.username,
-    email: userData.email,
-    role: userData.role,
-    payment_status: userData.payment_status
-  };
+  // Se req.user já foi populado pelo attachUser, usar esses dados (já atualizados do banco)
+  // Caso contrário, usar dados do token
+  if (!req.user) {
+    // Buscar dados atualizados do banco
+    try {
+      const { users } = require('../database');
+      const freshUser = await Promise.resolve(users.findById(userData.userId));
+      
+      if (freshUser) {
+        // Atualizar token com dados mais recentes
+        const updatedPaymentStatus = freshUser.payment_status || 'pending';
+        tokenStore.set(token, {
+          ...userData,
+          payment_status: updatedPaymentStatus
+        });
+        
+        req.user = {
+          id: freshUser.id,
+          username: freshUser.username,
+          email: freshUser.email,
+          role: freshUser.role,
+          payment_status: updatedPaymentStatus
+        };
+      } else {
+        // Se usuário não existe mais, usar dados do token
+        req.user = {
+          id: userData.userId,
+          username: userData.username,
+          email: userData.email,
+          role: userData.role,
+          payment_status: userData.payment_status
+        };
+      }
+    } catch (err) {
+      // Em caso de erro, usar dados do token
+      console.error('Erro ao buscar dados atualizados do usuário:', err);
+      req.user = {
+        id: userData.userId,
+        username: userData.username,
+        email: userData.email,
+        role: userData.role,
+        payment_status: userData.payment_status
+      };
+    }
+  }
+  
   req.token = token;
   
-  console.log('✅ Usuário autenticado:', req.user.username, 'Role:', req.user.role);
+  console.log('✅ Usuário autenticado:', req.user.username, 'Role:', req.user.role, 'Payment Status:', req.user.payment_status);
   
   // Verificar se o pagamento está pendente (exceto para admins e rotas de pagamento)
   if (req.user.role !== 'admin' && req.user.payment_status === 'pending') {

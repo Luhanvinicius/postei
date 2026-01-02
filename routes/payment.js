@@ -848,6 +848,14 @@ const checkPaymentStatusHandler = async (req, res) => {
             }
           }
           
+          // Atualizar token no tokenStore
+          try {
+            const { updateUserTokensPaymentStatus } = require('../routes/auth');
+            updateUserTokensPaymentStatus(invoice.user_id, 'paid');
+          } catch (err) {
+            console.error('❌ Erro ao atualizar tokens:', err);
+          }
+          
           // Atualizar sessão do usuário se for o mesmo usuário da requisição
           if (req.session && req.session.user && req.session.user.id === invoice.user_id) {
             req.session.user.payment_status = 'paid';
@@ -968,6 +976,14 @@ router.post('/validate/:invoiceId', requireAuth, async (req, res) => {
       }
     }
     
+    // Atualizar token no tokenStore
+    try {
+      const { updateUserTokensPaymentStatus } = require('../routes/auth');
+      updateUserTokensPaymentStatus(userId, 'paid');
+    } catch (err) {
+      console.error('❌ Erro ao atualizar tokens:', err);
+    }
+    
     // Atualizar sessão do usuário
     if (req.session && req.session.user) {
       req.session.user.payment_status = 'paid';
@@ -1083,6 +1099,14 @@ router.post('/webhook/asaas', express.json(), async (req, res) => {
         if (users && users.updatePaymentStatus) {
           users.updatePaymentStatus(invoice.user_id, 'paid');
         }
+      }
+      
+      // Atualizar token no tokenStore
+      try {
+        const { updateUserTokensPaymentStatus } = require('../routes/auth');
+        updateUserTokensPaymentStatus(invoice.user_id, 'paid');
+      } catch (err) {
+        console.error('❌ Erro ao atualizar tokens:', err);
       }
       
       // Ativar assinatura se existir
