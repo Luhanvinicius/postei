@@ -729,8 +729,14 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
       console.error('❌ ERRO ao chamar Gemini API:', geminiError);
       console.error('   Detalhes:', geminiError.message);
       console.error('   Stack:', geminiError.stack);
-      // Não lançar erro, usar fallback
-      title = null;
+      
+      // Se o erro é sobre título genérico, propagar o erro
+      if (geminiError.message && geminiError.message.includes('Título genérico')) {
+        throw geminiError;
+      }
+      
+      // Para outros erros, também lançar (não usar fallback genérico)
+      throw new Error(`Erro ao gerar conteúdo com Gemini: ${geminiError.message}`);
     }
     
     // Se não conseguiu gerar título, lançar erro (não usar fallback genérico)
