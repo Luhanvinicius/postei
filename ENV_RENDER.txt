@@ -21,7 +21,10 @@ FRONTEND_URL=https://postei.pro
 
 CORS_ORIGIN=https://postei.pro
 
-BASE_URL=https://postei.pro
+BASE_URL=https://www.postei.pro
+
+# Redirect URI para autenticação do YouTube (deve corresponder ao configurado no Google Cloud Console)
+YOUTUBE_REDIRECT_URI=https://www.postei.pro/user/auth/callback
 
 # ============================================
 # 🟢 OPCIONAIS (Mas Recomendadas)

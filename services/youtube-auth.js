@@ -37,6 +37,12 @@ async function authenticateYouTube(userId, credentialsPath, req = null) {
       }
     }
     
+    // Normalizar URL (garantir www se necessário)
+    if (baseUrl && baseUrl.includes('postei.pro') && !baseUrl.includes('www.')) {
+      baseUrl = baseUrl.replace('postei.pro', 'www.postei.pro');
+      console.log('🔍 URL normalizada para incluir www:', baseUrl);
+    }
+    
     if (!baseUrl) {
       baseUrl = 'http://localhost:3000';
     }
@@ -228,6 +234,13 @@ async function handleAuthCallback(userId, code) {
     if (!baseUrl && isProduction) {
       baseUrl = process.env.RENDER_EXTERNAL_URL || process.env.VERCEL_URL || '';
     }
+    
+    // Normalizar URL (garantir www se necessário)
+    if (baseUrl && baseUrl.includes('postei.pro') && !baseUrl.includes('www.')) {
+      baseUrl = baseUrl.replace('postei.pro', 'www.postei.pro');
+      console.log('🔍 URL normalizada para incluir www:', baseUrl);
+    }
+    
     if (!baseUrl) {
       baseUrl = 'http://localhost:3000';
     }
