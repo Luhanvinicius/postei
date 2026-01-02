@@ -658,6 +658,10 @@
             console.log('📹 Vídeo selecionado:', video.name);
             console.log('📁 Caminho:', video.path);
 
+            // Declarar timeoutId no escopo da função para poder limpar no catch
+            let timeoutId = null;
+            const controller = new AbortController();
+
             try {
                 let videoPath = video.path;
                 
@@ -699,8 +703,7 @@
                 btn.textContent = '⏳ Gerando conteúdo...';
                 
                 // Timeout de 10 minutos (600 segundos)
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 600000);
+                timeoutId = setTimeout(() => controller.abort(), 600000);
                 
                 console.log('📤 Enviando requisição para o servidor...');
                 const generateStartTime = Date.now();
@@ -852,7 +855,10 @@
                     errorModal.addEventListener('hidden.bs.modal', () => errorModal.remove());
                 }
             } catch (error) {
-                clearTimeout(timeoutId);
+                // Limpar timeout se foi criado
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                }
                 btn.disabled = false;
                 btn.textContent = '🤖 Gerar com IA';
                 
