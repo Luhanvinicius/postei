@@ -477,7 +477,7 @@ app.use('/payment', getRouter(paymentRoutes)); // Rotas de pagamento (webhook se
 // O userId será obtido do state parameter do OAuth
 const { handleAuthCallback } = require('./services/youtube-auth');
 const { configs } = require('./database');
-const fs = require('fs-extra');
+// fs já está declarado no topo do arquivo
 
 app.get('/user/auth/callback', async (req, res) => {
   const { code, error, state } = req.query;
