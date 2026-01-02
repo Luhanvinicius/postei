@@ -118,21 +118,43 @@
             e.preventDefault();
             const formData = new FormData(e.target);
             
+            // Obter token para autenticação
+            const token = getAuthToken();
+            if (!token) {
+                alert('Erro: Token de autenticação não encontrado. Por favor, faça login novamente.');
+                window.location.href = '/auth/login';
+                return;
+            }
+            
+            // Adicionar token na URL
+            let uploadUrl = '/user/upload-config';
+            uploadUrl += (uploadUrl.includes('?') ? '&' : '?') + 'token=' + token;
+            
             try {
-                const response = await fetch('/user/upload-config', {
+                const response = await fetch(uploadUrl, {
                     method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    },
                     body: formData
                 });
+                
+                if (!response.ok) {
+                    throw new Error('Erro na requisição: ' + response.status);
+                }
+                
                 const data = await response.json();
                 
                 if (data.success) {
                     alert('Configuração enviada com sucesso!');
-                    location.reload();
+                    // Recarregar página com token
+                    window.location.href = '/user/accounts?token=' + token;
                 } else {
-                    alert('Erro: ' + data.error);
+                    alert('Erro: ' + (data.error || 'Erro desconhecido'));
                 }
             } catch (error) {
-                alert('Erro ao enviar configuração');
+                console.error('Erro ao enviar configuração:', error);
+                alert('Erro ao enviar configuração: ' + error.message);
             }
         });
 
@@ -152,15 +174,36 @@
         }
 
         async function authenticateChannel() {
+            // Obter token para autenticação
+            const token = getAuthToken();
+            if (!token) {
+                alert('Erro: Token de autenticação não encontrado. Por favor, faça login novamente.');
+                window.location.href = '/auth/login';
+                return;
+            }
+            
+            // Adicionar token na URL
+            let authUrl = '/user/authenticate';
+            authUrl += (authUrl.includes('?') ? '&' : '?') + 'token=' + token;
+            
             try {
-                const response = await fetch('/user/authenticate', {
-                    method: 'POST'
+                const response = await authenticatedFetch(authUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 });
+                
+                if (!response.ok) {
+                    throw new Error('Erro na requisição: ' + response.status);
+                }
+                
                 const data = await response.json();
                 
                 if (data.success) {
                     alert('Canal autenticado: ' + data.channelName);
-                    location.reload();
+                    // Recarregar página com token
+                    window.location.href = '/user/accounts?token=' + token;
                 } else if (data.needsAuth && data.authUrl) {
                     if (data.message) {
                         const confirmRedirect = confirm(data.message + '\n\nContinuar para autenticação?');
@@ -171,7 +214,7 @@
                     }
                     window.location.href = data.authUrl;
                 } else {
-                    alert('Erro: ' + data.error);
+                    alert('Erro: ' + (data.error || 'Erro desconhecido'));
                 }
             } catch (error) {
                 console.error('Erro:', error);

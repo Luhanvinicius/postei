@@ -127,7 +127,20 @@ router.get('/accounts', async (req, res) => {
 
 // Upload de configuração do YouTube
 router.post('/upload-config', async (req, res) => {
+  console.log('📤 ========== UPLOAD DE CONFIGURAÇÃO ==========');
+  console.log('📍 Usuário:', req.user?.username || 'não autenticado');
+  console.log('📍 User ID:', req.user?.id || 'não encontrado');
+  console.log('📍 Files presente:', !!req.files);
+  console.log('📍 configFile presente:', !!req.files?.configFile);
+  
+  if (!req.user || !req.user.id) {
+    console.error('❌ Usuário não autenticado');
+    return res.json({ success: false, error: 'Usuário não autenticado. Por favor, faça login novamente.' });
+  }
+  
   if (!req.files || !req.files.configFile) {
+    console.error('❌ Nenhum arquivo enviado');
+    console.log('📍 req.files:', req.files);
     return res.json({ success: false, error: 'Nenhum arquivo enviado' });
   }
 
@@ -136,31 +149,63 @@ router.post('/upload-config', async (req, res) => {
   const userConfigDir = path.join(USER_CONFIGS_DIR, `user_${userId}`);
   const userConfigPath = path.join(userConfigDir, 'client_secrets.json');
 
+  console.log('📍 Diretório de destino:', userConfigDir);
+  console.log('📍 Caminho do arquivo:', userConfigPath);
+  console.log('📍 Nome do arquivo:', configFile.name);
+  console.log('📍 Tamanho do arquivo:', configFile.size, 'bytes');
+
   try {
     // Criar diretório do usuário
+    console.log('📁 Criando diretório...');
     fs.ensureDirSync(userConfigDir);
+    console.log('✅ Diretório criado/verificado');
 
     // Validar se é um JSON válido
+    console.log('🔍 Validando JSON...');
     try {
       const fileContent = configFile.data.toString('utf8');
-      JSON.parse(fileContent);
+      const parsedJson = JSON.parse(fileContent);
+      console.log('✅ JSON válido');
+      console.log('📍 Tipo de credencial:', parsedJson.installed ? 'installed' : parsedJson.web ? 'web' : 'desconhecido');
     } catch (parseError) {
-      return res.json({ success: false, error: 'Arquivo JSON inválido. Verifique o formato do arquivo.' });
+      console.error('❌ Erro ao validar JSON:', parseError.message);
+      return res.json({ success: false, error: 'Arquivo JSON inválido. Verifique o formato do arquivo: ' + parseError.message });
     }
 
     // Salvar arquivo (substitui o anterior se existir)
+    console.log('💾 Salvando arquivo...');
     await configFile.mv(userConfigPath);
+    console.log('✅ Arquivo salvo em:', userConfigPath);
+    
+    // Verificar se arquivo foi salvo corretamente
+    if (!fs.existsSync(userConfigPath)) {
+      throw new Error('Arquivo não foi salvo corretamente');
+    }
+    console.log('✅ Arquivo verificado no sistema de arquivos');
 
     // Salvar no banco de dados
-    configs.upsert(userId, userConfigPath);
+    console.log('💾 Salvando no banco de dados...');
+    try {
+      await Promise.resolve(configs.upsert(userId, userConfigPath));
+      console.log('✅ Configuração salva no banco de dados');
+    } catch (dbError) {
+      console.error('❌ Erro ao salvar no banco:', dbError);
+      // Continuar mesmo com erro no banco - o arquivo já foi salvo
+    }
 
+    console.log('✅ ========== UPLOAD CONCLUÍDO COM SUCESSO ==========');
     res.json({ 
       success: true, 
       message: 'Configuração atualizada com sucesso! Agora você pode autenticar seu canal.' 
     });
   } catch (error) {
-    console.error('Erro ao fazer upload:', error);
-    res.json({ success: false, error: 'Erro ao fazer upload do arquivo: ' + error.message });
+    console.error('❌ ========== ERRO AO FAZER UPLOAD ==========');
+    console.error('📍 Erro:', error.message);
+    console.error('📍 Stack:', error.stack);
+    res.json({ 
+      success: false, 
+      error: 'Erro ao fazer upload do arquivo: ' + error.message 
+    });
   }
 });
 
