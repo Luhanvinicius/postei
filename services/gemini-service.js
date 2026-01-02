@@ -733,17 +733,11 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
       title = null;
     }
     
-    // Se não conseguiu gerar título, usar fallback
+    // Se não conseguiu gerar título, lançar erro (não usar fallback genérico)
     if (!title || title.trim().length < 3) {
-      console.warn('⚠️  Título não foi gerado ou está vazio, usando fallback...');
-      const nameClean = videoName.replace(/\.[^/.]+$/, '').replace(/[()]/g, ' ').trim();
-      const words = nameClean.split(/\s+/).filter(w => w.length > 2);
-      if (words.length > 0) {
-        title = `A cena mais icônica de ${words[0]}! 🎬`;
-      } else {
-        title = 'Conteúdo exclusivo que você precisa ver! 🎥';
-      }
-      console.warn(`⚠️  Usando fallback: "${title}"`);
+      console.error('❌ ERRO: Título não foi gerado ou está vazio!');
+      console.error('   O Gemini deve analisar os frames e criar um título específico.');
+      throw new Error('Não foi possível gerar um título específico baseado no conteúdo visual. O Gemini deve analisar os frames do vídeo e criar um título que descreva exatamente o que aparece nas imagens.');
     }
     
     // Garantir que description não está vazia ou muito genérica
