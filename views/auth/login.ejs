@@ -36,6 +36,13 @@
                             <p class="text-secondary">Entre na sua conta para continuar</p>
                         </div>
                         
+                        <% if (typeof success !== 'undefined' && success) { %>
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle me-2"></i>
+                                <%= success %>
+                            </div>
+                        <% } %>
+                        
                         <% if (typeof error !== 'undefined' && error) { %>
                             <div class="alert alert-danger">
                                 <i class="bi bi-exclamation-triangle me-2"></i>

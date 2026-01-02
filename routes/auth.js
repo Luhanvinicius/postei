@@ -46,6 +46,10 @@ router.get('/login', async (req, res) => {
   if (token && tokenStore.has(token)) {
     const userData = tokenStore.get(token);
     if (userData.expires > Date.now()) {
+      // Se veio de uma autenticação bem-sucedida do YouTube, redirecionar para contas
+      if (req.query.success === 'youtube_authenticated') {
+        return res.redirect('/user/accounts?success=authenticated&token=' + token);
+      }
       if (userData.role === 'admin') {
         return res.redirect('/admin/dashboard?token=' + token);
       }
@@ -53,7 +57,11 @@ router.get('/login', async (req, res) => {
     }
   }
   
-  res.render('auth/login', { error: null, isAuthenticated: false });
+  res.render('auth/login', { 
+    error: req.query.error || null, 
+    success: req.query.success === 'youtube_authenticated' ? 'Canal do YouTube autenticado com sucesso! Faça login para continuar.' : null,
+    isAuthenticated: false 
+  });
 });
 
 router.post('/login', async (req, res) => {
