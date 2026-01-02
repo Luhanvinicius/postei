@@ -79,23 +79,41 @@ const requireAuth = async (req, res, next) => {
   
   console.log('🔍 requireAuth - Verificando autenticação');
   console.log('   Token presente:', !!token);
+  console.log('   Path:', req.path);
+  console.log('   É requisição API?', req.path.startsWith('/api/') || req.path.includes('/videos/generate') || req.path.includes('/videos/upload'));
+  
+  // Verificar se é uma requisição API (deve retornar JSON, não redirect)
+  const isApiRequest = req.path.startsWith('/api/') || 
+                       req.path.includes('/videos/generate') || 
+                       req.path.includes('/videos/upload') ||
+                       req.headers['content-type']?.includes('application/json') ||
+                       req.headers.accept?.includes('application/json');
   
   if (!token) {
-    console.log('❌ Token não encontrado - redirecionando para login');
+    console.log('❌ Token não encontrado');
+    if (isApiRequest) {
+      return res.status(401).json({ success: false, error: 'Token não encontrado. Faça login novamente.' });
+    }
     return res.redirect('/auth/login');
   }
   
   const authModule = require('../routes/auth');
   const tokenStore = authModule.tokenStore;
   if (!tokenStore || !tokenStore.has(token)) {
-    console.log('❌ Token inválido - redirecionando para login');
+    console.log('❌ Token inválido');
+    if (isApiRequest) {
+      return res.status(401).json({ success: false, error: 'Token inválido. Faça login novamente.' });
+    }
     return res.redirect('/auth/login');
   }
   
   const userData = tokenStore.get(token);
   if (userData.expires <= Date.now()) {
-    console.log('❌ Token expirado - redirecionando para login');
+    console.log('❌ Token expirado');
     tokenStore.delete(token);
+    if (isApiRequest) {
+      return res.status(401).json({ success: false, error: 'Token expirado. Faça login novamente.' });
+    }
     return res.redirect('/auth/login');
   }
   

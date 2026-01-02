@@ -655,6 +655,22 @@ router.post('/videos/generate', async (req, res) => {
   console.log('📍 GEMINI_API_KEY configurada?', !!process.env.GEMINI_API_KEY);
   console.log('📍 GEMINI_API_KEY (primeiros 10 chars):', process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 10) + '...' : 'não configurada');
   
+  // Verificar autenticação
+  if (!req.user || !req.user.id) {
+    console.error('❌ Usuário não autenticado');
+    return res.status(401).json({ success: false, error: 'Usuário não autenticado. Faça login novamente.' });
+  }
+  
+  // Verificar se tem plano ativo (exceto admin)
+  if (req.user.payment_status !== 'paid' && req.user.role !== 'admin') {
+    console.error('❌ Plano inativo');
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Plano inativo. Adquira um plano para usar esta funcionalidade.',
+      requiresPlan: true
+    });
+  }
+  
   // Timeout de 10 minutos (Render pode ter timeout menor, então vamos processar rápido)
   req.setTimeout(600000); // 10 minutos
     
