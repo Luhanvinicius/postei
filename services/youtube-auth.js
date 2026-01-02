@@ -160,6 +160,8 @@ async function authenticateYouTube(userId, credentialsPath, req = null) {
 
     // Se não tem refresh token, precisa autenticar
     // Usar escopos mais amplos para evitar "Insufficient Permission"
+    // Passar userId no state para recuperar no callback
+    const state = Buffer.from(JSON.stringify({ userId })).toString('base64');
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: [
@@ -168,7 +170,8 @@ async function authenticateYouTube(userId, credentialsPath, req = null) {
         'https://www.googleapis.com/auth/youtube.readonly'
       ],
       prompt: 'consent',
-      include_granted_scopes: true
+      include_granted_scopes: true,
+      state: state
     });
 
     console.log('🔗 URL de autenticação gerada:', authUrl);

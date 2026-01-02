@@ -472,6 +472,113 @@ app.use('/auth', getRouter(authRoutes));
 app.use('/test', getRouter(testRoutes)); // Rota de teste (sem autenticação)
 app.use('/setup', require('./routes/setup')); // Rota de setup (criar usuários)
 app.use('/payment', getRouter(paymentRoutes)); // Rotas de pagamento (webhook sem auth, checkout com auth)
+
+// Callback do OAuth do YouTube (deve estar ANTES do requireAuth)
+// O userId será obtido do state parameter do OAuth
+const { handleAuthCallback } = require('./services/youtube-auth');
+const { configs } = require('./database');
+const fs = require('fs-extra');
+
+app.get('/user/auth/callback', async (req, res) => {
+  const { code, error, state } = req.query;
+  
+  console.log('🔄 ========== CALLBACK OAUTH RECEBIDO ==========');
+  console.log('📍 Code presente:', !!code);
+  console.log('📍 Error presente:', !!error);
+  console.log('📍 State presente:', !!state);
+  
+  // Tentar obter userId do state (passado no OAuth)
+  let userId = null;
+  
+  if (state) {
+    try {
+      const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
+      userId = stateData.userId;
+      console.log('✅ UserId obtido do state:', userId);
+    } catch (err) {
+      console.error('❌ Erro ao decodificar state:', err);
+    }
+  }
+  
+  if (!userId) {
+    console.error('❌ UserId não encontrado no callback');
+    return res.redirect('/auth/login?error=callback_no_user');
+  }
+
+  if (error) {
+    console.error('❌ Erro no OAuth:', error);
+    return res.redirect(`/auth/login?error=${encodeURIComponent(error)}`);
+  }
+
+  if (!code) {
+    return res.redirect('/auth/login?error=no_code');
+  }
+
+  try {
+    // Buscar configuração (pode ser async no PostgreSQL)
+    let dbConfig = null;
+    try {
+      dbConfig = await Promise.resolve(configs.findByUserId(userId));
+    } catch (err) {
+      console.error('Erro ao buscar configuração:', err);
+    }
+    
+    if (!dbConfig || !dbConfig.config_path) {
+      return res.redirect('/auth/login?error=config_not_found');
+    }
+    
+    // Verificar se o arquivo existe
+    if (!fs.existsSync(dbConfig.config_path)) {
+      console.error('❌ Arquivo de credenciais não encontrado no callback:', dbConfig.config_path);
+      return res.redirect('/auth/login?error=file_not_found');
+    }
+
+    const result = await handleAuthCallback(userId, code);
+
+    if (result.success) {
+      console.log('✅ Autenticação bem-sucedida! Canal:', result.channelName);
+      console.log('📝 Salvando no banco de dados...');
+      
+      // Atualizar no banco (pode ser async no PostgreSQL)
+      try {
+        if (configs.updateAuth.constructor.name === 'AsyncFunction') {
+          await configs.updateAuth(
+            userId,
+            true,
+            result.channelId,
+            result.channelName,
+            result.refreshToken,
+            result.accessToken
+          );
+        } else {
+          configs.updateAuth(
+            userId,
+            true,
+            result.channelId,
+            result.channelName,
+            result.refreshToken,
+            result.accessToken
+          );
+        }
+        console.log('✅ Dados salvos no banco com sucesso!');
+      } catch (updateError) {
+        console.error('❌ Erro ao salvar no banco:', updateError);
+        return res.redirect('/auth/login?error=' + encodeURIComponent('Erro ao salvar autenticação: ' + updateError.message));
+      }
+      
+      // Redirecionar para login com mensagem de sucesso
+      // O usuário fará login e será redirecionado para /user/accounts onde verá o status
+      res.redirect('/auth/login?success=youtube_authenticated');
+    } else {
+      console.error('❌ Erro na autenticação:', result.error);
+      res.redirect('/auth/login?error=' + encodeURIComponent(result.error || 'Erro ao autenticar'));
+    }
+  } catch (error) {
+    console.error('❌ Erro no callback:', error);
+    res.redirect('/auth/login?error=' + encodeURIComponent(error.message || 'Erro no callback'));
+  }
+});
+
 app.use('/admin', requireAuth, requireAdmin, getRouter(adminRoutes));
 app.use('/user', requireAuth, getRouter(userRoutes));
 app.use('/api', requireAuth, getRouter(apiRoutes));

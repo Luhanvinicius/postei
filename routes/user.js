@@ -297,9 +297,34 @@ router.post('/authenticate', async (req, res) => {
 });
 
 // Callback do OAuth (GET) - Google redireciona aqui após autenticação
+// Esta rota NÃO deve usar requireAuth porque o Google não envia o token
+// Em vez disso, usamos o state parameter do OAuth para passar o userId
 router.get('/auth/callback', async (req, res) => {
-  const { code, error } = req.query;
-  const userId = req.user.id;
+  const { code, error, state } = req.query;
+  
+  // Tentar obter userId do state (passado no OAuth) ou do req.user (se autenticado)
+  let userId = null;
+  
+  if (state) {
+    try {
+      const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
+      userId = stateData.userId;
+      console.log('✅ UserId obtido do state:', userId);
+    } catch (err) {
+      console.error('❌ Erro ao decodificar state:', err);
+    }
+  }
+  
+  // Se não conseguiu do state, tentar do req.user (caso tenha token na URL)
+  if (!userId && req.user && req.user.id) {
+    userId = req.user.id;
+    console.log('✅ UserId obtido do req.user:', userId);
+  }
+  
+  if (!userId) {
+    console.error('❌ UserId não encontrado no callback');
+    return res.redirect('/auth/login?error=callback_no_user');
+  }
 
   if (error) {
     console.error('❌ Erro no OAuth:', error);
@@ -364,14 +389,27 @@ router.get('/auth/callback', async (req, res) => {
       }
       
       // Redirecionar para a página de contas para mostrar o status atualizado
-      res.redirect('/user/accounts?success=authenticated');
+      // Incluir token se disponível
+      const token = req.token || req.query.token;
+      const redirectUrl = token 
+        ? `/user/accounts?success=authenticated&token=${token}`
+        : `/user/accounts?success=authenticated`;
+      res.redirect(redirectUrl);
     } else {
       console.error('❌ Erro na autenticação:', result.error);
-      res.redirect('/user/accounts?error=' + encodeURIComponent(result.error || 'Erro ao autenticar'));
+      const token = req.token || req.query.token;
+      const redirectUrl = token
+        ? `/user/accounts?error=${encodeURIComponent(result.error || 'Erro ao autenticar')}&token=${token}`
+        : `/user/accounts?error=${encodeURIComponent(result.error || 'Erro ao autenticar')}`;
+      res.redirect(redirectUrl);
     }
   } catch (error) {
     console.error('❌ Erro no callback:', error);
-    res.redirect('/user/dashboard?error=' + encodeURIComponent(error.message || 'Erro no callback'));
+    const token = req.token || req.query.token;
+    const redirectUrl = token
+      ? `/user/dashboard?error=${encodeURIComponent(error.message || 'Erro no callback')}&token=${token}`
+      : `/user/dashboard?error=${encodeURIComponent(error.message || 'Erro no callback')}`;
+    res.redirect(redirectUrl);
   }
 });
 
