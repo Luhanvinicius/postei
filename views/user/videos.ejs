@@ -673,7 +673,10 @@
                     
                     // Obter token para autenticação
                     const token = getAuthToken();
+                    console.log('🔑 Token obtido para upload:', token ? token.substring(0, 20) + '...' : 'não encontrado');
+                    
                     if (!token) {
+                        console.error('❌ Token não encontrado no localStorage ou URL');
                         throw new Error('Token não encontrado. Faça login novamente.');
                     }
                     
@@ -683,6 +686,7 @@
                     // Adicionar token na URL
                     let uploadUrl = '/user/videos/upload';
                     uploadUrl += (uploadUrl.includes('?') ? '&' : '?') + 'token=' + token;
+                    console.log('📤 URL de upload:', uploadUrl);
                     
                     const uploadStartTime = Date.now();
                     const uploadResponse = await fetch(uploadUrl, {
@@ -692,6 +696,8 @@
                         },
                         body: formData
                     });
+                    
+                    console.log('📥 Resposta do upload recebida:', uploadResponse.status, uploadResponse.statusText);
                     
                     const uploadData = await uploadResponse.json();
                     const uploadDuration = ((Date.now() - uploadStartTime) / 1000).toFixed(2);
@@ -723,20 +729,27 @@
                 
                 // Obter token para autenticação
                 const token = getAuthToken();
-                let generateUrl = '/user/videos/generate';
-                if (token) {
-                    generateUrl += (generateUrl.includes('?') ? '&' : '?') + 'token=' + token;
+                console.log('🔑 Token obtido para geração:', token ? token.substring(0, 20) + '...' : 'não encontrado');
+                
+                if (!token) {
+                    throw new Error('Token não encontrado. Faça login novamente.');
                 }
+                
+                let generateUrl = '/user/videos/generate';
+                generateUrl += (generateUrl.includes('?') ? '&' : '?') + 'token=' + token;
+                console.log('📤 URL de geração:', generateUrl);
                 
                 const response = await fetch(generateUrl, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        'Authorization': token ? 'Bearer ' + token : undefined
+                        'Authorization': 'Bearer ' + token
                     },
                     body: JSON.stringify({ videoPath }),
                     signal: controller.signal
                 });
+                
+                console.log('📥 Resposta da geração recebida:', response.status, response.statusText);
                 
                 clearTimeout(timeoutId);
                 const generateDuration = ((Date.now() - generateStartTime) / 1000).toFixed(2);
