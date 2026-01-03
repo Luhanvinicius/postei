@@ -796,12 +796,45 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
       title = null;
     }
     
-    // Se não conseguiu gerar título válido após todas as tentativas, usar fallback genérico
+    // Se não conseguiu gerar título válido após todas as tentativas
     if (!title || title.trim().length < 3) {
-      console.warn('⚠️  Título não foi gerado ou está vazio após todas as tentativas, usando fallback...');
-      // NÃO usar nome do arquivo no fallback - usar algo genérico mas não baseado no nome
-      title = 'Conteúdo exclusivo que você precisa ver! 🎥';
-      console.warn(`⚠️  Usando fallback genérico: "${title}"`);
+      console.error('❌ ERRO CRÍTICO: Não foi possível gerar título válido após todas as tentativas!');
+      console.error('   Isso indica que o Gemini não está analisando os frames corretamente.');
+      console.error('   Verifique os logs acima para ver o que o Gemini retornou.');
+      
+      // Tentar gerar título baseado no primeiro frame usando análise mais simples
+      console.log('🔄 Tentando análise alternativa com prompt mais simples...');
+      try {
+        const simplePrompt = `Analise esta imagem e crie um título específico de 30-60 caracteres que descreva EXATAMENTE o que você vê. NÃO use nomes de arquivo. Responda APENAS com um JSON: {"title": "título específico", "description": "descrição com hashtags"}`;
+        const simpleResult = await model.generateContent([validFrameData[0], simplePrompt]);
+        const simpleResponse = simpleResult.response.text();
+        console.log('📝 Resposta da análise alternativa:', simpleResponse.substring(0, 500));
+        const simpleJsonMatch = simpleResponse.match(/\{[\s\S]*\}/);
+        if (simpleJsonMatch) {
+          const simpleContent = JSON.parse(simpleJsonMatch[0].trim());
+          if (simpleContent.title && simpleContent.title.length > 10) {
+            const simpleTitleLower = simpleContent.title.toLowerCase();
+            if (!simpleTitleLower.includes('v01') && !simpleTitleLower.includes('v02') && 
+                !simpleTitleLower.match(/v\d+/i) && 
+                !/cena mais icônica/i.test(simpleTitleLower)) {
+              title = simpleContent.title;
+              description = simpleContent.description || `${title}\n\n#shorts #viral #youtube`;
+              console.log(`✅ Título gerado com análise alternativa: "${title}"`);
+            } else {
+              console.error(`❌ Título da análise alternativa também é genérico: "${simpleContent.title}"`);
+            }
+          }
+        }
+      } catch (altError) {
+        console.error('❌ Análise alternativa também falhou:', altError.message);
+      }
+      
+      // Se ainda não tem título, usar fallback genérico
+      if (!title || title.trim().length < 3) {
+        console.warn('⚠️  Usando fallback genérico como último recurso...');
+        title = 'Conteúdo exclusivo que você precisa ver! 🎥';
+        console.warn(`⚠️  Fallback: "${title}"`);
+      }
     }
     
     // Garantir que description não está vazia ou muito genérica
