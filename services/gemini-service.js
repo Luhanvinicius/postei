@@ -404,6 +404,33 @@ async function generateContentWithGemini(videoPath, videoName) {
         thumbnailPath = frames[0];
         console.log(`📸 Usando primeiro frame como thumbnail: ${thumbnailPath}`);
         console.log(`📸 Frame existe? ${fs.existsSync(thumbnailPath)}`);
+        console.log(`📸 Caminho absoluto: ${path.resolve(thumbnailPath)}`);
+        
+        // Verificar se o arquivo realmente existe
+        if (!fs.existsSync(thumbnailPath)) {
+          console.error(`❌ Frame não existe no caminho especificado: ${thumbnailPath}`);
+          // Tentar usar outro frame se disponível
+          for (let i = 1; i < frames.length; i++) {
+            if (fs.existsSync(frames[i])) {
+              thumbnailPath = frames[i];
+              console.log(`✅ Usando frame alternativo ${i + 1}: ${thumbnailPath}`);
+              break;
+            }
+          }
+          
+          // Se nenhum frame existe, tentar gerar thumbnail
+          if (!fs.existsSync(thumbnailPath)) {
+            console.warn('⚠️  Nenhum frame existe, tentando gerar thumbnail...');
+            try {
+              thumbnailPath = await extractThumbnail(videoPath);
+              if (thumbnailPath) {
+                console.log(`✅ Thumbnail gerado: ${thumbnailPath}`);
+              }
+            } catch (thumbError) {
+              console.error(`❌ Erro ao gerar thumbnail: ${thumbError.message}`);
+            }
+          }
+        }
       } else {
         console.warn('⚠️  Nenhum frame disponível para usar como thumbnail');
         thumbnailPath = null;
