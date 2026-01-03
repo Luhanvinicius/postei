@@ -844,8 +844,26 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
         for (const pattern of titlePatterns) {
           const match = response.match(pattern);
           if (match && match[1] && match[1].trim().length > 5) {
-            title = match[1].trim();
-            console.log(`✅ Título extraído do texto livre: ${title}`);
+            const extractedTitle = match[1].trim();
+            console.log(`✅ Título extraído do texto livre: ${extractedTitle}`);
+            
+            // VALIDAÇÃO IMEDIATA: Rejeitar se for nome de arquivo
+            const extractedTitleLower = extractedTitle.toLowerCase();
+            const numberCount = (extractedTitle.match(/\d/g) || []).length;
+            const numberPercentage = numberCount / extractedTitle.length;
+            
+            // Se tem muitos números ou sequências longas, rejeitar
+            if (numberPercentage > 0.3 && extractedTitle.length > 15) {
+              console.error('❌ Título extraído rejeitado: contém muitos números!');
+              continue; // Tentar próximo padrão
+            }
+            
+            if (extractedTitle.match(/\d{10,}/)) {
+              console.error('❌ Título extraído rejeitado: contém sequência longa de números!');
+              continue; // Tentar próximo padrão
+            }
+            
+            title = extractedTitle;
             break;
           }
         }
