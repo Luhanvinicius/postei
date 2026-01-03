@@ -470,7 +470,11 @@ async function generateContentWithGemini(videoPath, videoName) {
     console.log(`🎬 Modelo: gemini-2.0-flash (Vision)`);
     
     // PROMPT ULTRA ESPECÍFICO - FORÇA ANÁLISE VISUAL DETALHADA FRAME A FRAME
-    const prompt = `Você está recebendo ${validFrameData.length} imagem(ns) REAL(IS) extraída(s) de um vídeo do YouTube Shorts.
+    const prompt = `ANÁLISE VISUAL OBRIGATÓRIA - NÃO USE NOMES DE ARQUIVO!
+
+Você está recebendo ${validFrameData.length} imagem(ns) REAL(IS) extraída(s) de um vídeo do YouTube Shorts.
+
+⚠️ IMPORTANTE: Você DEVE analisar o conteúdo visual das imagens acima. NÃO use o nome do arquivo "${videoName}" no título!
 
 ═══════════════════════════════════════════════════════════════
 ⚠️ INSTRUÇÕES CRÍTICAS - ANALISE CADA FRAME INDIVIDUALMENTE:
@@ -644,19 +648,21 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
               console.error(`   O Gemini não analisou os frames corretamente!`);
               console.error(`   Tentando novamente... (tentativa ${attempts}/${maxAttempts})`);
               title = null; // Forçar nova tentativa
-              continue; // Continuar o loop para tentar novamente
+              // Não fazer break aqui, deixar continuar o loop
             } else {
               console.log(`✅ Título parece específico: "${title}"`);
-              // Título válido, sair do loop
+              // Título válido encontrado, sair do loop
               break;
             }
           }
           
-          // Se chegou aqui e title ainda é null, tentar novamente
+          // Se chegou aqui e title ainda é null ou genérico, tentar novamente
           if (!title) {
             if (attempts < maxAttempts) {
               console.log(`⚠️  Título não encontrado, tentando novamente...`);
-              continue;
+              // Continuar o loop
+            } else {
+              console.error(`❌ Não foi possível gerar título válido após ${maxAttempts} tentativas`);
             }
           } else {
             // Título válido encontrado, sair do loop
