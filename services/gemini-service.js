@@ -79,32 +79,55 @@ if (!ffprobePath) {
   console.log('ℹ️  Tentando usar FFprobe do sistema (PATH)');
 }
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+// Carregar chave dinamicamente a cada uso (para permitir atualização sem reiniciar servidor)
+function getGeminiApiKey() {
+  return process.env.GEMINI_API_KEY;
+}
 
 // VALIDAÇÃO DO MÓDULO GEMINI
 let genAI = null;
 let geminiModuleAvailable = false;
+let lastApiKey = null;
 
-try {
-  // Verificar se o módulo está instalado
-  const geminiModule = require('@google/generative-ai');
-  geminiModuleAvailable = !!geminiModule;
-  console.log('✅ Módulo @google/generative-ai está instalado');
+function initializeGemini() {
+  const GEMINI_API_KEY = getGeminiApiKey();
   
-  if (GEMINI_API_KEY) {
-    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    console.log('✅ Gemini API inicializada com sucesso');
-  } else {
-    console.warn('⚠️  GEMINI_API_KEY não configurada');
+  // Se a chave mudou, reinicializar
+  if (GEMINI_API_KEY !== lastApiKey) {
+    console.log('🔄 Chave do Gemini mudou ou foi inicializada pela primeira vez');
+    console.log('   Chave anterior:', lastApiKey ? `${lastApiKey.substring(0, 10)}...${lastApiKey.substring(lastApiKey.length - 5)}` : 'nenhuma');
+    console.log('   Nova chave:', GEMINI_API_KEY ? `${GEMINI_API_KEY.substring(0, 10)}...${GEMINI_API_KEY.substring(GEMINI_API_KEY.length - 5)}` : 'nenhuma');
+    
+    try {
+      // Verificar se o módulo está instalado
+      const geminiModule = require('@google/generative-ai');
+      geminiModuleAvailable = !!geminiModule;
+      console.log('✅ Módulo @google/generative-ai está instalado');
+      
+      if (GEMINI_API_KEY) {
+        genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        lastApiKey = GEMINI_API_KEY;
+        console.log('✅ Gemini API inicializada com sucesso');
+        console.log('   Chave (primeiros 15 chars):', GEMINI_API_KEY.substring(0, 15) + '...');
+      } else {
+        console.warn('⚠️  GEMINI_API_KEY não configurada');
+        genAI = null;
+        lastApiKey = null;
+      }
+    } catch (err) {
+      console.error('❌ ERRO: Módulo @google/generative-ai NÃO está instalado!');
+      console.error('   Erro:', err.message);
+      console.error('   Stack:', err.stack);
+      console.error('   SOLUÇÃO: Execute "npm install @google/generative-ai"');
+      geminiModuleAvailable = false;
+      genAI = null;
+      lastApiKey = null;
+    }
   }
-} catch (err) {
-  console.error('❌ ERRO: Módulo @google/generative-ai NÃO está instalado!');
-  console.error('   Erro:', err.message);
-  console.error('   Stack:', err.stack);
-  console.error('   SOLUÇÃO: Execute "npm install @google/generative-ai"');
-  geminiModuleAvailable = false;
-  genAI = null;
 }
+
+// Inicializar na primeira vez
+initializeGemini();
 
 // Função para garantir que FFmpeg está configurado
 function ensureFFmpegConfigured() {
@@ -325,8 +348,15 @@ async function extractThumbnail(videoPath, outputPath = null) {
 // Gerar conteúdo com Gemini
 async function generateContentWithGemini(videoPath, videoName) {
   const startTime = Date.now();
+  
+  // Recarregar chave dinamicamente (para permitir atualização sem reiniciar servidor)
+  initializeGemini();
+  
+  const GEMINI_API_KEY = getGeminiApiKey();
+  
   console.log('🔑 Verificando configuração do Gemini...');
   console.log('   GEMINI_API_KEY existe?', !!GEMINI_API_KEY);
+  console.log('   GEMINI_API_KEY (primeiros 15 chars):', GEMINI_API_KEY ? GEMINI_API_KEY.substring(0, 15) + '...' : 'N/A');
   console.log('   genAI inicializado?', !!genAI);
   
   // Verificar se o vídeo existe antes de processar
@@ -347,13 +377,15 @@ async function generateContentWithGemini(videoPath, videoName) {
   
   if (!GEMINI_API_KEY) {
     console.error('❌ GEMINI_API_KEY não configurada!');
-    console.error('   Configure a variável de ambiente GEMINI_API_KEY');
-    throw new Error('GEMINI_API_KEY não configurada');
+    console.error('   Configure a variável de ambiente GEMINI_API_KEY no Render');
+    console.error('   Vá em: Render Dashboard → Seu Serviço → Environment → Add Environment Variable');
+    throw new Error('GEMINI_API_KEY não configurada. Configure a variável de ambiente no Render e reinicie o serviço.');
   }
   
   if (!genAI) {
     console.error('❌ Gemini não está inicializado!');
-    throw new Error('Gemini não está inicializado');
+    console.error('   Chave atual:', GEMINI_API_KEY ? `${GEMINI_API_KEY.substring(0, 15)}...` : 'N/A');
+    throw new Error('Gemini não está inicializado. Verifique se a GEMINI_API_KEY está correta.');
   }
 
   try {
