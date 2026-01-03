@@ -633,48 +633,10 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
       console.log('   ⚠️  O Gemini DEVE analisar as imagens e criar título baseado no conteúdo visual!');
       
       // Enviar frames PRIMEIRO, depois o prompt (ordem importante!)
-      // Tentar até 3 vezes com retry automático em caso de quota excedida
-      let result;
-      let response;
-      let retries = 0;
-      const maxRetries = 3;
-      
-      while (retries < maxRetries) {
-        try {
-          result = await model.generateContent([...validFrameData, prompt]);
-          response = result.response.text();
-          break; // Sucesso, sair do loop
-        } catch (quotaError) {
-          retries++;
-          
-          // Verificar se é erro de quota
-          if (quotaError.message && (
-            quotaError.message.includes('429') ||
-            quotaError.message.includes('quota') ||
-            quotaError.message.includes('Quota exceeded') ||
-            quotaError.message.includes('Too Many Requests')
-          )) {
-            // Extrair tempo de retry se disponível
-            let retryDelay = 20; // Padrão: 20 segundos
-            const retryMatch = quotaError.message.match(/retry.*?(\d+)/i);
-            if (retryMatch) {
-              retryDelay = parseInt(retryMatch[1]) + 5; // Adicionar 5 segundos de margem
-            }
-            
-            if (retries < maxRetries) {
-              console.warn(`⚠️  Quota excedida (tentativa ${retries}/${maxRetries}). Aguardando ${retryDelay} segundos antes de tentar novamente...`);
-              await new Promise(resolve => setTimeout(resolve, retryDelay * 1000));
-              continue; // Tentar novamente
-            } else {
-              // Última tentativa falhou, lançar erro amigável
-              throw new Error(`Quota da API do Gemini excedida. A quota gratuita tem limites de uso. Por favor, aguarde alguns minutos e tente novamente, ou verifique seu plano de billing no Google Cloud Console. Detalhes: ${quotaError.message}`);
-            }
-          } else {
-            // Não é erro de quota, propagar o erro
-            throw quotaError;
-          }
-        }
-      }
+      // Tentar apenas 1 vez - se der erro de quota, retornar erro imediatamente
+      // (Retry automático removido porque deixa o usuário esperando muito tempo)
+      const result = await model.generateContent([...validFrameData, prompt]);
+      const response = result.response.text();
       
       console.log('\n✅ Resposta recebida do Gemini Vision!');
       console.log(`📝 Tamanho da resposta: ${response.length} caracteres`);
