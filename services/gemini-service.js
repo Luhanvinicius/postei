@@ -564,9 +564,19 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
       console.log('\n📤 ENVIANDO PARA GEMINI VISION...');
       console.log('   ⚠️  O Gemini DEVE analisar as imagens e criar título baseado no conteúdo visual!');
       
-      // Enviar frames PRIMEIRO, depois o prompt (ordem importante!)
-      const result = await model.generateContent([...validFrameData, prompt]);
-      const response = result.response.text();
+      // Tentar até 2 vezes se o título for genérico
+      let attempts = 0;
+      const maxAttempts = 2;
+      let title = null;
+      let description = '#shorts';
+      
+      while (attempts < maxAttempts && !title) {
+        attempts++;
+        console.log(`\n🔄 Tentativa ${attempts}/${maxAttempts} de geração...`);
+        
+        // Enviar frames PRIMEIRO, depois o prompt (ordem importante!)
+        const result = await model.generateContent([...validFrameData, prompt]);
+        const response = result.response.text();
       
       console.log('\n✅ Resposta recebida do Gemini Vision!');
       console.log(`📝 Tamanho da resposta: ${response.length} caracteres`);
@@ -632,39 +642,39 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
             if (isGeneric) {
               console.error(`❌ TÍTULO GENÉRICO REJEITADO: "${title}"`);
               console.error(`   O Gemini não analisou os frames corretamente!`);
-              title = null; // Forçar nova tentativa ou fallback
+              console.error(`   Tentando novamente... (tentativa ${attempts}/${maxAttempts})`);
+              title = null; // Forçar nova tentativa
+              continue; // Continuar o loop para tentar novamente
             } else {
               console.log(`✅ Título parece específico: "${title}"`);
+              // Título válido, sair do loop
+              break;
             }
           }
           
-          // VALIDAÇÃO: Garantir que descrição não é apenas "#shorts"
-          if (!description || description.trim() === '#shorts' || description.trim().length < 10) {
-            console.warn('⚠️  Descrição está vazia ou muito genérica, gerando descrição baseada no título...');
-            if (title) {
-              description = `${title}\n\n#shorts #viral #youtube`;
-            } else {
-              description = '#shorts #viral #youtube';
-            }
-            console.log(`✅ Descrição gerada: "${description}"`);
-          }
-          
-          // Validação mínima - apenas verificar se não está vazio
-          if (!title || title.trim().length < 3) {
-            console.warn('⚠️  Título extraído está vazio ou muito curto');
-            // Tentar extrair título do texto da resposta
-            const titleMatch = response.match(/["']title["']\s*:\s*["']([^"']+)["']/i) || 
-                              response.match(/title["']?\s*:\s*["']([^"']+)["']/i);
-            if (titleMatch) {
-              title = titleMatch[1];
-              console.log(`✅ Título extraído do texto: "${title}"`);
+          // Se chegou aqui e title ainda é null, tentar novamente
+          if (!title) {
+            if (attempts < maxAttempts) {
+              console.log(`⚠️  Título não encontrado, tentando novamente...`);
+              continue;
             }
           } else {
-            console.log(`✅ Título aceito: "${title}"`);
+            // Título válido encontrado, sair do loop
+            break;
           }
         } catch (parseError) {
           console.error('❌ Erro ao fazer parse do JSON:', parseError);
-          console.error('JSON encontrado:', jsonMatch[0].substring(0, 200));
+          
+          // Se for erro de título genérico, tentar novamente
+          if (parseError.message && parseError.message.includes('genérico')) {
+            if (attempts < maxAttempts) {
+              console.log(`⚠️  Título genérico detectado, tentando novamente...`);
+              title = null;
+              continue;
+            }
+          }
+          
+          console.error('JSON encontrado:', jsonMatch ? jsonMatch[0].substring(0, 200) : 'não encontrado');
           
           // Tentar extrair título manualmente do texto
           console.log('🔍 Tentando extrair título manualmente...');
@@ -674,6 +684,33 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
           if (titleMatch) {
             title = titleMatch[1];
             console.log(`✅ Título extraído manualmente: ${title}`);
+            
+            // Validar título extraído manualmente
+            const titleLower = title.toLowerCase().trim();
+            const videoNameLower = videoName.toLowerCase();
+            const genericPatterns = [
+              /cena mais icônica/i,
+              /por que.*viralizando/i,
+              /está viralizando/i,
+              /você não vai acreditar/i
+            ];
+            
+            if (titleLower.includes(videoNameLower.replace(/\.[^/.]+$/, '')) || 
+                titleLower.includes('v01') || titleLower.includes('v02') ||
+                titleLower.match(/v\d+/i) ||
+                genericPatterns.some(pattern => pattern.test(titleLower))) {
+              console.error(`❌ Título extraído manualmente também é genérico: "${title}"`);
+              title = null;
+              if (attempts < maxAttempts) {
+                continue;
+              }
+            } else {
+              break; // Título válido
+            }
+          } else {
+            if (attempts < maxAttempts) {
+              continue;
+            }
           }
         }
       } else {
@@ -692,11 +729,59 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
           const match = response.match(pattern);
           if (match && match[1] && match[1].trim().length > 5) {
             title = match[1].trim();
-            console.log(`✅ Título extraído do texto livre: ${title}`);
-            break;
+            console.log(`✅ Título encontrado no texto livre: "${title}"`);
+            
+            // Validar título encontrado
+            const titleLower = title.toLowerCase().trim();
+            const videoNameLower = videoName.toLowerCase();
+            const genericPatterns = [
+              /cena mais icônica/i,
+              /por que.*viralizando/i,
+              /está viralizando/i,
+              /você não vai acreditar/i
+            ];
+            
+            if (titleLower.includes(videoNameLower.replace(/\.[^/.]+$/, '')) || 
+                titleLower.includes('v01') || titleLower.includes('v02') ||
+                titleLower.match(/v\d+/i) ||
+                genericPatterns.some(pattern => pattern.test(titleLower))) {
+              console.error(`❌ Título encontrado também é genérico: "${title}"`);
+              title = null;
+              break;
+            } else {
+              break; // Título válido encontrado
+            }
           }
         }
+        
+        if (!title && attempts < maxAttempts) {
+          continue; // Tentar novamente
+        }
       }
+      
+      // Se chegou aqui e ainda não tem título válido, tentar novamente
+      if (!title && attempts < maxAttempts) {
+        console.log(`⚠️  Não foi possível gerar título válido, tentando novamente...`);
+        continue;
+      }
+      
+      // Se tem título válido, sair do loop
+      if (title) {
+        break;
+      }
+    } // Fim do while
+    
+    // VALIDAÇÃO: Garantir que descrição não é apenas "#shorts"
+    if (!description || description.trim() === '#shorts' || description.trim().length < 10) {
+      console.warn('⚠️  Descrição está vazia ou muito genérica, gerando descrição baseada no título...');
+      if (title) {
+        description = `${title}\n\n#shorts #viral #youtube`;
+      } else {
+        description = '#shorts #viral #youtube';
+      }
+      console.log(`✅ Descrição gerada: "${description}"`);
+    }
+    
     } catch (geminiError) {
       console.error('❌ ERRO ao chamar Gemini API:', geminiError);
       console.error('   Detalhes:', geminiError.message);
