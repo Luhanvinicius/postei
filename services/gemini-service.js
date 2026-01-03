@@ -4,41 +4,6 @@ const path = require('path');
 const ffmpeg = require('fluent-ffmpeg');
 const sharp = require('sharp');
 
-// Função auxiliar para calcular similaridade entre strings
-function calculateSimilarity(str1, str2) {
-  const longer = str1.length > str2.length ? str1 : str2;
-  const shorter = str1.length > str2.length ? str2 : str1;
-  if (longer.length === 0) return 1.0;
-  
-  // Calcular distância de Levenshtein
-  const distance = levenshteinDistance(longer, shorter);
-  return (longer.length - distance) / longer.length;
-}
-
-function levenshteinDistance(str1, str2) {
-  const matrix = [];
-  for (let i = 0; i <= str2.length; i++) {
-    matrix[i] = [i];
-  }
-  for (let j = 0; j <= str1.length; j++) {
-    matrix[0][j] = j;
-  }
-  for (let i = 1; i <= str2.length; i++) {
-    for (let j = 1; j <= str1.length; j++) {
-      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
-        );
-      }
-    }
-  }
-  return matrix[str2.length][str1.length];
-}
-
 // Tentar usar bibliotecas que incluem os binários do FFmpeg diretamente
 // Se não estiverem disponíveis (erro no deploy), usar do sistema
 console.log('🔧 Configurando FFmpeg e FFprobe...');
@@ -79,55 +44,32 @@ if (!ffprobePath) {
   console.log('ℹ️  Tentando usar FFprobe do sistema (PATH)');
 }
 
-// Carregar chave dinamicamente a cada uso (para permitir atualização sem reiniciar servidor)
-function getGeminiApiKey() {
-  return process.env.GEMINI_API_KEY;
-}
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 // VALIDAÇÃO DO MÓDULO GEMINI
 let genAI = null;
 let geminiModuleAvailable = false;
-let lastApiKey = null;
 
-function initializeGemini() {
-  const GEMINI_API_KEY = getGeminiApiKey();
+try {
+  // Verificar se o módulo está instalado
+  const geminiModule = require('@google/generative-ai');
+  geminiModuleAvailable = !!geminiModule;
+  console.log('✅ Módulo @google/generative-ai está instalado');
   
-  // Se a chave mudou, reinicializar
-  if (GEMINI_API_KEY !== lastApiKey) {
-    console.log('🔄 Chave do Gemini mudou ou foi inicializada pela primeira vez');
-    console.log('   Chave anterior:', lastApiKey ? `${lastApiKey.substring(0, 10)}...${lastApiKey.substring(lastApiKey.length - 5)}` : 'nenhuma');
-    console.log('   Nova chave:', GEMINI_API_KEY ? `${GEMINI_API_KEY.substring(0, 10)}...${GEMINI_API_KEY.substring(GEMINI_API_KEY.length - 5)}` : 'nenhuma');
-    
-    try {
-      // Verificar se o módulo está instalado
-      const geminiModule = require('@google/generative-ai');
-      geminiModuleAvailable = !!geminiModule;
-      console.log('✅ Módulo @google/generative-ai está instalado');
-      
-      if (GEMINI_API_KEY) {
-        genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        lastApiKey = GEMINI_API_KEY;
-        console.log('✅ Gemini API inicializada com sucesso');
-        console.log('   Chave (primeiros 15 chars):', GEMINI_API_KEY.substring(0, 15) + '...');
-      } else {
-        console.warn('⚠️  GEMINI_API_KEY não configurada');
-        genAI = null;
-        lastApiKey = null;
-      }
-    } catch (err) {
-      console.error('❌ ERRO: Módulo @google/generative-ai NÃO está instalado!');
-      console.error('   Erro:', err.message);
-      console.error('   Stack:', err.stack);
-      console.error('   SOLUÇÃO: Execute "npm install @google/generative-ai"');
-      geminiModuleAvailable = false;
-      genAI = null;
-      lastApiKey = null;
-    }
+  if (GEMINI_API_KEY) {
+    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    console.log('✅ Gemini API inicializada com sucesso');
+  } else {
+    console.warn('⚠️  GEMINI_API_KEY não configurada');
   }
+} catch (err) {
+  console.error('❌ ERRO: Módulo @google/generative-ai NÃO está instalado!');
+  console.error('   Erro:', err.message);
+  console.error('   Stack:', err.stack);
+  console.error('   SOLUÇÃO: Execute "npm install @google/generative-ai"');
+  geminiModuleAvailable = false;
+  genAI = null;
 }
-
-// Inicializar na primeira vez
-initializeGemini();
 
 // Função para garantir que FFmpeg está configurado
 function ensureFFmpegConfigured() {
@@ -348,15 +290,8 @@ async function extractThumbnail(videoPath, outputPath = null) {
 // Gerar conteúdo com Gemini
 async function generateContentWithGemini(videoPath, videoName) {
   const startTime = Date.now();
-  
-  // Recarregar chave dinamicamente (para permitir atualização sem reiniciar servidor)
-  initializeGemini();
-  
-  const GEMINI_API_KEY = getGeminiApiKey();
-  
   console.log('🔑 Verificando configuração do Gemini...');
   console.log('   GEMINI_API_KEY existe?', !!GEMINI_API_KEY);
-  console.log('   GEMINI_API_KEY (primeiros 15 chars):', GEMINI_API_KEY ? GEMINI_API_KEY.substring(0, 15) + '...' : 'N/A');
   console.log('   genAI inicializado?', !!genAI);
   
   // Verificar se o vídeo existe antes de processar
@@ -377,15 +312,13 @@ async function generateContentWithGemini(videoPath, videoName) {
   
   if (!GEMINI_API_KEY) {
     console.error('❌ GEMINI_API_KEY não configurada!');
-    console.error('   Configure a variável de ambiente GEMINI_API_KEY no Render');
-    console.error('   Vá em: Render Dashboard → Seu Serviço → Environment → Add Environment Variable');
-    throw new Error('GEMINI_API_KEY não configurada. Configure a variável de ambiente no Render e reinicie o serviço.');
+    console.error('   Configure a variável de ambiente GEMINI_API_KEY');
+    throw new Error('GEMINI_API_KEY não configurada');
   }
   
   if (!genAI) {
     console.error('❌ Gemini não está inicializado!');
-    console.error('   Chave atual:', GEMINI_API_KEY ? `${GEMINI_API_KEY.substring(0, 15)}...` : 'N/A');
-    throw new Error('Gemini não está inicializado. Verifique se a GEMINI_API_KEY está correta.');
+    throw new Error('Gemini não está inicializado');
   }
 
   try {
@@ -436,33 +369,6 @@ async function generateContentWithGemini(videoPath, videoName) {
         thumbnailPath = frames[0];
         console.log(`📸 Usando primeiro frame como thumbnail: ${thumbnailPath}`);
         console.log(`📸 Frame existe? ${fs.existsSync(thumbnailPath)}`);
-        console.log(`📸 Caminho absoluto: ${path.resolve(thumbnailPath)}`);
-        
-        // Verificar se o arquivo realmente existe
-        if (!fs.existsSync(thumbnailPath)) {
-          console.error(`❌ Frame não existe no caminho especificado: ${thumbnailPath}`);
-          // Tentar usar outro frame se disponível
-          for (let i = 1; i < frames.length; i++) {
-            if (fs.existsSync(frames[i])) {
-              thumbnailPath = frames[i];
-              console.log(`✅ Usando frame alternativo ${i + 1}: ${thumbnailPath}`);
-              break;
-            }
-          }
-          
-          // Se nenhum frame existe, tentar gerar thumbnail
-          if (!fs.existsSync(thumbnailPath)) {
-            console.warn('⚠️  Nenhum frame existe, tentando gerar thumbnail...');
-            try {
-              thumbnailPath = await extractThumbnail(videoPath);
-              if (thumbnailPath) {
-                console.log(`✅ Thumbnail gerado: ${thumbnailPath}`);
-              }
-            } catch (thumbError) {
-              console.error(`❌ Erro ao gerar thumbnail: ${thumbError.message}`);
-            }
-          }
-        }
       } else {
         console.warn('⚠️  Nenhum frame disponível para usar como thumbnail');
         thumbnailPath = null;
@@ -595,21 +501,17 @@ ${validFrameData.length > 2 ? `FRAME 3:
 PASSO 2: CRIAR TÍTULO ESPECÍFICO BASEADO NA ANÁLISE VISUAL
 Baseado EXCLUSIVAMENTE na sua análise detalhada acima, crie um título que:
 - Descreva ESPECIFICAMENTE o que você VÊ nas imagens (não genérico!)
-- Mencione elementos visuais concretos que você identificou (ex: "Duas pessoas se abraçando", "Galinhas no quintal", "Pessoa cozinhando", "Reunião de trabalho")
+- Mencione elementos visuais concretos (ex: "Galinhas no quintal", "Pessoa cozinhando", "Reunião de trabalho")
 - Seja criativo e chamativo para redes sociais
-- Use emojis que correspondam EXATAMENTE ao conteúdo visual que você vê
+- Use emojis que correspondam EXATAMENTE ao conteúdo visual
 - Tenha entre 30-60 caracteres
 - NUNCA use o nome do arquivo no título
-- NUNCA use frases genéricas como "A cena mais icônica" ou "O momento mais"
 
 EXEMPLOS DE TÍTULOS ESPECÍFICOS (baseados em análise visual real):
-- Se vê duas pessoas se abraçando: "O abraço mais emocionante que você vai ver! 💙"
 - Se vê galinhas: "Galinhas no quintal: o momento mais engraçado! 🐔"
 - Se vê alguém cozinhando: "Receita simples que vai mudar sua vida! 👨‍🍳"
 - Se vê pessoas rindo: "A reação mais genuína que você vai ver hoje! 😂"
 - Se vê tutorial: "Como fazer [ação específica que você vê] passo a passo! 📝"
-
-IMPORTANTE: O título DEVE mencionar elementos visuais específicos que você identificou na análise!
 
 PASSO 3: CRIAR DESCRIÇÃO DETALHADA
 Crie uma descrição de 2-3 linhas que:
@@ -619,19 +521,17 @@ Crie uma descrição de 2-3 linhas que:
 - Seja específica e não genérica
 
 ═══════════════════════════════════════════════════════════════
-❌ PROIBIÇÕES ABSOLUTAS - NUNCA USE ESTES PADRÕES:
+❌ PROIBIÇÕES ABSOLUTAS - NUNCA USE:
 ═══════════════════════════════════════════════════════════════
 
-- "A cena mais icônica" ou "A cena mais icônica de [qualquer coisa]"
-- "O momento mais" ou "O momento mais [qualquer coisa]"
+- "A cena mais icônica de [qualquer coisa]"
 - "Por que [qualquer coisa] está viralizando?"
-- Títulos que mencionam o nome do arquivo (V01, V02, thechosenoficial, etc.)
+- Títulos que mencionam o nome do arquivo (V01, V02, etc.)
 - Títulos genéricos sem descrição visual específica
 - Descrições vazias ou apenas "#shorts"
 - Títulos que não descrevem o que você VÊ nas imagens
-- Frases como "você não vai acreditar", "isso vai mudar", "você precisa ver"
 
-⚠️ SE VOCÊ USAR QUALQUER UM DESSES PADRÕES GENÉRICOS, SUA RESPOSTA SERÁ REJEITADA E VOCÊ PRECISARÁ REFAZER COM ANÁLISE VISUAL CORRETA!
+Se você usar qualquer um desses padrões genéricos, sua resposta será REJEITADA e você precisará refazer.
 
 ═══════════════════════════════════════════════════════════════
 FORMATO DE RESPOSTA (OBRIGATÓRIO):
@@ -665,8 +565,6 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
       console.log('   ⚠️  O Gemini DEVE analisar as imagens e criar título baseado no conteúdo visual!');
       
       // Enviar frames PRIMEIRO, depois o prompt (ordem importante!)
-      // Tentar apenas 1 vez - se der erro de quota, retornar erro imediatamente
-      // (Retry automático removido porque deixa o usuário esperando muito tempo)
       const result = await model.generateContent([...validFrameData, prompt]);
       const response = result.response.text();
       
@@ -711,132 +609,33 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
           if (title) {
             const titleLower = title.toLowerCase().trim();
             const videoNameLower = videoName.toLowerCase();
-            const videoNameWithoutExt = videoNameLower.replace(/\.[^/.]+$/, '');
             
-            // Normalizar: remover underscores e espaços para comparação
-            const titleNormalized = titleLower.replace(/[_\s-]/g, '');
-            const videoNameNormalized = videoNameWithoutExt.replace(/[_\s-]/g, '');
-            
-            // Verificar se o título é muito similar ao nome do arquivo (mais de 50% de similaridade)
-            if (videoNameNormalized.length > 0 && titleNormalized.length > 0) {
-              const similarity = calculateSimilarity(titleNormalized, videoNameNormalized);
-              if (similarity > 0.5) {
-                console.error('❌ Título rejeitado: muito similar ao nome do arquivo!');
-                console.error(`   Título: "${title}"`);
-                console.error(`   Nome do arquivo: "${videoName}"`);
-                console.error(`   Similaridade: ${(similarity * 100).toFixed(1)}%`);
-                throw new Error('Título genérico detectado: muito similar ao nome do arquivo. O Gemini deve analisar apenas o conteúdo visual e criar um título descritivo.');
-              }
-            }
-            
-            // VALIDAÇÃO CRÍTICA: Verificar se o título é apenas números e letras sem sentido (nome de arquivo)
-            // Se o título tem mais de 20 caracteres e contém muitos números, provavelmente é nome de arquivo
-            const numberCount = (title.match(/\d/g) || []).length;
-            const numberPercentage = numberCount / title.length;
-            
-            // Se mais de 30% do título são números, é provável que seja nome de arquivo
-            if (numberPercentage > 0.3 && title.length > 15) {
-              console.error('❌ Título rejeitado: contém muitos números (provavelmente nome de arquivo)!');
-              console.error(`   Título: "${title}"`);
-              console.error(`   Números: ${numberCount} de ${title.length} caracteres (${(numberPercentage * 100).toFixed(1)}%)`);
-              throw new Error('Título genérico detectado: contém muitos números, parece ser apenas o nome do arquivo. O Gemini deve analisar o conteúdo visual e criar um título descritivo.');
-            }
-            
-            // Verificar se o título contém sequências longas de números (como timestamps)
-            // Verificar também se começa com padrão de nome de arquivo (V01, V02, etc.)
-            if (title.match(/\d{10,}/) || title.match(/^v\d+\s/i) || title.match(/^v\d+$/i)) {
-              console.error('❌ Título rejeitado: contém sequência longa de números (timestamp) ou padrão de nome de arquivo!');
-              console.error(`   Título: "${title}"`);
-              throw new Error('Título genérico detectado: contém sequência de números que parece ser timestamp ou padrão de nome de arquivo. O Gemini deve analisar o conteúdo visual e criar um título descritivo.');
-            }
-            
-            // Verificar se o título começa com parte do nome do arquivo (ex: "V02" no início)
-            const videoNameBase = videoNameWithoutExt.toLowerCase();
-            const firstPartOfVideoName = videoNameBase.split(/[_\s-]/)[0];
-            if (firstPartOfVideoName.length >= 2 && 
-                (titleLower.startsWith(firstPartOfVideoName) || 
-                 titleLower.match(new RegExp(`^${firstPartOfVideoName}\\s`, 'i')))) {
-              console.error('❌ Título rejeitado: começa com parte do nome do arquivo!');
+            // Verificar se o título menciona o nome do arquivo
+            if (titleLower.includes(videoNameLower.replace(/\.[^/.]+$/, '')) || 
+                titleLower.includes('v01') || titleLower.includes('v02') ||
+                titleLower.match(/v\d+/i)) {
+              console.error('❌ Título rejeitado: menciona nome do arquivo!');
               console.error(`   Título: "${title}"`);
               console.error(`   Nome do arquivo: "${videoName}"`);
-              console.error(`   Primeira parte do nome: "${firstPartOfVideoName}"`);
-              throw new Error('Título genérico detectado: começa com parte do nome do arquivo. O Gemini deve analisar apenas o conteúdo visual e criar um título descritivo.');
-            }
-            
-            // Verificar se o título é muito similar ao nome do arquivo (comparação palavra por palavra)
-            const titleWords = titleLower.split(/\s+/).filter(w => w.length > 2);
-            const videoNameWords = videoNameWithoutExt.split(/[_\s-]/).filter(w => w.length > 2);
-            const matchingWords = titleWords.filter(word => 
-              videoNameWords.some(videoWord => 
-                word.includes(videoWord) || videoWord.includes(word)
-              )
-            );
-            
-            // Se mais de 50% das palavras do título estão no nome do arquivo, rejeitar
-            if (titleWords.length > 0 && matchingWords.length / titleWords.length > 0.5) {
-              console.error('❌ Título rejeitado: muito similar ao nome do arquivo (palavras)!');
-              console.error(`   Título: "${title}"`);
-              console.error(`   Palavras do título: ${titleWords.join(', ')}`);
-              console.error(`   Palavras correspondentes: ${matchingWords.join(', ')}`);
-              throw new Error('Título genérico detectado: muito similar ao nome do arquivo. O Gemini deve analisar apenas o conteúdo visual e criar um título descritivo.');
-            }
-            
-            // Verificar se o título menciona partes do nome do arquivo
-            const videoNameParts = videoNameWithoutExt.split(/[_\s-]/).filter(p => p.length > 3);
-            const matchingParts = videoNameParts.filter(part => titleLower.includes(part.toLowerCase()));
-            if (matchingParts.length >= 2 && title.split(/\s+/).length <= 5) {
-              console.error('❌ Título rejeitado: contém múltiplas partes do nome do arquivo!');
-              console.error(`   Título: "${title}"`);
-              console.error(`   Partes encontradas: ${matchingParts.join(', ')}`);
-              throw new Error('Título genérico detectado: contém partes do nome do arquivo. O Gemini deve analisar apenas o conteúdo visual.');
-            }
-            
-            // Verificar padrões comuns de nome de arquivo
-            if (titleLower.includes('v01') || titleLower.includes('v02') ||
-                titleLower.match(/v\d+/i) || titleLower.match(/\d{10,}/)) {
-              console.error('❌ Título rejeitado: contém padrão de nome de arquivo!');
-              console.error(`   Título: "${title}"`);
-              throw new Error('Título genérico detectado: contém padrão de nome de arquivo. O Gemini deve analisar apenas o conteúdo visual.');
+              throw new Error('Título genérico detectado: menciona nome do arquivo. O Gemini deve analisar apenas o conteúdo visual.');
             }
             
             const genericPatterns = [
               /cena mais icônica/i,
               /por que.*viralizando/i,
               /está viralizando/i,
-              /você não vai acreditar/i,
-              /a cena mais/i,
-              /cena mais/i,
-              /momento mais icônico/i,
-              /o momento mais/i,
-              /isso vai mudar/i,
-              /você precisa ver/i,
-              /não vai acreditar/i,
-              /isso é incrível/i,
-              /você não vai acreditar no que/i
+              /você não vai acreditar/i
             ];
             
             const isGeneric = genericPatterns.some(pattern => pattern.test(titleLower));
             
             if (isGeneric) {
               console.error(`❌ TÍTULO GENÉRICO REJEITADO: "${title}"`);
-              console.error(`   Padrão genérico detectado!`);
               console.error(`   O Gemini não analisou os frames corretamente!`);
-              throw new Error(`Título genérico detectado: "${title}". O Gemini deve analisar o conteúdo visual específico das imagens e criar um título que descreva exatamente o que aparece nos frames, não usar frases genéricas.`);
+              title = null; // Forçar nova tentativa ou fallback
+            } else {
+              console.log(`✅ Título parece específico: "${title}"`);
             }
-            
-            // Verificar se o título é muito curto ou muito genérico
-            if (title.length < 20) {
-              console.warn('⚠️  Título muito curto, pode ser genérico');
-            }
-            
-            // Verificar se o título tem palavras específicas que indicam análise visual
-            const hasVisualDescription = /(pessoa|pessoas|homem|mulher|gato|cachorro|galinha|animal|comida|cozinha|rua|casa|escritório|trabalho|dança|riso|abraço|abraçando|vestindo|usando|segurando|com|em|no|na)/i.test(titleLower);
-            
-            if (!hasVisualDescription && title.length < 40) {
-              console.warn('⚠️  Título pode ser genérico - não menciona elementos visuais específicos');
-            }
-            
-            console.log(`✅ Título aceito: "${title}"`);
           }
           
           // VALIDAÇÃO: Garantir que descrição não é apenas "#shorts"
@@ -873,23 +672,8 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
                             response.match(/title["']?\s*:\s*["']([^"']+)["']/i) ||
                             response.match(/título["']?\s*:\s*["']([^"']+)["']/i);
           if (titleMatch) {
-            const extractedTitle = titleMatch[1].trim();
-            console.log(`✅ Título extraído manualmente: ${extractedTitle}`);
-            
-            // VALIDAÇÃO IMEDIATA: Rejeitar se for nome de arquivo
-            const numberCount = (extractedTitle.match(/\d/g) || []).length;
-            const numberPercentage = numberCount / extractedTitle.length;
-            
-            // Se tem muitos números ou sequências longas, rejeitar
-            if (numberPercentage > 0.3 && extractedTitle.length > 15) {
-              console.error('❌ Título extraído manualmente rejeitado: contém muitos números!');
-              title = null; // Não usar este título
-            } else if (extractedTitle.match(/\d{10,}/)) {
-              console.error('❌ Título extraído manualmente rejeitado: contém sequência longa de números!');
-              title = null; // Não usar este título
-            } else {
-              title = extractedTitle;
-            }
+            title = titleMatch[1];
+            console.log(`✅ Título extraído manualmente: ${title}`);
           }
         }
       } else {
@@ -907,26 +691,8 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
         for (const pattern of titlePatterns) {
           const match = response.match(pattern);
           if (match && match[1] && match[1].trim().length > 5) {
-            const extractedTitle = match[1].trim();
-            console.log(`✅ Título extraído do texto livre: ${extractedTitle}`);
-            
-            // VALIDAÇÃO IMEDIATA: Rejeitar se for nome de arquivo
-            const extractedTitleLower = extractedTitle.toLowerCase();
-            const numberCount = (extractedTitle.match(/\d/g) || []).length;
-            const numberPercentage = numberCount / extractedTitle.length;
-            
-            // Se tem muitos números ou sequências longas, rejeitar
-            if (numberPercentage > 0.3 && extractedTitle.length > 15) {
-              console.error('❌ Título extraído rejeitado: contém muitos números!');
-              continue; // Tentar próximo padrão
-            }
-            
-            if (extractedTitle.match(/\d{10,}/)) {
-              console.error('❌ Título extraído rejeitado: contém sequência longa de números!');
-              continue; // Tentar próximo padrão
-            }
-            
-            title = extractedTitle;
+            title = match[1].trim();
+            console.log(`✅ Título extraído do texto livre: ${title}`);
             break;
           }
         }
@@ -935,34 +701,21 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
       console.error('❌ ERRO ao chamar Gemini API:', geminiError);
       console.error('   Detalhes:', geminiError.message);
       console.error('   Stack:', geminiError.stack);
-      
-      // SEMPRE propagar o erro - NÃO usar fallback genérico
-      // Se o erro é sobre título genérico, propagar o erro
-      if (geminiError.message && (geminiError.message.includes('Título genérico') || 
-                                  geminiError.message.includes('genérico') ||
-                                  geminiError.message.includes('nome do arquivo'))) {
-        throw geminiError;
-      }
-      
-      // Se o erro é sobre quota, criar mensagem mais amigável
-      const errorMessage = geminiError.message || '';
-      if (errorMessage.includes('429') ||
-          errorMessage.includes('quota') ||
-          errorMessage.includes('Quota exceeded') ||
-          errorMessage.includes('Too Many Requests') ||
-          errorMessage.includes('FreeTier')) {
-        throw new Error('Quota da API do Gemini excedida. A quota gratuita tem limites de uso. Por favor, aguarde alguns minutos e tente novamente, ou verifique seu plano de billing no Google Cloud Console.');
-      }
-      
-      // Para outros erros, também lançar (não usar fallback genérico)
-      throw new Error(`Erro ao gerar conteúdo com Gemini: ${geminiError.message}`);
+      // Não lançar erro, usar fallback
+      title = null;
     }
     
-    // Se não conseguiu gerar título, lançar erro (não usar fallback genérico)
+    // Se não conseguiu gerar título, usar fallback
     if (!title || title.trim().length < 3) {
-      console.error('❌ ERRO: Título não foi gerado ou está vazio!');
-      console.error('   O Gemini deve analisar os frames e criar um título específico.');
-      throw new Error('Não foi possível gerar um título específico baseado no conteúdo visual. O Gemini deve analisar os frames do vídeo e criar um título que descreva exatamente o que aparece nas imagens.');
+      console.warn('⚠️  Título não foi gerado ou está vazio, usando fallback...');
+      const nameClean = videoName.replace(/\.[^/.]+$/, '').replace(/[()]/g, ' ').trim();
+      const words = nameClean.split(/\s+/).filter(w => w.length > 2);
+      if (words.length > 0) {
+        title = `A cena mais icônica de ${words[0]}! 🎬`;
+      } else {
+        title = 'Conteúdo exclusivo que você precisa ver! 🎥';
+      }
+      console.warn(`⚠️  Usando fallback: "${title}"`);
     }
     
     // Garantir que description não está vazia ou muito genérica
@@ -1038,30 +791,6 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
       console.warn(`   thumbnailPath: ${thumbnailPath}`);
     }
     
-    // ÚLTIMA TENTATIVA: Se ainda não tem thumbnail, tentar gerar um agora
-    if (!thumbnailPath || !fs.existsSync(thumbnailPath)) {
-      console.warn('⚠️  Thumbnail ainda não disponível, tentando gerar agora...');
-      try {
-        const generatedThumbnail = await extractThumbnail(videoPath);
-        if (generatedThumbnail && fs.existsSync(generatedThumbnail)) {
-          console.log(`✅ Thumbnail gerado com sucesso na última tentativa: ${generatedThumbnail}`);
-          
-          // Copiar para pasta de thumbnails
-          const thumbnailsDir = path.join(__dirname, '../thumbnails');
-          fs.ensureDirSync(thumbnailsDir);
-          const videoNameSafe = path.basename(videoPath, path.extname(videoPath));
-          const safeName = videoNameSafe.replace(/[^a-zA-Z0-9\s\-_]/g, '').trim() || 'video';
-          const finalThumbnailPath = path.join(thumbnailsDir, `${safeName}_thumb.jpg`);
-          
-          fs.copyFileSync(generatedThumbnail, finalThumbnailPath);
-          thumbnailPath = finalThumbnailPath;
-          console.log(`✅ Thumbnail copiado para: ${thumbnailPath}`);
-        }
-      } catch (thumbError) {
-        console.error(`❌ Erro ao gerar thumbnail na última tentativa: ${thumbError.message}`);
-      }
-    }
-    
     console.log(`📸 thumbnailPath FINAL: ${thumbnailPath}`);
     console.log(`📸 thumbnailPath FINAL existe? ${thumbnailPath ? fs.existsSync(thumbnailPath) : false}`);
     console.log(`📸 ===== FIM PROCESSAMENTO THUMBNAIL =====\n`);
@@ -1105,13 +834,12 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
     
     return result;
   } catch (error) {
-    console.error('❌ ERRO CRÍTICO ao gerar conteúdo:', error);
-    console.error('   Mensagem:', error.message);
-    console.error('   Stack:', error.stack);
-    
-    // SEMPRE propagar o erro - NÃO retornar fallback genérico
-    // O frontend deve tratar o erro e mostrar mensagem ao usuário
-    throw error;
+    console.error('Erro ao gerar conteúdo:', error);
+    return {
+      title: videoName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+      description: '#shorts',
+      thumbnail_path: null  // Mesmo nome do bot antigo
+    };
   }
 }
 
