@@ -4,6 +4,41 @@ const path = require('path');
 const ffmpeg = require('fluent-ffmpeg');
 const sharp = require('sharp');
 
+// Função auxiliar para calcular similaridade entre strings
+function calculateSimilarity(str1, str2) {
+  const longer = str1.length > str2.length ? str1 : str2;
+  const shorter = str1.length > str2.length ? str2 : str1;
+  if (longer.length === 0) return 1.0;
+  
+  // Calcular distância de Levenshtein
+  const distance = levenshteinDistance(longer, shorter);
+  return (longer.length - distance) / longer.length;
+}
+
+function levenshteinDistance(str1, str2) {
+  const matrix = [];
+  for (let i = 0; i <= str2.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= str1.length; j++) {
+    matrix[0][j] = j;
+  }
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  return matrix[str2.length][str1.length];
+}
+
 // Tentar usar bibliotecas que incluem os binários do FFmpeg diretamente
 // Se não estiverem disponíveis (erro no deploy), usar do sistema
 console.log('🔧 Configurando FFmpeg e FFprobe...');
@@ -615,15 +650,52 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
           if (title) {
             const titleLower = title.toLowerCase().trim();
             const videoNameLower = videoName.toLowerCase();
+            const videoNameWithoutExt = videoNameLower.replace(/\.[^/.]+$/, '');
             
-            // Verificar se o título menciona o nome do arquivo
-            if (titleLower.includes(videoNameLower.replace(/\.[^/.]+$/, '')) || 
-                titleLower.includes('v01') || titleLower.includes('v02') ||
-                titleLower.match(/v\d+/i)) {
-              console.error('❌ Título rejeitado: menciona nome do arquivo!');
+            // Normalizar: remover underscores e espaços para comparação
+            const titleNormalized = titleLower.replace(/[_\s-]/g, '');
+            const videoNameNormalized = videoNameWithoutExt.replace(/[_\s-]/g, '');
+            
+            // Verificar se o título é muito similar ao nome do arquivo (mais de 50% de similaridade)
+            if (videoNameNormalized.length > 0 && titleNormalized.length > 0) {
+              const similarity = calculateSimilarity(titleNormalized, videoNameNormalized);
+              if (similarity > 0.5) {
+                console.error('❌ Título rejeitado: muito similar ao nome do arquivo!');
+                console.error(`   Título: "${title}"`);
+                console.error(`   Nome do arquivo: "${videoName}"`);
+                console.error(`   Similaridade: ${(similarity * 100).toFixed(1)}%`);
+                throw new Error('Título genérico detectado: muito similar ao nome do arquivo. O Gemini deve analisar apenas o conteúdo visual e criar um título descritivo.');
+              }
+            }
+            
+            // Verificar se o título contém apenas números e letras sem sentido (como nome de arquivo)
+            const isOnlyNumbersAndLetters = /^[a-z0-9\s_-]+$/i.test(title) && !/[aeiou]{2,}/i.test(title) && title.split(/\s+/).length > 3;
+            if (isOnlyNumbersAndLetters && title.length > 20) {
+              // Verificar se tem muitos números (característico de nome de arquivo)
+              const numberCount = (title.match(/\d/g) || []).length;
+              if (numberCount > title.length * 0.3) {
+                console.error('❌ Título rejeitado: parece ser nome de arquivo (muitos números)!');
+                console.error(`   Título: "${title}"`);
+                throw new Error('Título genérico detectado: parece ser apenas o nome do arquivo. O Gemini deve analisar o conteúdo visual e criar um título descritivo.');
+              }
+            }
+            
+            // Verificar se o título menciona partes do nome do arquivo
+            const videoNameParts = videoNameWithoutExt.split(/[_\s-]/).filter(p => p.length > 3);
+            const matchingParts = videoNameParts.filter(part => titleLower.includes(part.toLowerCase()));
+            if (matchingParts.length >= 2 && title.split(/\s+/).length <= 5) {
+              console.error('❌ Título rejeitado: contém múltiplas partes do nome do arquivo!');
               console.error(`   Título: "${title}"`);
-              console.error(`   Nome do arquivo: "${videoName}"`);
-              throw new Error('Título genérico detectado: menciona nome do arquivo. O Gemini deve analisar apenas o conteúdo visual.');
+              console.error(`   Partes encontradas: ${matchingParts.join(', ')}`);
+              throw new Error('Título genérico detectado: contém partes do nome do arquivo. O Gemini deve analisar apenas o conteúdo visual.');
+            }
+            
+            // Verificar padrões comuns de nome de arquivo
+            if (titleLower.includes('v01') || titleLower.includes('v02') ||
+                titleLower.match(/v\d+/i) || titleLower.match(/\d{10,}/)) {
+              console.error('❌ Título rejeitado: contém padrão de nome de arquivo!');
+              console.error(`   Título: "${title}"`);
+              throw new Error('Título genérico detectado: contém padrão de nome de arquivo. O Gemini deve analisar apenas o conteúdo visual.');
             }
             
             const genericPatterns = [
