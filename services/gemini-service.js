@@ -709,10 +709,24 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
             }
             
             // Verificar se o título contém sequências longas de números (como timestamps)
-            if (title.match(/\d{10,}/)) {
-              console.error('❌ Título rejeitado: contém sequência longa de números (timestamp)!');
+            // Verificar também se começa com padrão de nome de arquivo (V01, V02, etc.)
+            if (title.match(/\d{10,}/) || title.match(/^v\d+\s/i) || title.match(/^v\d+$/i)) {
+              console.error('❌ Título rejeitado: contém sequência longa de números (timestamp) ou padrão de nome de arquivo!');
               console.error(`   Título: "${title}"`);
-              throw new Error('Título genérico detectado: contém sequência de números que parece ser timestamp. O Gemini deve analisar o conteúdo visual e criar um título descritivo.');
+              throw new Error('Título genérico detectado: contém sequência de números que parece ser timestamp ou padrão de nome de arquivo. O Gemini deve analisar o conteúdo visual e criar um título descritivo.');
+            }
+            
+            // Verificar se o título começa com parte do nome do arquivo (ex: "V02" no início)
+            const videoNameBase = videoNameWithoutExt.toLowerCase();
+            const firstPartOfVideoName = videoNameBase.split(/[_\s-]/)[0];
+            if (firstPartOfVideoName.length >= 2 && 
+                (titleLower.startsWith(firstPartOfVideoName) || 
+                 titleLower.match(new RegExp(`^${firstPartOfVideoName}\\s`, 'i')))) {
+              console.error('❌ Título rejeitado: começa com parte do nome do arquivo!');
+              console.error(`   Título: "${title}"`);
+              console.error(`   Nome do arquivo: "${videoName}"`);
+              console.error(`   Primeira parte do nome: "${firstPartOfVideoName}"`);
+              throw new Error('Título genérico detectado: começa com parte do nome do arquivo. O Gemini deve analisar apenas o conteúdo visual e criar um título descritivo.');
             }
             
             // Verificar se o título é muito similar ao nome do arquivo (comparação palavra por palavra)
@@ -888,8 +902,11 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
       console.error('   Detalhes:', geminiError.message);
       console.error('   Stack:', geminiError.stack);
       
+      // SEMPRE propagar o erro - NÃO usar fallback genérico
       // Se o erro é sobre título genérico, propagar o erro
-      if (geminiError.message && geminiError.message.includes('Título genérico')) {
+      if (geminiError.message && (geminiError.message.includes('Título genérico') || 
+                                  geminiError.message.includes('genérico') ||
+                                  geminiError.message.includes('nome do arquivo'))) {
         throw geminiError;
       }
       
@@ -977,6 +994,30 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
       console.warn(`   thumbnailPath: ${thumbnailPath}`);
     }
     
+    // ÚLTIMA TENTATIVA: Se ainda não tem thumbnail, tentar gerar um agora
+    if (!thumbnailPath || !fs.existsSync(thumbnailPath)) {
+      console.warn('⚠️  Thumbnail ainda não disponível, tentando gerar agora...');
+      try {
+        const generatedThumbnail = await extractThumbnail(videoPath);
+        if (generatedThumbnail && fs.existsSync(generatedThumbnail)) {
+          console.log(`✅ Thumbnail gerado com sucesso na última tentativa: ${generatedThumbnail}`);
+          
+          // Copiar para pasta de thumbnails
+          const thumbnailsDir = path.join(__dirname, '../thumbnails');
+          fs.ensureDirSync(thumbnailsDir);
+          const videoNameSafe = path.basename(videoPath, path.extname(videoPath));
+          const safeName = videoNameSafe.replace(/[^a-zA-Z0-9\s\-_]/g, '').trim() || 'video';
+          const finalThumbnailPath = path.join(thumbnailsDir, `${safeName}_thumb.jpg`);
+          
+          fs.copyFileSync(generatedThumbnail, finalThumbnailPath);
+          thumbnailPath = finalThumbnailPath;
+          console.log(`✅ Thumbnail copiado para: ${thumbnailPath}`);
+        }
+      } catch (thumbError) {
+        console.error(`❌ Erro ao gerar thumbnail na última tentativa: ${thumbError.message}`);
+      }
+    }
+    
     console.log(`📸 thumbnailPath FINAL: ${thumbnailPath}`);
     console.log(`📸 thumbnailPath FINAL existe? ${thumbnailPath ? fs.existsSync(thumbnailPath) : false}`);
     console.log(`📸 ===== FIM PROCESSAMENTO THUMBNAIL =====\n`);
@@ -1020,12 +1061,13 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
     
     return result;
   } catch (error) {
-    console.error('Erro ao gerar conteúdo:', error);
-    return {
-      title: videoName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
-      description: '#shorts',
-      thumbnail_path: null  // Mesmo nome do bot antigo
-    };
+    console.error('❌ ERRO CRÍTICO ao gerar conteúdo:', error);
+    console.error('   Mensagem:', error.message);
+    console.error('   Stack:', error.stack);
+    
+    // SEMPRE propagar o erro - NÃO retornar fallback genérico
+    // O frontend deve tratar o erro e mostrar mensagem ao usuário
+    throw error;
   }
 }
 
