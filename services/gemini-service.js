@@ -825,8 +825,23 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
                             response.match(/title["']?\s*:\s*["']([^"']+)["']/i) ||
                             response.match(/título["']?\s*:\s*["']([^"']+)["']/i);
           if (titleMatch) {
-            title = titleMatch[1];
-            console.log(`✅ Título extraído manualmente: ${title}`);
+            const extractedTitle = titleMatch[1].trim();
+            console.log(`✅ Título extraído manualmente: ${extractedTitle}`);
+            
+            // VALIDAÇÃO IMEDIATA: Rejeitar se for nome de arquivo
+            const numberCount = (extractedTitle.match(/\d/g) || []).length;
+            const numberPercentage = numberCount / extractedTitle.length;
+            
+            // Se tem muitos números ou sequências longas, rejeitar
+            if (numberPercentage > 0.3 && extractedTitle.length > 15) {
+              console.error('❌ Título extraído manualmente rejeitado: contém muitos números!');
+              title = null; // Não usar este título
+            } else if (extractedTitle.match(/\d{10,}/)) {
+              console.error('❌ Título extraído manualmente rejeitado: contém sequência longa de números!');
+              title = null; // Não usar este título
+            } else {
+              title = extractedTitle;
+            }
           }
         }
       } else {
