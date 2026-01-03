@@ -950,6 +950,16 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
         throw geminiError;
       }
       
+      // Se o erro é sobre quota, criar mensagem mais amigável
+      const errorMessage = geminiError.message || '';
+      if (errorMessage.includes('429') ||
+          errorMessage.includes('quota') ||
+          errorMessage.includes('Quota exceeded') ||
+          errorMessage.includes('Too Many Requests') ||
+          errorMessage.includes('FreeTier')) {
+        throw new Error('Quota da API do Gemini excedida. A quota gratuita tem limites de uso. Por favor, aguarde alguns minutos e tente novamente, ou verifique seu plano de billing no Google Cloud Console.');
+      }
+      
       // Para outros erros, também lançar (não usar fallback genérico)
       throw new Error(`Erro ao gerar conteúdo com Gemini: ${geminiError.message}`);
     }
