@@ -695,16 +695,42 @@ Lembre-se: O título DEVE descrever o conteúdo visual específico, não ser gen
               }
             }
             
-            // Verificar se o título contém apenas números e letras sem sentido (como nome de arquivo)
-            const isOnlyNumbersAndLetters = /^[a-z0-9\s_-]+$/i.test(title) && !/[aeiou]{2,}/i.test(title) && title.split(/\s+/).length > 3;
-            if (isOnlyNumbersAndLetters && title.length > 20) {
-              // Verificar se tem muitos números (característico de nome de arquivo)
-              const numberCount = (title.match(/\d/g) || []).length;
-              if (numberCount > title.length * 0.3) {
-                console.error('❌ Título rejeitado: parece ser nome de arquivo (muitos números)!');
-                console.error(`   Título: "${title}"`);
-                throw new Error('Título genérico detectado: parece ser apenas o nome do arquivo. O Gemini deve analisar o conteúdo visual e criar um título descritivo.');
-              }
+            // VALIDAÇÃO CRÍTICA: Verificar se o título é apenas números e letras sem sentido (nome de arquivo)
+            // Se o título tem mais de 20 caracteres e contém muitos números, provavelmente é nome de arquivo
+            const numberCount = (title.match(/\d/g) || []).length;
+            const numberPercentage = numberCount / title.length;
+            
+            // Se mais de 30% do título são números, é provável que seja nome de arquivo
+            if (numberPercentage > 0.3 && title.length > 15) {
+              console.error('❌ Título rejeitado: contém muitos números (provavelmente nome de arquivo)!');
+              console.error(`   Título: "${title}"`);
+              console.error(`   Números: ${numberCount} de ${title.length} caracteres (${(numberPercentage * 100).toFixed(1)}%)`);
+              throw new Error('Título genérico detectado: contém muitos números, parece ser apenas o nome do arquivo. O Gemini deve analisar o conteúdo visual e criar um título descritivo.');
+            }
+            
+            // Verificar se o título contém sequências longas de números (como timestamps)
+            if (title.match(/\d{10,}/)) {
+              console.error('❌ Título rejeitado: contém sequência longa de números (timestamp)!');
+              console.error(`   Título: "${title}"`);
+              throw new Error('Título genérico detectado: contém sequência de números que parece ser timestamp. O Gemini deve analisar o conteúdo visual e criar um título descritivo.');
+            }
+            
+            // Verificar se o título é muito similar ao nome do arquivo (comparação palavra por palavra)
+            const titleWords = titleLower.split(/\s+/).filter(w => w.length > 2);
+            const videoNameWords = videoNameWithoutExt.split(/[_\s-]/).filter(w => w.length > 2);
+            const matchingWords = titleWords.filter(word => 
+              videoNameWords.some(videoWord => 
+                word.includes(videoWord) || videoWord.includes(word)
+              )
+            );
+            
+            // Se mais de 50% das palavras do título estão no nome do arquivo, rejeitar
+            if (titleWords.length > 0 && matchingWords.length / titleWords.length > 0.5) {
+              console.error('❌ Título rejeitado: muito similar ao nome do arquivo (palavras)!');
+              console.error(`   Título: "${title}"`);
+              console.error(`   Palavras do título: ${titleWords.join(', ')}`);
+              console.error(`   Palavras correspondentes: ${matchingWords.join(', ')}`);
+              throw new Error('Título genérico detectado: muito similar ao nome do arquivo. O Gemini deve analisar apenas o conteúdo visual e criar um título descritivo.');
             }
             
             // Verificar se o título menciona partes do nome do arquivo
